@@ -60,7 +60,7 @@ describe("deployment configuration", () => {
     expect(config.singleUser).toBe(false);
     expect(config.auth).toBeUndefined();
     expect(config.organizationAuthUrl).toBe("https://openbot.company.example");
-    expect(config.runtime.intelligence.apiKey).toBe("tenant-api-key");
+    expect(config.runtime.intelligence?.apiKey).toBe("tenant-api-key");
   });
   test("resolves the Intelligence runtime, which is the only runtime", () => {
     const config = loadConfig(baseEnvironment);
@@ -99,8 +99,8 @@ describe("deployment configuration", () => {
     expect(config.auth).toBeUndefined();
   });
 
-  // The product does not have a mode without Intelligence, so each of these is a refusal to boot
-  // rather than a degraded capability. Named individually because a deployment that sets three of
+  // Without the OPENDUET_LOCAL_MODE opt-in (see local-mode.test.ts) there is no mode without
+  // Intelligence, so each of these is a refusal to boot rather than a degraded capability. Named individually because a deployment that sets three of
   // four is the likeliest real mistake, and the message has to say which one is missing.
   test.each([
     "INTELLIGENCE_API_URL",

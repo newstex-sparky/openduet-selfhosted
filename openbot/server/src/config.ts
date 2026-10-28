@@ -1,7 +1,8 @@
 /**
- * What the runtime can do. There is exactly one answer because CopilotKit Intelligence is required
- * for durable threads and memory. Configuration the product cannot function without belongs at the
- * boot boundary.
+ * What the runtime can do. Two answers: CopilotKit Intelligence (durable threads, realtime, memory,
+ * Learning), which is what every existing deployment runs, and LOCAL MODE, an explicit opt-in for
+ * running with no Intelligence at all. Configuration the product cannot function without belongs at
+ * the boot boundary; see runtimeCapabilities for how the two are chosen.
  */
 import {
   isLearningContainerId,
@@ -27,11 +28,41 @@ import type { BrokerProvider } from "./plugins/access";
 import { type VoiceConfig, voiceConfig } from "./voice/config";
 import { type WebBotAuth, webBotAuthFromEnv } from "./web-bot-auth";
 
-export type RuntimeCapabilities = {
-  mode: "intelligence";
-  durableHistory: true;
-  intelligence: IntelligenceSettings;
-};
+export type RuntimeCapabilities =
+  | {
+      mode: "intelligence";
+      durableHistory: true;
+      intelligence: IntelligenceSettings;
+    }
+  | {
+      /**
+       * No CopilotKit Intelligence. The runtime runs in SSE mode on an in-process runner, and
+       * threads, history and the per-thread run lock live in this process
+       * (`@openbot/toolkit/copilotkit/local-platform`). NOT DURABLE: a restart forgets every
+       * conversation, and a second replica sees none of the first one's. Memory falls back to
+       * OpenBot's own tables; Automatic Learning, the entitlement check and the self-host banner are
+       * off. Chosen only by `OPENDUET_LOCAL_MODE=true` with no INTELLIGENCE_API_KEY.
+       */
+      mode: "local";
+      durableHistory: false;
+      intelligence?: undefined;
+    };
+
+/** The variable that opts a deployment into local mode. See runtimeCapabilities. */
+export const LOCAL_MODE_VARIABLE = "OPENDUET_LOCAL_MODE";
+
+/**
+ * Whether `OPENDUET_LOCAL_MODE` asks for local mode. Exactly `true` or `1`; anything else set is a
+ * typo worth refusing at boot rather than a silent "no".
+ */
+export function localModeRequested(environment: Environment): boolean {
+  const raw = optional(environment, LOCAL_MODE_VARIABLE)?.toLowerCase();
+  if (raw === undefined || raw === "false" || raw === "0") return false;
+  if (raw === "true" || raw === "1") return true;
+  throw new Error(
+    `${LOCAL_MODE_VARIABLE} must be "true" or "false", got "${raw}".`,
+  );
+}
 
 /**
  * The Intelligence contract. Three values are required; see runtimeCapabilities.
@@ -988,7 +1019,9 @@ function oktaAuth(
  * for a token the platform had stopped handing out. It is still read and still forwarded when a
  * deployment sets one, which is what a self-hosted Intelligence with its own licence needs.
  */
-function runtimeCapabilities(environment: Environment): RuntimeCapabilities {
+export function runtimeCapabilities(
+  environment: Environment,
+): RuntimeCapabilities {
   const settings = {
     apiUrl: url(environment, "INTELLIGENCE_API_URL"),
     gatewayWsUrl: url(environment, "INTELLIGENCE_GATEWAY_WS_URL"),
@@ -1004,9 +1037,29 @@ function runtimeCapabilities(environment: Environment): RuntimeCapabilities {
     .filter(([, value]) => !value)
     .map(([name]) => name);
 
+  /*
+   * LOCAL MODE IS STRICTLY OPT-IN AND STRICTLY ADDITIVE.
+   *
+   * Chosen only when it is asked for AND there is no Intelligence key. The key is what makes a
+   * deployment an Intelligence deployment — the two URLs ship filled in in `.env.example`, so their
+   * presence says nothing about intent and they are ignored here. A deployment that has a key keeps
+   * Intelligence whatever this variable says, refused loudly rather than preferring one, because "I
+   * set both" is a mistake and the two modes keep conversations in different places. A deployment
+   * that sets neither is refused exactly as before: an unconfigured Intelligence must never silently
+   * become a non-durable one.
+   */
+  if (localModeRequested(environment)) {
+    if (settings.apiKey) {
+      throw new Error(
+        `${LOCAL_MODE_VARIABLE}=true runs without CopilotKit Intelligence, but INTELLIGENCE_API_KEY is set. Unset ${LOCAL_MODE_VARIABLE} to use Intelligence, or unset INTELLIGENCE_API_KEY to run in local mode.`,
+      );
+    }
+    return { mode: "local", durableHistory: false };
+  }
+
   if (missing.length > 0) {
     throw new Error(
-      `CopilotKit Intelligence is required and is not configured. Missing: ${missing.join(", ")}`,
+      `CopilotKit Intelligence is required and is not configured. Missing: ${missing.join(", ")}. To run without it (threads kept in memory, not durable), set ${LOCAL_MODE_VARIABLE}=true and leave the INTELLIGENCE_* variables unset.`,
     );
   }
 
