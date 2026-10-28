@@ -1,4 +1,3 @@
-import type { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import type { ThreadLock } from "../ports";
 
 /**
@@ -13,14 +12,40 @@ import type { ThreadLock } from "../ports";
  */
 export const THREAD_LOCK_TTL_SECONDS = 120;
 
-/** The four platform calls the lock makes, and nothing else of the client. */
-export type ThreadLockClient = Pick<
-  CopilotKitIntelligence,
-  | "getOrCreateThread"
-  | "ɵacquireThreadLock"
-  | "ɵrenewThreadLock"
-  | "ɵcleanupThreadLock"
->;
+/**
+ * The four platform calls the lock makes, and nothing else of the client.
+ *
+ * Structural rather than `Pick<CopilotKitIntelligence, …>` so the local-mode platform
+ * (`./local-platform.ts`) satisfies it as well: it answers the same four calls with the same error
+ * contract (409 is "not now") without being the vendor class. `CopilotKitIntelligence` still
+ * satisfies this: `server/src/copilot.ts` hands the real client to the lock in Intelligence mode,
+ * so a drift fails the server's typecheck.
+ */
+export type ThreadLockClient = {
+  getOrCreateThread(params: {
+    threadId: string;
+    userId: string;
+    agentId: string;
+    learningContainerId?: string;
+  }): Promise<unknown>;
+  ɵacquireThreadLock(params: {
+    threadId: string;
+    runId: string;
+    userId: string;
+    agentId: string;
+    ttlSeconds?: number;
+    learningContainerId?: string;
+  }): Promise<{ runId: string }>;
+  ɵrenewThreadLock(params: {
+    threadId: string;
+    runId: string;
+    ttlSeconds: number;
+  }): Promise<unknown>;
+  ɵcleanupThreadLock(params: {
+    threadId: string;
+    runId: string;
+  }): Promise<void>;
+};
 
 /**
  * The conversation's run lock, as the platform issues it.
