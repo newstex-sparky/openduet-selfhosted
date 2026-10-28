@@ -240,6 +240,103 @@ async function threadMessages(threadId: string) {
   return rows as unknown as { message_id: string; role: string; content: string }[];
 }
 
+type ApprovalRow = {
+  id: string;
+  run_id: string | null;
+  status: string;
+  decision: string | null;
+  tool_call_id: string | null;
+  tool_ref: string | null;
+  bot_id: string | null;
+  thread_id: string | null;
+  result: { content?: string; error?: string } | null;
+  decided_at: Date | null;
+  consumed_at: Date | null;
+  completed_at: Date | null;
+};
+
+/**
+ * The gate's own row, by SQL.
+ *
+ * The run row's `waiting` column is the runner's account of the pause; this is the request the
+ * gate opened, which is what a person answers and what carries the result once it resumes. Read
+ * here rather than through the service, because a test that asked the service would be asking the
+ * same object that wrote the row.
+ */
+async function approvalRow(id: string): Promise<ApprovalRow | undefined> {
+  const rows = (await database.$client`
+    select id, run_id, status, decision, tool_call_id,
+           action->>'toolRef' as tool_ref,
+           action->>'botId' as bot_id,
+           action->>'threadId' as thread_id,
+           result, decided_at, consumed_at, completed_at
+      from approval_requests
+     where id = ${id}
+  `) as unknown as ApprovalRow[];
+  return rows[0];
+}
+
+/** The trail entry the decision path writes, so "a person allowed it" is a row and not a claim. */
+async function decisionAudit(id: string) {
+  return (await database.$client`
+    select event_type, target_id, actor_user_id,
+           payload->>'decidedBy' as decided_by,
+           payload->>'decision' as decision,
+           payload->>'tool' as tool
+      from audit_events
+     where event_type = 'approval.person_decided' and target_id = ${id}
+     order by created_at
+  `) as unknown as {
+    event_type: string;
+    target_id: string;
+    actor_user_id: string | null;
+    decided_by: string | null;
+    decision: string | null;
+    tool: string | null;
+  }[];
+}
+
+/** The Postgres runner's records of the turns in this conversation, one per run. */
+async function threadRuns(threadId: string) {
+  return (await database.$client`
+    select run_id, status, error, finished_at
+      from copilotkit_thread_runs
+     where thread_id = ${threadId}
+     order by started_at
+  `) as unknown as {
+    run_id: string;
+    status: string;
+    error: string | null;
+    finished_at: Date | null;
+  }[];
+}
+
+/**
+ * Print the rows this case proved.
+ *
+ * The card asks for a row dump as well as a passing assertion, and the rows are gone after
+ * `afterAll` removes the Bot, so they are printed here, while the turn they describe is still in
+ * the database.
+ */
+async function dumpApprovalEvidence(input: {
+  approvalId: string;
+  routineId: string;
+  threadId: string;
+}) {
+  const blocks = {
+    "approval_requests": await approvalRow(input.approvalId),
+    "routine_runs": await runsOf(input.routineId),
+    "copilotkit_thread_runs": await threadRuns(input.threadId),
+    "copilotkit_thread_messages": await threadMessages(input.threadId),
+    "audit_events approval.person_decided": await decisionAudit(input.approvalId),
+  };
+  const text = Object.entries(blocks)
+    .map(([name, rows]) => `--- ${name} ---\n${JSON.stringify(rows, null, 2)}`)
+    .join("\n");
+  console.log(`\n=== Postgres rows after the approved action ran ===\n${text}\n`);
+  return text;
+}
+
 beforeAll(async () => {
   modelUrl = await llm.start();
 
@@ -399,8 +496,41 @@ test("an approval-gated action pauses the turn, and carries on after the person 
       (waiting.waiting as { requestId?: string } | null)?.requestId,
   );
   expect(approvalId).not.toBe("undefined");
+  /*
+   * The gate's own row, while the turn waits: pending, undecided, about this Bot's click in this
+   * conversation. A run row that said `waiting` about a request nobody could answer would be a
+   * pause with no way out, so both rows are read.
+   */
+  const pending = await approvalRow(approvalId);
+  expect(pending).toBeDefined();
+  expect({
+    status: pending?.status,
+    decision: pending?.decision,
+    tool: pending?.tool_ref,
+    bot: pending?.bot_id,
+    thread: pending?.thread_id,
+  }).toEqual({
+    status: "pending",
+    decision: null,
+    tool: "computer_click",
+    bot: agentId,
+    thread: channel.threadId,
+  });
+  expect(pending?.decided_at).toBeNull();
+  expect(pending?.consumed_at).toBeNull();
+  expect(pending?.completed_at).toBeNull();
   /* Nothing reached the computer while it waited. */
-  expect(computerCalls.filter((call) => call.path === "/click")).toHaveLength(0);
+  const clicksWhileWaiting = computerCalls.filter((call) => call.path === "/click");
+  expect(clicksWhileWaiting).toHaveLength(0);
+  /* The paused state, printed while it is still the current state. */
+  console.log(
+    [
+      "\n=== Postgres rows while the turn waits ===",
+      `--- routine_runs (the paused run) ---\n${JSON.stringify(waiting, null, 2)}`,
+      `--- approval_requests (the request a person answers) ---\n${JSON.stringify(pending, null, 2)}`,
+      `--- computer /click calls so far ---\n${JSON.stringify(clicksWhileWaiting)}`,
+    ].join("\n"),
+  );
 
   /* The person allows it, over the deployment's own HTTP API. */
   const decision = await fetch(`${publicUrl}/api/approvals/${approvalId}/decision`, {
@@ -411,12 +541,48 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   expect(decision.status).toBe(200);
   expect(await decision.json()).toMatchObject({ status: "approved" });
 
+  /*
+   * The decision landed on the row and on the trail. The status is read immediately after the
+   * response, and the resume sweep may already have picked the request up, so the assertion
+   * allows every state a decided request can be in and pins the part that must never change: the
+   * person's decision, its time, and who made it.
+   */
+  const decided = await approvalRow(approvalId);
+  expect(decided?.decision).toBe("allow_once");
+  expect(decided?.decided_at).not.toBeNull();
+  expect(["approved", "consumed", "completed"]).toContain(String(decided?.status));
+  const trail = await decisionAudit(approvalId);
+  expect(trail.map((entry) => entry.decided_by)).toEqual(["person"]);
+  expect(trail[0]?.decision).toBe("allow_once");
+  expect(trail[0]?.tool).toBe("computer_click");
+
   /* Resumed: the approved action ran against the computer, and the turn finished. */
   const finished = await waitFor("the routine run to finish after approval", async () => {
     const [row] = await runsOf(routine.id);
     return row?.status === "succeeded" ? row : undefined;
   });
   expect(finished.status).toBe("succeeded");
+  /* The pause is over and the row says so: no `waiting` payload left on a finished run. */
+  expect(finished.waiting).toBeNull();
+  expect(finished.finishedAt).not.toBeNull();
+
+  /*
+   * The request itself is closed, and the result it carries is what the approved action returned
+   * from the computer — the stub's own JSON — so "it resumed and completed" is the gate's row and
+   * not only the runner's.
+   */
+  const completed = await approvalRow(approvalId);
+  expect(completed?.status).toBe("completed");
+  expect(completed?.consumed_at).not.toBeNull();
+  expect(completed?.completed_at).not.toBeNull();
+  expect(completed?.result?.error).toBeUndefined();
+  expect(String(completed?.result?.content)).toContain("https://example.test/form");
+
+  /* The Postgres runner recorded the turn that paused, and recorded it finishing. */
+  const runs = await threadRuns(channel.threadId);
+  const approvedRun = runs.find((row) => row.run_id === pending?.run_id);
+  expect(approvedRun).toMatchObject({ status: "finished", error: null });
+  expect(completed?.run_id).toBe(pending?.run_id);
 
   const clicks = computerCalls.filter((call) => call.path === "/click");
   expect(clicks).toHaveLength(1);
@@ -424,9 +590,27 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   expect(clicks[0]?.body).toMatchObject({ ref: "e1", snapshotId: 1 });
 
   const messages = await threadMessages(channel.threadId);
+  /*
+   * The whole turn is in the thread store: the instruction, the model's tool call for the gated
+   * action, the tool result the approved action returned, and the model's closing reply.
+   */
+  expect(messages.map((message) => message.role)).toEqual([
+    "user",
+    "assistant",
+    "tool",
+    "assistant",
+  ]);
   expect(
     messages.some((message) =>
       String(message.content).includes("The form was submitted."),
     ),
   ).toBe(true);
+
+  /* The rows the case proved, printed while they still exist. */
+  const evidence = await dumpApprovalEvidence({
+    approvalId,
+    routineId: routine.id,
+    threadId: channel.threadId,
+  });
+  expect(evidence).toContain("The form was submitted.");
 }, 120_000);
