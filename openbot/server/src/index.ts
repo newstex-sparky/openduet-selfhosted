@@ -8,6 +8,7 @@ import {
 import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
 import { workOwner } from "@openbot/shared/work-owner";
+import type { LocalThreadPlatform } from "@openbot/toolkit/copilotkit/local-platform";
 import { createTurnRunner } from "@openbot/toolkit/run-turn";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -280,6 +281,11 @@ import { createTaskThreads, createTaskTurn } from "./openduet/task-threads";
 import type { TaskStarter } from "./openduet/tasks";
 import { createOpenDuetTools, createTaskIntake } from "./openduet/wiring";
 import { reportIntelligenceEntitlement } from "./intelligence-entitlement-check";
+import {
+  announceLocalMode,
+  localModeEntitlements,
+  localThreadPlatform,
+} from "./local-mode";
 import { createSelfHostBanner } from "./self-host-banner";
 import { createTeamBots } from "./team-bots/team-bots";
 import {
@@ -368,18 +374,32 @@ const learningSettingsStore = createLearningSettingsStore(
   database,
   config.learning,
 );
+/*
+ * LOCAL MODE: no Intelligence, so nothing below may build a client for it. `runtimeIntelligence` is
+ * the Intelligence settings when there are some and `undefined` in local mode; every consumer below
+ * branches on it rather than on the mode string, so the compiler proves no client is built without
+ * them. The local thread platform is the process's single store of threads (see local-mode.ts).
+ */
+const runtimeIntelligence =
+  config.runtime.mode === "intelligence"
+    ? config.runtime.intelligence
+    : undefined;
+const localPlatform: LocalThreadPlatform | undefined =
+  config.runtime.mode === "local" ? localThreadPlatform() : undefined;
+if (localPlatform) announceLocalMode();
 // Its own client, like the self-host banner's: the constructor opens nothing.
-const learningProbeIntelligence = createIntelligenceClient(
-  config.runtime.intelligence,
-);
+const learningProbeIntelligence = runtimeIntelligence
+  ? createIntelligenceClient(runtimeIntelligence)
+  : undefined;
 /*
  * Who can create the `openbot` container here: never the runtime key. A service token the operator
  * configured (local evaluation installs), or a CopilotKit CLI login on this machine, which is what a
  * laptop running `bun run start` has. Neither, and the log and Admin say exactly what to run instead.
  */
 const learningApiOrigin = (() => {
+  if (!runtimeIntelligence) return undefined;
   try {
-    return intelligenceApiOrigin(config.runtime.intelligence.apiUrl);
+    return intelligenceApiOrigin(runtimeIntelligence.apiUrl);
   } catch {
     return undefined;
   }
@@ -388,14 +408,17 @@ const learningCanCreate =
   learningApiOrigin !== undefined &&
   (config.learningSetup !== undefined || cliLoginPresent());
 const learningAutoAssign = createLearningAutoAssign({
-  enabled: config.learningAutoAssign,
+  // Automatic Learning lives in Intelligence; in local mode it is off, and says so as "off".
+  enabled: config.learningAutoAssign && learningProbeIntelligence !== undefined,
   store: learningSettingsStore,
-  probe: (containerId) =>
-    probeLearningContainer(learningProbeIntelligence, containerId),
+  probe: async (containerId) =>
+    learningProbeIntelligence
+      ? probeLearningContainer(learningProbeIntelligence, containerId)
+      : "unavailable",
   ...(learningApiOrigin
     ? { instructions: learningSetupInstructions(learningApiOrigin) }
     : {}),
-  ...(learningCanCreate && learningApiOrigin
+  ...(learningCanCreate && learningApiOrigin && runtimeIntelligence
     ? {
         create: () =>
           ensureLearningContainer({
@@ -404,8 +427,8 @@ const learningAutoAssign = createLearningAutoAssign({
             nonInteractive: true,
             key: keyIntelligence(
               learningApiOrigin,
-              config.runtime.intelligence.apiKey,
-              config.runtime.intelligence.gatewayWsUrl,
+              runtimeIntelligence.apiKey,
+              runtimeIntelligence.gatewayWsUrl,
             ),
             cliLogin: cliLoginPresent(),
             ...(config.learningSetup
@@ -738,13 +761,22 @@ const chooseSkills = createModelCompleter({
  * connection, but its `threads` map is per instance, and a runner per turn would fragment the
  * already-running check that keeps two turns off one thread. See `toolkit/run-turn.ts`.
  */
-const routineIntelligence = observeIntelligenceAuthentication(
-  new CopilotKitIntelligence({
-    apiUrl: config.runtime.intelligence.apiUrl,
-    wsUrl: config.runtime.intelligence.gatewayWsUrl,
-    apiKey: config.runtime.intelligence.apiKey,
-  }),
-);
+/*
+ * LOCAL MODE IS THAT SECOND MODE, and this is the guard the note above asked for. In local mode the
+ * headless turns are driven through the process's local thread platform instead: the same
+ * `IntelligenceLike` surface (thread, history, lock — see `toolkit/run-turn.ts`) answered in memory,
+ * and the same runner the runtime itself uses, so a routine's reply lands in the conversation the
+ * person opens. Nothing here dials Intelligence in local mode.
+ */
+const routineIntelligence = runtimeIntelligence
+  ? observeIntelligenceAuthentication(
+      new CopilotKitIntelligence({
+        apiUrl: runtimeIntelligence.apiUrl,
+        wsUrl: runtimeIntelligence.gatewayWsUrl,
+        apiKey: runtimeIntelligence.apiKey,
+      }),
+    )
+  : (localPlatform as LocalThreadPlatform);
 const approvalComputerTools = async (
   ownerUserId: string,
   agentId: string,
@@ -1305,11 +1337,17 @@ const hostAccessBroker = createHostAccessBroker(Date.now, {
 // Memory lives in CopilotKit Intelligence when this deployment is entitled to it, and in OpenBot's own
 // tables when it is not; see memory/store.ts. Its own client, like the thread reader's: the
 // constructor opens nothing.
-const personalMemoryStore = createMemoryStore(database, {
-  intelligence: createIntelligenceMemory({
-    client: createIntelligenceClient(config.runtime.intelligence),
-  }),
-});
+// In local mode there is no Intelligence to ask, so memory is OpenBot's own tables only.
+const personalMemoryStore = createMemoryStore(
+  database,
+  runtimeIntelligence
+    ? {
+        intelligence: createIntelligenceMemory({
+          client: createIntelligenceClient(runtimeIntelligence),
+        }),
+      }
+    : {},
+);
 const demonstrationStore = createDemonstrationStore(database);
 const demonstrationRecorder = createDemonstrationRecorder({
   store: demonstrationStore,
@@ -1752,10 +1790,14 @@ const buildAgentFor = async ({
   }
   return agent;
 };
-const routineAgentRunner = new IntelligenceAgentRunner({
-  url: routineIntelligence.ɵgetRunnerWsUrl(),
-  authToken: routineIntelligence.ɵgetRunnerAuthToken(),
-});
+const routineAgentRunner = localPlatform
+  ? localPlatform.runner
+  : new IntelligenceAgentRunner({
+      url: (routineIntelligence as CopilotKitIntelligence).ɵgetRunnerWsUrl(),
+      authToken: (
+        routineIntelligence as CopilotKitIntelligence
+      ).ɵgetRunnerAuthToken(),
+    });
 
 const routineRunner = createRoutineRunner({
   routineStore,
@@ -2532,15 +2574,23 @@ auditRoutineStore(routineStore, bootAuditStore);
 
 // Asked only whether this deployment pays for Intelligence, for the self-host banner. Its own client
 // rather than the runtime's, the same as the thread reader: the constructor opens nothing.
-const selfHostBannerIntelligence = createIntelligenceClient(
-  config.runtime.intelligence,
-);
+// Local mode has no Intelligence to ask: the read fails locally (see local-mode.ts) and nothing is sent.
+const selfHostBannerIntelligence = runtimeIntelligence
+  ? createIntelligenceClient(runtimeIntelligence)
+  : undefined;
+const runtimeEntitlements = () =>
+  selfHostBannerIntelligence
+    ? selfHostBannerIntelligence.getRuntimeEntitlements()
+    : localModeEntitlements();
 
 // Said once, at boot, whether Intelligence will let this deployment use what it is licensed for. A
 // self-hosted Intelligence without a licence refuses memory quietly; this is the line that says why.
-void reportIntelligenceEntitlement({
-  entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
-});
+// Not said at all in local mode, where there is no entitlement to have.
+if (selfHostBannerIntelligence) {
+  void reportIntelligenceEntitlement({
+    entitlements: runtimeEntitlements,
+  });
+}
 
 const identityGithubCallback =
   config.githubApp && config.publicUrl
@@ -2738,7 +2788,7 @@ const app = createApp(
         },
         credentials: credentialStore,
         modelCheckAtBoot,
-        entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
+        entitlements: runtimeEntitlements,
         plugins: pluginStore,
         primaryBot: primaryBotIdOf(
           tenantPackage.agents.map((agent) => agent.id),
@@ -2783,8 +2833,9 @@ const app = createApp(
     },
   },
   createSelfHostBanner({
-    enabled: config.selfHostBanner,
-    entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
+    // The banner is about paying for Intelligence; a local deployment is not using it at all.
+    enabled: config.selfHostBanner && selfHostBannerIntelligence !== undefined,
+    entitlements: runtimeEntitlements,
   }),
 
   identityStore,
