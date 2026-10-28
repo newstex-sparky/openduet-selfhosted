@@ -8,7 +8,7 @@ import {
 import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
 import { workOwner } from "@openbot/shared/work-owner";
-import type { LocalThreadPlatform } from "@openbot/toolkit/copilotkit/local-platform";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
 import { createTurnRunner } from "@openbot/toolkit/run-turn";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -384,8 +384,8 @@ const runtimeIntelligence =
   config.runtime.mode === "intelligence"
     ? config.runtime.intelligence
     : undefined;
-const localPlatform: LocalThreadPlatform | undefined =
-  config.runtime.mode === "local" ? localThreadPlatform() : undefined;
+const localPlatform: PostgresThreadPlatform | undefined =
+  config.runtime.mode === "local" ? localThreadPlatform(config) : undefined;
 if (localPlatform) announceLocalMode();
 // Its own client, like the self-host banner's: the constructor opens nothing.
 const learningProbeIntelligence = runtimeIntelligence
@@ -776,7 +776,7 @@ const routineIntelligence = runtimeIntelligence
         apiKey: runtimeIntelligence.apiKey,
       }),
     )
-  : (localPlatform as LocalThreadPlatform);
+  : (localPlatform as PostgresThreadPlatform);
 const approvalComputerTools = async (
   ownerUserId: string,
   agentId: string,

@@ -36,15 +36,15 @@ export type RuntimeCapabilities =
     }
   | {
       /**
-       * No CopilotKit Intelligence. The runtime runs in SSE mode on an in-process runner, and
-       * threads, history and the per-thread run lock live in this process
-       * (`@openbot/toolkit/copilotkit/local-platform`). NOT DURABLE: a restart forgets every
-       * conversation, and a second replica sees none of the first one's. Memory falls back to
-       * OpenBot's own tables; Automatic Learning, the entitlement check and the self-host banner are
-       * off. Chosen only by `OPENDUET_LOCAL_MODE=true` with no INTELLIGENCE_API_KEY.
+       * No CopilotKit Intelligence. The runtime runs in SSE mode on a runner of our own, and
+       * threads, history, the event log and the per-thread run lock live in this deployment's
+       * Postgres (`@openbot/toolkit/copilotkit/postgres-platform`, migration 0068). DURABLE: a
+       * restart keeps every conversation, and a second replica sees the same ones. Memory falls back
+       * to OpenBot's own tables; Automatic Learning, the entitlement check and the self-host banner
+       * are off. Chosen only by `OPENDUET_LOCAL_MODE=true` with no INTELLIGENCE_API_KEY.
        */
       mode: "local";
-      durableHistory: false;
+      durableHistory: true;
       intelligence?: undefined;
     };
 
@@ -1054,12 +1054,12 @@ export function runtimeCapabilities(
         `${LOCAL_MODE_VARIABLE}=true runs without CopilotKit Intelligence, but INTELLIGENCE_API_KEY is set. Unset ${LOCAL_MODE_VARIABLE} to use Intelligence, or unset INTELLIGENCE_API_KEY to run in local mode.`,
       );
     }
-    return { mode: "local", durableHistory: false };
+    return { mode: "local", durableHistory: true };
   }
 
   if (missing.length > 0) {
     throw new Error(
-      `CopilotKit Intelligence is required and is not configured. Missing: ${missing.join(", ")}. To run without it (threads kept in memory, not durable), set ${LOCAL_MODE_VARIABLE}=true and leave the INTELLIGENCE_* variables unset.`,
+      `CopilotKit Intelligence is required and is not configured. Missing: ${missing.join(", ")}. To run without it (threads kept in this deployment's Postgres), set ${LOCAL_MODE_VARIABLE}=true and leave the INTELLIGENCE_* variables unset.`,
     );
   }
 

@@ -2007,7 +2007,7 @@ export function createApp(
         createThreadReader(
           config.runtime.mode === "intelligence"
             ? createIntelligenceClient(config.runtime.intelligence)
-            : localThreadPlatform(),
+            : localThreadPlatform(config),
         ),
       ),
     );

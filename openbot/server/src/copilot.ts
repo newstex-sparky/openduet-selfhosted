@@ -16,10 +16,8 @@ import {
   RunBuiltAgent,
   UnavailableAgent,
 } from "@openbot/toolkit/copilotkit/agents";
-import {
-  type LocalThreadPlatform,
-  runAsLocalUser,
-} from "@openbot/toolkit/copilotkit/local-platform";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
+import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
 import { createIntelligenceThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
@@ -1819,7 +1817,7 @@ export function mountCopilotRuntime(
   };
 
   if (config.runtime.mode === "local") {
-    const platform = localThreadPlatform();
+    const platform = localThreadPlatform(config);
     return mountLocalCopilotRuntime({
       // `mode` is inferred from the ABSENCE of `intelligence`: this is the runtime's SSE mode.
       runtime: new CopilotRuntime({
@@ -1958,6 +1956,29 @@ export function mountCopilotRuntime(
  * anyone, so a deployment check can read it), and runs the rest as the person `identifyUser`
  * returns, which is how the runner scopes threads to their owner.
  */
+/**
+ * Fill the platform's read mirror for whatever thread this request is about.
+ *
+ * See the note at the call site: the runtime's thread endpoints are synchronous, so what they read
+ * has to have been loaded already. `/threads` and `/threads/clear` refresh the list; `/threads/:id/…`
+ * loads that one thread. Anything else (a run, a stop, an info call) needs neither and pays nothing.
+ */
+async function primeThread(
+  platform: PostgresThreadPlatform,
+  request: Request,
+  userId: string,
+): Promise<void> {
+  const segments = new URL(request.url).pathname.split("/").filter(Boolean);
+  const at = segments.lastIndexOf("threads");
+  if (at === -1) return;
+  const id = segments[at + 1];
+  await runAsLocalUser(userId, () =>
+    id === undefined || id === "clear" || id === "subscribe"
+      ? platform.refresh()
+      : platform.prime(decodeURIComponent(id)),
+  );
+}
+
 function mountLocalCopilotRuntime(input: {
   basePath: string;
   identifyUser: IdentifyUser;
@@ -1972,7 +1993,7 @@ function mountLocalCopilotRuntime(input: {
     initiator?: AuditInitiator;
   }) => Promise<AbstractAgent | null>;
   runtime: CopilotRuntime;
-  platform: LocalThreadPlatform;
+  platform: PostgresThreadPlatform;
 }) {
   const { basePath, identifyUser, onRunBusy, agentFor, runtime, platform } =
     input;
@@ -1994,6 +2015,17 @@ function mountLocalCopilotRuntime(input: {
         { status: 401 },
       );
     }
+    /*
+     * THE THREAD'S ROWS, LOADED BEFORE THE RUNTIME ASKS FOR THEM.
+     *
+     * The runtime's `/threads` family reads synchronously (`listThreads`, `getThreadMessages`,
+     * `getThreadEvents`, `getThreadState`), so the platform answers them from a read mirror instead
+     * of from Postgres. This is what fills that mirror for the thread in the path — without it a
+     * reload after a restart would be answered from a mirror that has never seen the conversation,
+     * which is the exact failure this whole change exists to remove. Both hooks are no-ops on the
+     * in-memory platform, so this costs nothing when that is the one mounted.
+     */
+    await primeThread(platform, request, userId);
     return runAsLocalUser(userId, () => inner.fetch(request));
   };
   handler.all(basePath, (context) => gate(context.req.raw));

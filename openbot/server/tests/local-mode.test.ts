@@ -5,6 +5,7 @@ import { createStallGuard } from "../src/channels/stall-guard";
 import { loadConfig, runtimeCapabilities } from "../src/config";
 import { mountCopilotRuntime } from "../src/copilot";
 import { localThreadPlatform } from "../src/local-mode";
+import { testDatabaseUrl } from "./support/database";
 import { testEnvironment } from "./support/environment";
 
 /**
@@ -32,10 +33,10 @@ describe("choosing local mode", () => {
   test("OPENDUET_LOCAL_MODE=true with no Intelligence selects local mode", () => {
     expect(
       loadConfig(withoutIntelligence({ OPENDUET_LOCAL_MODE: "true" })).runtime,
-    ).toEqual({ mode: "local", durableHistory: false });
+    ).toEqual({ mode: "local", durableHistory: true });
     expect(
       runtimeCapabilities(withoutIntelligence({ OPENDUET_LOCAL_MODE: "1" })),
-    ).toEqual({ mode: "local", durableHistory: false });
+    ).toEqual({ mode: "local", durableHistory: true });
   });
 
   test("a deployment with Intelligence configured is unchanged when the variable is absent or false", () => {
@@ -71,7 +72,7 @@ describe("choosing local mode", () => {
             "wss://realtime.intelligence.copilotkit.ai",
         }),
       ).runtime,
-    ).toEqual({ mode: "local", durableHistory: false });
+    ).toEqual({ mode: "local", durableHistory: true });
   });
 
   test("configuring neither is still a refusal to boot, now pointing at the opt-in", () => {
@@ -87,9 +88,22 @@ describe("choosing local mode", () => {
   });
 });
 
+/**
+ * Local mode's config, pointed at the dedicated test database: the thread platform is Postgres now
+ * (migration 0068), and it must never reach the `DATABASE_URL` the test environment carries.
+ */
+function localConfig() {
+  return loadConfig(
+    withoutIntelligence({
+      OPENDUET_LOCAL_MODE: "true",
+      DATABASE_URL: testDatabaseUrl(),
+    }),
+  );
+}
+
 function mountLocal(identifyUser: () => Promise<{ id: string; name: string }>) {
   return mountCopilotRuntime(
-    loadConfig(withoutIntelligence({ OPENDUET_LOCAL_MODE: "true" })),
+    localConfig(),
     createActorAgentResolver({
       model: { provider: "openai", defaultModel: "unused" },
       loadAgents: async () => [
@@ -165,7 +179,9 @@ describe("the runtime in local mode", () => {
       }
 
       expect(runtime.learning).toBeUndefined();
-      expect(runtime.handoffRunner()).toBe(localThreadPlatform().runner);
+      expect(runtime.handoffRunner()).toBe(
+        localThreadPlatform(localConfig()).runner,
+      );
       expect(() => runtime.runnerConnection()).toThrow(/Local mode/);
 
       for (const spy of spies) expect(spy).not.toHaveBeenCalled();
@@ -175,7 +191,7 @@ describe("the runtime in local mode", () => {
   });
 
   test("lists a signed-in person's own threads through the runtime's thread endpoints", async () => {
-    const platform = localThreadPlatform();
+    const platform = localThreadPlatform(localConfig());
     await platform.getOrCreateThread({
       threadId: "local-mode-test-thread",
       userId: "local-mode-person",

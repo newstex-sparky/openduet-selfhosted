@@ -16,10 +16,12 @@
  *     `historyOrEmpty` therefore behave exactly as they do against the platform.
  *
  * WHAT THIS IS NOT. Durable. Every thread, message and lock lives in this process and is gone on
- * restart; a second replica sees none of it. That is the Phase 1 contract (`docs/local-mode.md`).
- * Phase 2 replaces this module's storage with Postgres (threads, messages, events, and an advisory
- * lock or `SELECT … FOR UPDATE` thread lock) behind the same surface. Keep the surface narrow so
- * that swap stays mechanical.
+ * restart; a second replica sees none of it. That was the Phase 1 contract, and it is why local mode
+ * no longer runs on this module: `./postgres-platform` implements the same surface on Postgres, and
+ * `server/src/local-mode.ts` builds that one. This module stays for two reasons that are worth the
+ * file — it is the reference for what the surface means (each method is readable at a glance, which
+ * a set of SQL statements is not), and it is the test double a toolkit test wants when the subject
+ * is a turn rather than a database. Keep the two surfaces in step.
  *
  * WHO OWNS A THREAD. Intelligence scopes every thread to the user `identifyUser` returns. SSE mode
  * gives the runner no user at all, so the server wraps the CopilotKit handler in
@@ -29,7 +31,6 @@
  * Server-side callers (headless turns) carry no request user and are trusted, exactly as they are
  * when they hold the deployment's Intelligence key.
  */
-import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   AbstractAgent,
   BaseEvent,
@@ -38,55 +39,41 @@ import type {
 } from "@ag-ui/client";
 import { compactEvents, EventType } from "@ag-ui/client";
 import { type Observable, ReplaySubject } from "rxjs";
+import { missingThread, threadBusy } from "./platform-errors";
+import { currentLocalUser } from "./request-scope";
 
 /**
  * Named `PlatformRequestError` on purpose: `isLockConflict` (lease.ts) and `isMissingThread`
  * (thread-history.ts) recognise the platform's errors by name and status, and a local conflict has
- * to read as the same "not now" a platform 409 does.
+ * to read as the same "not now" a platform 409 does. The class lives in `./platform-errors`, shared
+ * with the Postgres-backed platform, so the two cannot drift; the name here is kept because this
+ * module's callers and tests already use it.
  */
-export class LocalPlatformRequestError extends Error {
-  override name = "PlatformRequestError";
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
+export {
+  PlatformRequestError,
+  PlatformRequestError as LocalPlatformRequestError,
+} from "./platform-errors";
 
 /** The person a request is running as. Set by the server around the CopilotKit handler. */
-const requestScope = new AsyncLocalStorage<{ userId: string }>();
+export { currentLocalUser, runAsLocalUser } from "./request-scope";
 
-/** Run `fn` as `userId`, so the runner can scope what it reads and writes to that person. */
-export function runAsLocalUser<T>(userId: string, fn: () => T): T {
-  return requestScope.run({ userId }, fn);
-}
+/**
+ * The thread summary Intelligence returns, restated: the same fields the server reads.
+ *
+ * Re-exported from `./thread-records`, where both platforms take it from: the in-memory platform
+ * and the Postgres one answer the same shapes.
+ */
+export type {
+  LocalThreadMessage,
+  LocalThreadSummary,
+} from "./thread-records";
 
-/** The person the current request runs as, or undefined on a server-side (trusted) path. */
-export function currentLocalUser(): string | undefined {
-  return requestScope.getStore()?.userId;
-}
-
-/** The thread summary Intelligence returns, restated: the same fields the server reads. */
-export type LocalThreadSummary = {
-  id: string;
-  name: string | null;
-  agentId: string;
-  organizationId: string;
-  createdById: string;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-/** One row of history in Intelligence's shape (`ThreadMessage`), which every reader here expects. */
-export type LocalThreadMessage = {
-  id: string;
-  role: string;
-  content?: unknown;
-  toolCalls?: { id: string; name: string; args: string }[];
-  toolCallId?: string;
-};
+import {
+  type LocalThreadMessage,
+  type LocalThreadSummary,
+  messageIdOf,
+  toPlatformMessage,
+} from "./thread-records";
 
 type ThreadRow = {
   id: string;
@@ -110,49 +97,17 @@ type ActiveRun = {
 
 type Lock = { runId: string; expiresAt: number };
 
-/** The bounds of this process's memory for threads. Generous; they exist so it is not unbounded. */
+/**
+ * The bounds of this process's memory for threads. Generous; they exist so it is not unbounded.
+ *
+ * Named `LOCAL_PLATFORM_DEFAULTS` still, though local mode now stores threads in Postgres: this is
+ * the in-memory platform's own bound, kept as the reference implementation and as the test double
+ * for the platform surface.
+ */
 export const LOCAL_PLATFORM_DEFAULTS = {
   maxThreads: 2_000,
   defaultLockTtlSeconds: 120,
 } as const;
-
-/** AG-UI's message, in the platform's history shape: tool calls flattened, as the runtime does. */
-function toPlatformMessage(message: Message): LocalThreadMessage {
-  const base = { id: message.id, role: message.role };
-  if (message.role === "assistant") {
-    const calls = message.toolCalls ?? [];
-    return {
-      ...base,
-      ...(message.content !== undefined ? { content: message.content } : {}),
-      ...(calls.length > 0
-        ? {
-            toolCalls: calls.map((call) => ({
-              id: call.id,
-              name: call.function.name,
-              args: call.function.arguments,
-            })),
-          }
-        : {}),
-    };
-  }
-  if (message.role === "tool")
-    return {
-      ...base,
-      content: message.content,
-      toolCallId: message.toolCallId,
-    };
-  return {
-    ...base,
-    ...("content" in message && message.content !== undefined
-      ? { content: message.content }
-      : {}),
-  };
-}
-
-function messageIdOf(event: BaseEvent): string | undefined {
-  const id = (event as { messageId?: unknown }).messageId;
-  return typeof id === "string" ? id : undefined;
-}
 
 const TERMINAL = new Set<string>([EventType.RUN_FINISHED, EventType.RUN_ERROR]);
 
@@ -172,10 +127,8 @@ export function createLocalThreadPlatform(
   const active = new Map<string, ActiveRun>();
   const locks = new Map<string, Lock>();
 
-  const missing = (threadId: string) =>
-    new LocalPlatformRequestError(`Thread ${threadId} not found`, 404);
-  const busy = (threadId: string) =>
-    new LocalPlatformRequestError(`Thread ${threadId} is already running`, 409);
+  const missing = missingThread;
+  const busy = threadBusy;
 
   /** Least-recently-touched idle threads go first; a running or locked one is never dropped. */
   function evict() {
@@ -542,5 +495,13 @@ export function createLocalThreadPlatform(
     stats() {
       return { threads: threads.size, running: active.size, locks: locks.size };
     },
+
+    /*
+     * The two hooks the Postgres platform needs and this one does not: there is nothing to load,
+     * because this object IS the store. Present so the server can call them without asking which
+     * platform it holds.
+     */
+    async prime(_threadId: string): Promise<void> {},
+    async refresh(): Promise<void> {},
   };
 }
