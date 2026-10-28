@@ -70,7 +70,8 @@ before the runtime package is imported. Set it to `false` yourself to opt back i
 **Off in local mode (no-ops, not errors):** Automatic Learning (`learning` is `undefined`,
 auto-assign reports `off`), the Intelligence entitlement check (not run), the self-host banner
 (`shown: false`), Intelligence memory (OpenBot's Postgres memory tables are used, which is the
-existing fallback). The setup checklist's Intelligence row reads "unreachable".
+existing fallback). The onboarding setup checklist still lists "CopilotKit Intelligence — Required
+/ Needs setup" (its entitlement read fails locally, by design); that copy is a known gap.
 
 ## What does not work yet (Phase 2 / Phase 3 backlog)
 
