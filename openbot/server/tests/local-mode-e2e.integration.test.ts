@@ -70,12 +70,15 @@ const createdAgentIds: string[] = [];
 const createdChannelIds: string[] = [];
 
 /** The model's script, in request order. See `scriptModel`. */
-let modelScript: ({ content: string } | { toolCalls: { name: string; arguments: string }[] })[] =
-  [];
+let modelScript: (
+  | { content: string }
+  | { toolCalls: { name: string; arguments: string }[] }
+)[] = [];
 const llm = new LLMock();
 let modelUrl = "";
 /** Every click the stub computer was asked for. */
-const computerCalls: { path: string; botId: string | null; body: unknown }[] = [];
+const computerCalls: { path: string; botId: string | null; body: unknown }[] =
+  [];
 let computer: ReturnType<typeof Bun.serve> | undefined;
 let server: ReturnType<typeof Bun.spawn> | undefined;
 const serverLog: string[] = [];
@@ -132,7 +135,10 @@ async function waitFor<T>(
  * extra step still finishes rather than hanging on an empty script.
  */
 function scriptModel(
-  responses: ({ content: string } | { toolCalls: { name: string; arguments: string }[] })[],
+  responses: (
+    | { content: string }
+    | { toolCalls: { name: string; arguments: string }[] }
+  )[],
 ): void {
   modelScript = [...responses];
   llm.onMessage(/.*/, () => {
@@ -160,7 +166,9 @@ async function createBuiltInBot(name: string): Promise<string> {
     .update(agents)
     .set({
       type: "built_in",
-      configuration: { systemPrompt: `You are ${name}. Answer in one short sentence.` },
+      configuration: {
+        systemPrompt: `You are ${name}. Answer in one short sentence.`,
+      },
     })
     .where(eq(agents.id, profile.id));
   return profile.id;
@@ -173,7 +181,11 @@ async function createChannel(agentId: string) {
 }
 
 /** A due routine: created through the store, then stamped due by hand (create only looks forward). */
-async function createDueRoutine(agentId: string, channelId: string, instruction: string) {
+async function createDueRoutine(
+  agentId: string,
+  channelId: string,
+  instruction: string,
+) {
   const routine = await routineStore.create({
     ownerUserId: OWNER_ID,
     agentId,
@@ -190,35 +202,37 @@ async function createDueRoutine(agentId: string, channelId: string, instruction:
 
 /** One firing of the CronJob's sweep, as a process, so its output is evidence rather than a claim. */
 async function sweep(): Promise<string> {
-  const child = Bun.spawn([process.execPath, "server/scripts/fire-routines.ts"], {
-    cwd: openbotRoot,
-    env: {
-      PATH: process.env.PATH ?? "",
-      HOME: process.env.HOME ?? "",
-      DATABASE_URL: databaseUrl,
-      KEY_ENCRYPTION_KEY: EXAMPLE_KEY,
-      OPENDUET_LOCAL_MODE: "true",
-      /*
-       * The sweep calls the same `loadConfig` the server does, and a deployment with no identity
-       * provider refuses to boot without this. The server child below is given it for that reason;
-       * leaving it off the sweep's environment made the CronJob's own process fail at start-up
-       * while the server it reports to was running, which reads as a broken routine rather than a
-       * misconfigured sweep. The same key, so both processes agree on the one administrator.
-       */
-      OPENBOT_SINGLE_USER: "true",
-      WORKER_SHARED_SECRET: WORKER_SECRET,
-      SERVER_INTERNAL_URL: publicUrl,
+  const child = Bun.spawn(
+    [process.execPath, "server/scripts/fire-routines.ts"],
+    {
+      cwd: openbotRoot,
+      env: {
+        PATH: process.env.PATH ?? "",
+        HOME: process.env.HOME ?? "",
+        DATABASE_URL: databaseUrl,
+        KEY_ENCRYPTION_KEY: EXAMPLE_KEY,
+        OPENDUET_LOCAL_MODE: "true",
+        /*
+         * The sweep calls the same `loadConfig` the server does, and a deployment with no identity
+         * provider refuses to boot without this. The server child below is given it for that reason;
+         * leaving it off the sweep's environment made the CronJob's own process fail at start-up
+         * while the server it reports to was running, which reads as a broken routine rather than a
+         * misconfigured sweep. The same key, so both processes agree on the one administrator.
+         */
+        OPENBOT_SINGLE_USER: "true",
+        WORKER_SHARED_SECRET: WORKER_SECRET,
+        SERVER_INTERNAL_URL: publicUrl,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
     },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  );
   const out: string[] = [];
   const err: string[] = [];
   await Promise.all([collect(child.stdout, out), collect(child.stderr, err)]);
   const code = await child.exited;
   const text = `${out.join("")}${err.join("")}`;
-  if (code !== 0)
-    throw new Error(`The sweep exited ${code}.\n${text}`);
+  if (code !== 0) throw new Error(`The sweep exited ${code}.\n${text}`);
   return text;
 }
 
@@ -229,6 +243,19 @@ async function runsOf(routineId: string) {
     .where(eq(routineRuns.routineId, routineId));
 }
 
+/**
+ * The sweep's own JSON line, lifted out of its output.
+ *
+ * A passing assertion says the routine fired; this makes a passing run *show* it, so the evidence
+ * is in the test log rather than only in the matcher.
+ */
+function sweepEvidence(output: string): string {
+  const line = output
+    .split("\n")
+    .find((candidate) => candidate.includes('"type":"routine-sweep"'));
+  return line?.trim() ?? output.trim().slice(0, 600);
+}
+
 /** The conversation the firing wrote, read from Postgres: the whole point of durable history. */
 async function threadMessages(threadId: string) {
   const rows = await database.$client`
@@ -237,7 +264,11 @@ async function threadMessages(threadId: string) {
      where thread_id = ${threadId}
      order by seq
   `;
-  return rows as unknown as { message_id: string; role: string; content: string }[];
+  return rows as unknown as {
+    message_id: string;
+    role: string;
+    content: string;
+  }[];
 }
 
 type ApprovalRow = {
@@ -324,16 +355,20 @@ async function dumpApprovalEvidence(input: {
   threadId: string;
 }) {
   const blocks = {
-    "approval_requests": await approvalRow(input.approvalId),
-    "routine_runs": await runsOf(input.routineId),
-    "copilotkit_thread_runs": await threadRuns(input.threadId),
-    "copilotkit_thread_messages": await threadMessages(input.threadId),
-    "audit_events approval.person_decided": await decisionAudit(input.approvalId),
+    approval_requests: await approvalRow(input.approvalId),
+    routine_runs: await runsOf(input.routineId),
+    copilotkit_thread_runs: await threadRuns(input.threadId),
+    copilotkit_thread_messages: await threadMessages(input.threadId),
+    "audit_events approval.person_decided": await decisionAudit(
+      input.approvalId,
+    ),
   };
   const text = Object.entries(blocks)
     .map(([name, rows]) => `--- ${name} ---\n${JSON.stringify(rows, null, 2)}`)
     .join("\n");
-  console.log(`\n=== Postgres rows after the approved action ran ===\n${text}\n`);
+  console.log(
+    `\n=== Postgres rows after the approved action ran ===\n${text}\n`,
+  );
   return text;
 }
 
@@ -397,7 +432,11 @@ beforeAll(async () => {
   /* The server booted the single administrator; the routines below run as that person. */
   await database
     .insert(users)
-    .values({ id: OWNER_ID, email: "dev@openbot.local", name: "Local Mode Owner" })
+    .values({
+      id: OWNER_ID,
+      email: "dev@openbot.local",
+      name: "Local Mode Owner",
+    })
     .onConflictDoNothing();
 
   /*
@@ -414,7 +453,9 @@ afterAll(async () => {
   for (const channelId of createdChannelIds.splice(0))
     await database.delete(channels).where(eq(channels.id, channelId));
   for (const agentId of createdAgentIds.splice(0)) {
-    await database.delete(agentProfiles).where(eq(agentProfiles.agentId, agentId));
+    await database
+      .delete(agentProfiles)
+      .where(eq(agentProfiles.agentId, agentId));
     await database.delete(agents).where(eq(agents.id, agentId));
   }
   await database.$client.close();
@@ -434,6 +475,7 @@ test("a scheduled routine fires and completes its turn in local mode", async () 
   const sweepOutput = await sweep();
   /* The CronJob's own wording: this routine was the one it handed to the server. */
   expect(sweepOutput).toContain(`"fired":["${routine.id}"]`);
+  console.log(`[e2e] sweep fired the routine: ${sweepEvidence(sweepOutput)}`);
 
   const run = await waitFor("the routine run to finish", async () => {
     const [row] = await runsOf(routine.id);
@@ -447,6 +489,15 @@ test("a scheduled routine fires and completes its turn in local mode", async () 
     status: "succeeded",
     error: null,
   });
+  console.log(
+    `[e2e] routine_runs row closed: ${JSON.stringify({
+      id: run.id,
+      routineId: run.routineId,
+      status: run.status,
+      error: run.error,
+      finishedAt: run.finishedAt,
+    })}`,
+  );
 
   /* The reply landed in the channel's conversation, in Postgres, not in either process's memory. */
   const messages = await threadMessages(channel.threadId);
@@ -456,6 +507,14 @@ test("a scheduled routine fires and completes its turn in local mode", async () 
       String(message.content).includes("Standup: nothing is blocking today."),
     ),
   ).toBe(true);
+  console.log(
+    `[e2e] copilotkit_thread_messages read back for ${channel.threadId}: ${JSON.stringify(
+      messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    )}`,
+  );
 
   /* The firing was served in local mode, and the server said so about the turn it ran. */
   expect(serverOutput()).toContain('"type":"openduet-local-mode"');
@@ -486,10 +545,13 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   expect(sweepOutput).toContain(`"fired":["${routine.id}"]`);
 
   /* Paused: the run row says waiting, and the wait names the approval a person has to answer. */
-  const waiting = await waitFor("the routine run to wait for approval", async () => {
-    const [row] = await runsOf(routine.id);
-    return row?.status === "waiting" ? row : undefined;
-  });
+  const waiting = await waitFor(
+    "the routine run to wait for approval",
+    async () => {
+      const [row] = await runsOf(routine.id);
+      return row?.status === "waiting" ? row : undefined;
+    },
+  );
   const approvalId = String(
     (waiting.waiting as { approvalId?: string; requestId?: string } | null)
       ?.approvalId ??
@@ -520,7 +582,9 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   expect(pending?.consumed_at).toBeNull();
   expect(pending?.completed_at).toBeNull();
   /* Nothing reached the computer while it waited. */
-  const clicksWhileWaiting = computerCalls.filter((call) => call.path === "/click");
+  const clicksWhileWaiting = computerCalls.filter(
+    (call) => call.path === "/click",
+  );
   expect(clicksWhileWaiting).toHaveLength(0);
   /* The paused state, printed while it is still the current state. */
   console.log(
@@ -533,11 +597,14 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   );
 
   /* The person allows it, over the deployment's own HTTP API. */
-  const decision = await fetch(`${publicUrl}/api/approvals/${approvalId}/decision`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ decision: "allow_once" }),
-  });
+  const decision = await fetch(
+    `${publicUrl}/api/approvals/${approvalId}/decision`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision: "allow_once" }),
+    },
+  );
   expect(decision.status).toBe(200);
   expect(await decision.json()).toMatchObject({ status: "approved" });
 
@@ -550,17 +617,22 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   const decided = await approvalRow(approvalId);
   expect(decided?.decision).toBe("allow_once");
   expect(decided?.decided_at).not.toBeNull();
-  expect(["approved", "consumed", "completed"]).toContain(String(decided?.status));
+  expect(["approved", "consumed", "completed"]).toContain(
+    String(decided?.status),
+  );
   const trail = await decisionAudit(approvalId);
   expect(trail.map((entry) => entry.decided_by)).toEqual(["person"]);
   expect(trail[0]?.decision).toBe("allow_once");
   expect(trail[0]?.tool).toBe("computer_click");
 
   /* Resumed: the approved action ran against the computer, and the turn finished. */
-  const finished = await waitFor("the routine run to finish after approval", async () => {
-    const [row] = await runsOf(routine.id);
-    return row?.status === "succeeded" ? row : undefined;
-  });
+  const finished = await waitFor(
+    "the routine run to finish after approval",
+    async () => {
+      const [row] = await runsOf(routine.id);
+      return row?.status === "succeeded" ? row : undefined;
+    },
+  );
   expect(finished.status).toBe("succeeded");
   /* The pause is over and the row says so: no `waiting` payload left on a finished run. */
   expect(finished.waiting).toBeNull();
@@ -576,7 +648,9 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   expect(completed?.consumed_at).not.toBeNull();
   expect(completed?.completed_at).not.toBeNull();
   expect(completed?.result?.error).toBeUndefined();
-  expect(String(completed?.result?.content)).toContain("https://example.test/form");
+  expect(String(completed?.result?.content)).toContain(
+    "https://example.test/form",
+  );
 
   /* The Postgres runner recorded the turn that paused, and recorded it finishing. */
   const runs = await threadRuns(channel.threadId);
