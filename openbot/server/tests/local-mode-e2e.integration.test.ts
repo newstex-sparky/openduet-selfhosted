@@ -198,6 +198,14 @@ async function sweep(): Promise<string> {
       DATABASE_URL: databaseUrl,
       KEY_ENCRYPTION_KEY: EXAMPLE_KEY,
       OPENDUET_LOCAL_MODE: "true",
+      /*
+       * The sweep calls the same `loadConfig` the server does, and a deployment with no identity
+       * provider refuses to boot without this. The server child below is given it for that reason;
+       * leaving it off the sweep's environment made the CronJob's own process fail at start-up
+       * while the server it reports to was running, which reads as a broken routine rather than a
+       * misconfigured sweep. The same key, so both processes agree on the one administrator.
+       */
+      OPENBOT_SINGLE_USER: "true",
       WORKER_SHARED_SECRET: WORKER_SECRET,
       SERVER_INTERNAL_URL: publicUrl,
     },
