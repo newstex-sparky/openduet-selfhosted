@@ -86,6 +86,7 @@ import { createHostAccessRoutes } from "./host-access/routes";
 import { identityRoutes } from "./identity/routes";
 import type { IdentityStore } from "./identity/store";
 import { createIntelligenceClient } from "./intelligence-client";
+import { localThreadPlatform } from "./local-mode";
 import {
   createLearningRoutes,
   type LearningAdminDependencies,
@@ -2000,13 +2001,13 @@ export function createApp(
       createThreadRoutes(
         threadIdentity,
         requireUser,
-        // config.ts refuses to boot without the full Intelligence contract (see copilot.ts's
-        // header comment), so `config.runtime.intelligence` is never missing here. Built from it
-        // rather than assumed, though: this is the one place besides the runtime mount itself that
-        // needs to reach Intelligence, and it should keep working unmodified if that guarantee ever
-        // loosens and a deployment can legitimately have no reader to build.
+        // Intelligence's own thread lookup, or — in local mode, where there is no Intelligence —
+        // the process's local thread platform, which answers `getThread` with the same 404
+        // contract. Either way a remembered thread is "known" only if its owner can still read it.
         createThreadReader(
-          createIntelligenceClient(config.runtime.intelligence),
+          config.runtime.mode === "intelligence"
+            ? createIntelligenceClient(config.runtime.intelligence)
+            : localThreadPlatform(),
         ),
       ),
     );

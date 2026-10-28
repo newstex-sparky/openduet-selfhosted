@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { IntelligenceAgentRunner } from "@copilotkit/runtime/v2";
 import { workOwner } from "@openbot/shared/work-owner";
 import { eq } from "drizzle-orm";
 import { type AuditStore, handoffInitiator } from "../audit";
@@ -123,10 +122,9 @@ export async function startHandoffDelivery(deps: {
       newRunId: () => randomUUID(),
       // The same address and the same token the runtime uses. Assembling either from configuration
       // produced a runner every join was refused for, because the thread's active run is a lock the
-      // platform issues rather than something an API key can claim.
-      runner: new IntelligenceAgentRunner(
-        copilotRuntime.runnerConnection(),
-      ) as never,
+      // platform issues rather than something an API key can claim. In local mode this is the
+      // process's in-memory runner, the same one the runtime and every headless turn drive.
+      runner: copilotRuntime.handoffRunner() as never,
     }),
   });
 

@@ -28,3 +28,20 @@ export function runtimeTelemetryProperties(accessibility: boolean): {
  * value as unset, so this does too.
  */
 process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE ||= "1";
+
+/*
+ * LOCAL MODE SENDS NOTHING TO COPILOTKIT BY DEFAULT.
+ *
+ * The point of `OPENDUET_LOCAL_MODE` is a deployment that talks to no CopilotKit service, and the
+ * runtime's telemetry goes to `telemetry.copilotkit.ai`. It is decided here, before the runtime
+ * package is imported, because the SDK reads the switch once when its telemetry client is built.
+ * Only a default: a local deployment that sets COPILOTKIT_TELEMETRY_DISABLED itself (to `false`, say)
+ * keeps what it set. Read raw rather than through config.ts so this module stays import-order safe.
+ */
+const localMode = process.env.OPENDUET_LOCAL_MODE?.trim().toLowerCase();
+if (
+  (localMode === "true" || localMode === "1") &&
+  !process.env.COPILOTKIT_TELEMETRY_DISABLED?.trim()
+) {
+  process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
+}

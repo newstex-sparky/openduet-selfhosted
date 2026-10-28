@@ -4,6 +4,7 @@ import type { BuiltInAgentConfiguration } from "@copilotkit/runtime/v2";
 import {
   type CopilotKitIntelligence,
   CopilotRuntime,
+  IntelligenceAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
@@ -15,6 +16,10 @@ import {
   RunBuiltAgent,
   UnavailableAgent,
 } from "@openbot/toolkit/copilotkit/agents";
+import {
+  type LocalThreadPlatform,
+  runAsLocalUser,
+} from "@openbot/toolkit/copilotkit/local-platform";
 import { createIntelligenceThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
@@ -23,6 +28,7 @@ import { sanitizeSeededHistory } from "@openbot/toolkit/history-sanitize";
 import { executeNativeApprovalTool } from "@openbot/toolkit/native-approval";
 import { historyOrEmpty } from "@openbot/toolkit/thread-history";
 import { defer, from, switchMap } from "rxjs";
+import { Hono } from "hono";
 import { z } from "zod";
 import {
   type ActorAgentResolver,
@@ -46,6 +52,7 @@ import type { DeploymentConfig } from "./config";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
 import { observeIntelligenceAuthentication } from "./intelligence-client";
+import { localThreadPlatform } from "./local-mode";
 import { RemoteLearnedSkillsMiddleware } from "./learning/remote";
 import {
   type AcquireLearnedSkills,
@@ -78,17 +85,18 @@ import { runtimeTelemetryProperties } from "./telemetry";
 import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
 
 /**
- * The CopilotKit runtime, always in Intelligence mode.
+ * The CopilotKit runtime, in Intelligence mode or (opted into) local SSE mode.
  *
  * Package-declared built-in Bots run as CopilotKit `BuiltInAgent` instances. External Bots are
  * reached over AG-UI as `HttpAgent` instances, so anything that speaks the protocol remains a Bot
  * with no framework adapter here: LangGraph, Pydantic-AI, CrewAI, Mastra, ADK, or a hand-written
  * server.
  *
- * There is no SSE branch. Intelligence is a requirement of the product, not a tier: it owns
- * durable threads, memory and learning, and a deployment without it silently forgets every
- * conversation. config.ts refuses to boot without the full contract, so by the time this runs the
- * settings are present and this file has one mode.
+ * Intelligence owns durable threads, memory and learning, and a deployment without it forgets every
+ * conversation on restart. So the SSE branch exists only as an explicit opt-in: config.ts refuses to
+ * boot without the full Intelligence contract unless `OPENDUET_LOCAL_MODE=true` is set with no
+ * Intelligence configured, and then `mountLocalCopilotRuntime` (bottom of this file) runs the same
+ * runtime in SSE mode on the process's in-memory thread platform. See `RuntimeCapabilities`.
  */
 
 /** Resolve the signed-in person for a request. Threads and memory are scoped to whoever this returns. */
@@ -1739,7 +1747,6 @@ export function mountCopilotRuntime(
     learningSettings?: LearningSettingsStore;
   } = {},
 ) {
-  const { intelligence } = config.runtime;
   const { basePath = "/api/copilotkit", onRunBusy, learningSettings } = options;
 
   /**
@@ -1774,6 +1781,59 @@ export function mountCopilotRuntime(
       throw error;
     }
   };
+
+  /*
+   * What both modes hand the runtime unchanged: the agents, generative UI and telemetry naming.
+   * Everything about WHERE threads live differs between the two and is decided below.
+   */
+  const sharedRuntimeOptions = {
+    // Carried on the events the runtime already sends, so OpenDuet's traffic is separable from any
+    // other deployment's. Adds no events of its own. See telemetry.ts.
+    telemetryProperties: {
+      ...runtimeTelemetryProperties(config.accessibility),
+      ...desktopTelemetryProperties(),
+    },
+    /*
+     * What lets a Bot answer with an interface it wrote itself.
+     *
+     * This one flag is the whole difference between a Bot that draws and a Bot that describes
+     * markup it cannot show. The middleware it turns on does not give the model the tool — the
+     * browser does that — it reads the arguments of the `generateSandboxedUi` call as they stream
+     * and re-emits them as `open-generative-ui` activity events. Those events are the only thing
+     * that paints: the tool's own renderer shows the waiting message and then returns nothing. So a
+     * deployment with the browser half and not this one has Bots generating whole interfaces that
+     * never appear, which is the shape this capability arrived in.
+     *
+     * `true` rather than a list of Bots. The list narrows only the event transform, and the tool
+     * stays offered to every Bot regardless, so naming some Bots here would leave the others able to
+     * call it and draw nothing. Whether the capability exists at all is the switch this deployment
+     * has; see DeploymentConfig.generativeUi.
+     */
+    ...(config.generativeUi ? { openGenerativeUI: true as const } : {}),
+    // A browser catalog enables the public A2UI middleware/tool. Explicitly disable it on the
+    // server too, so stale clients cannot reactivate a deployment's generative UI opt-out.
+    a2ui: { enabled: config.generativeUi },
+    // `identifyUser` is the Intelligence projection of the same person `identifyActor` returns:
+    // one resolver decides both whose threads these are and whose coworkers exist.
+    agents: createRequestAgents(identifyActor, resolver) as never,
+  };
+
+  if (config.runtime.mode === "local") {
+    const platform = localThreadPlatform();
+    return mountLocalCopilotRuntime({
+      // `mode` is inferred from the ABSENCE of `intelligence`: this is the runtime's SSE mode.
+      runtime: new CopilotRuntime({
+        runner: platform.runner as never,
+        ...sharedRuntimeOptions,
+      }),
+      platform,
+      basePath,
+      identifyUser,
+      onRunBusy,
+      agentFor,
+    });
+  }
+  const { intelligence } = config.runtime;
 
   /*
    * One client, used by the runtime and by anything reading a thread beside it, so a hop reads the
@@ -1821,35 +1881,7 @@ export function mountCopilotRuntime(
     // See IntelligenceKnowingANewThread.
     intelligence: intelligenceClient,
     licenseToken: intelligence.licenseToken,
-    // Carried on the events the runtime already sends, so OpenDuet's traffic is separable from any
-    // other deployment's. Adds no events of its own. See telemetry.ts.
-    telemetryProperties: {
-      ...runtimeTelemetryProperties(config.accessibility),
-      ...desktopTelemetryProperties(),
-    },
-    /*
-     * What lets a Bot answer with an interface it wrote itself.
-     *
-     * This one flag is the whole difference between a Bot that draws and a Bot that describes
-     * markup it cannot show. The middleware it turns on does not give the model the tool — the
-     * browser does that — it reads the arguments of the `generateSandboxedUi` call as they stream
-     * and re-emits them as `open-generative-ui` activity events. Those events are the only thing
-     * that paints: the tool's own renderer shows the waiting message and then returns nothing. So a
-     * deployment with the browser half and not this one has Bots generating whole interfaces that
-     * never appear, which is the shape this capability arrived in.
-     *
-     * `true` rather than a list of Bots. The list narrows only the event transform, and the tool
-     * stays offered to every Bot regardless, so naming some Bots here would leave the others able to
-     * call it and draw nothing. Whether the capability exists at all is the switch this deployment
-     * has; see DeploymentConfig.generativeUi.
-     */
-    ...(config.generativeUi ? { openGenerativeUI: true } : {}),
-    // A browser catalog enables the public A2UI middleware/tool. Explicitly disable it on the
-    // server too, so stale clients cannot reactivate a deployment's generative UI opt-out.
-    a2ui: { enabled: config.generativeUi },
-    // `identifyUser` is the Intelligence projection of the same person `identifyActor` returns:
-    // one resolver decides both whose threads these are and whose coworkers exist.
-    agents: createRequestAgents(identifyActor, resolver) as never,
+    ...sharedRuntimeOptions,
   });
 
   return {
@@ -1868,6 +1900,15 @@ export function mountCopilotRuntime(
       url: intelligenceClient.ɵgetRunnerWsUrl(),
       authToken: intelligenceClient.ɵgetRunnerAuthToken(),
     }),
+    /**
+     * The runner a Bot-to-Bot hop drives, built the way `runnerConnection` says. A function so each
+     * caller gets its own, as `handoff-wiring.ts` always built one; local mode returns its shared one.
+     */
+    handoffRunner: (): unknown =>
+      new IntelligenceAgentRunner({
+        url: intelligenceClient.ɵgetRunnerWsUrl(),
+        authToken: intelligenceClient.ɵgetRunnerAuthToken(),
+      }),
     threadLock: createIntelligenceThreadLock({
       client: intelligenceClient,
       learning,
@@ -1898,6 +1939,92 @@ export function mountCopilotRuntime(
         { messages: [] } as Read,
       );
       return read.messages;
+    },
+  };
+}
+
+/**
+ * LOCAL MODE: the same runtime in SSE mode, on an in-process runner, with no Intelligence anywhere.
+ *
+ * `new CopilotRuntime({ runner })` with no `intelligence` is the runtime's documented SSE mode
+ * (`CopilotSseRuntimeOptions`). The runner is the process's local thread platform's
+ * (`local-mode.ts`), which is also what every headless turn, the thread lock and the history readers
+ * use, so a hop and a routine see the conversation a person's run wrote.
+ *
+ * THE ONE THING SSE MODE DOES NOT DO FOR US IS SAY WHO IS ASKING. In Intelligence mode the runtime
+ * calls `identifyUser` on every thread operation and a run with no signed-in person fails there; in
+ * SSE mode the runtime never calls it, so without the gate below an unauthenticated request could run
+ * a Bot. The gate answers 401 for every route but `/info` (which Intelligence mode also serves to
+ * anyone, so a deployment check can read it), and runs the rest as the person `identifyUser`
+ * returns, which is how the runner scopes threads to their owner.
+ */
+function mountLocalCopilotRuntime(input: {
+  basePath: string;
+  identifyUser: IdentifyUser;
+  onRunBusy?: (input: {
+    threadId: string;
+    runId: string;
+    busy: boolean;
+  }) => void | Promise<void>;
+  agentFor: (input: {
+    actor: AgentActor;
+    botId: string;
+    initiator?: AuditInitiator;
+  }) => Promise<AbstractAgent | null>;
+  runtime: CopilotRuntime;
+  platform: LocalThreadPlatform;
+}) {
+  const { basePath, identifyUser, onRunBusy, agentFor, runtime, platform } =
+    input;
+  const inner = createCopilotHonoHandler({ runtime, basePath });
+
+  const handler = new Hono();
+  const gate = async (request: Request): Promise<Response> => {
+    const last = new URL(request.url).pathname
+      .split("/")
+      .filter(Boolean)
+      .at(-1);
+    if (last === "info") return inner.fetch(request);
+    let userId: string;
+    try {
+      userId = (await identifyUser(request)).id;
+    } catch {
+      return Response.json(
+        { error: "A CopilotKit run requires a signed-in user." },
+        { status: 401 },
+      );
+    }
+    return runAsLocalUser(userId, () => inner.fetch(request));
+  };
+  handler.all(basePath, (context) => gate(context.req.raw));
+  handler.all(`${basePath}/*`, (context) => gate(context.req.raw));
+
+  return {
+    handler,
+    // Automatic Learning is an Intelligence feature. Absent here, which every caller already allows.
+    learning: undefined as LearningRuntime | undefined,
+    runnerConnection: (): never => {
+      throw new Error(
+        "Local mode has no Intelligence runner socket; use handoffRunner().",
+      );
+    },
+    handoffRunner: (): unknown => platform.runner,
+    threadLock: createIntelligenceThreadLock({
+      client: platform,
+      onRunBusy,
+    }),
+    agentFor,
+    /** A thread's messages, as this process holds them; the same rows a person's run wrote. */
+    history: async (read: { threadId: string; actorId: string }) => {
+      const answer = await historyOrEmpty(
+        () =>
+          platform.getThreadMessages({
+            threadId: read.threadId,
+            userId: read.actorId,
+          }),
+        { messages: [] },
+      );
+      return answer.messages;
     },
   };
 }
