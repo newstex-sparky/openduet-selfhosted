@@ -341,6 +341,11 @@ export function createPostgresThreadPlatform(
    * The payload travels as ONE jsonb parameter and is expanded in SQL (`jsonb_array_elements`), so a
    * turn with fifty messages is one round trip rather than fifty, without needing driver-specific
    * bulk-insert helpers the toolkit would then have to depend on.
+   *
+   * `::text::jsonb`, not `::jsonb`: postgres.js infers a bare `::jsonb` parameter as jsonb and
+   * JSON-encodes the already-encoded string again, so Postgres receives a jsonb STRING scalar and
+   * `jsonb_array_elements` fails with "cannot extract elements from a scalar". Typing the
+   * parameter as text sends the JSON as written and lets Postgres parse it.
    */
   async function writeMessages(
     threadId: string,
@@ -362,7 +367,7 @@ export function createPostgresThreadPlatform(
     await sql`
       insert into copilotkit_thread_messages (thread_id, message_id, role, content, tool_calls, tool_call_id)
       select ${threadId}, m->>'messageId', m->>'role', m->'content', m->'toolCalls', m->>'toolCallId'
-      from jsonb_array_elements(${payload}::jsonb) as m
+      from jsonb_array_elements(${payload}::text::jsonb) as m
       on conflict (thread_id, message_id) do update
         set role = excluded.role,
             content = excluded.content,
@@ -385,7 +390,7 @@ export function createPostgresThreadPlatform(
     await sql`
       insert into copilotkit_thread_events (thread_id, run_id, event)
       select ${threadId}, ${runId}, value
-      from jsonb_array_elements(${payload}::jsonb) as value
+      from jsonb_array_elements(${payload}::text::jsonb) as value
     `;
   }
 
