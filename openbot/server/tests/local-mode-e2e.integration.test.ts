@@ -647,7 +647,10 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   expect(completed?.status).toBe("completed");
   expect(completed?.consumed_at).not.toBeNull();
   expect(completed?.completed_at).not.toBeNull();
-  expect(completed?.result?.error).toBeUndefined();
+  /* `toEqual`, not `?.error` + `toBeUndefined`: a missing result must fail, and so must an `error`. */
+  expect(completed?.result).toEqual({
+    content: expect.stringContaining("https://example.test/form"),
+  });
   expect(String(completed?.result?.content)).toContain(
     "https://example.test/form",
   );
