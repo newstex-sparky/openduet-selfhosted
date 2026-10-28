@@ -9,7 +9,8 @@ import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
 import { workOwner } from "@openbot/shared/work-owner";
 import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
-import { createTurnRunner } from "@openbot/toolkit/run-turn";
+import { createTurnRunner, type TurnRunner } from "@openbot/toolkit/run-turn";
+import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createActivityStore } from "./activity/activity";
@@ -1799,10 +1800,29 @@ const routineAgentRunner = localPlatform
       ).ɵgetRunnerAuthToken(),
     });
 
+/*
+ * EVERY HEADLESS TURN, WITH LOCAL MODE'S OWNER SCOPE AROUND IT.
+ *
+ * Local mode scopes thread reads, thread writes and the run lock to the signed-in person, through
+ * the `AsyncLocalStorage` in `@openbot/toolkit/copilotkit/request-scope`: that is what makes a
+ * thread belong to somebody. A routine, a responsibility, a proactive turn, a wake-up, a group
+ * continuation and an approval continuation have no browser request behind them to supply that
+ * person, so the first firing failed with `Thread … not found` — the turn asked for the owner's
+ * conversation as nobody. The turn names its owner, so that is the scope it runs in.
+ *
+ * In Intelligence mode there is no scope to enter: `runAsLocalUser` is never called and this is the
+ * same `createTurnRunner` the six call sites used before.
+ */
+const headlessTurn: typeof createTurnRunner = (options) =>
+  ((turn: TurnRunner) => (input: Parameters<TurnRunner>[0]) =>
+    localPlatform
+      ? runAsLocalUser(input.ownerUserId, () => turn(input))
+      : turn(input))(createTurnRunner(options));
+
 const routineRunner = createRoutineRunner({
   routineStore,
   channelStore,
-  runTurn: createTurnRunner({
+  runTurn: headlessTurn({
     admission: serverTurnAdmission,
     intelligence: routineIntelligence,
     runner: routineAgentRunner,
@@ -1929,7 +1949,7 @@ const responsibilityAnswerTurn = ({
     channelId: responsibility.channelId,
     ...(responsibilityRunId ? { responsibilityRunId } : {}),
   });
-  return createTurnRunner({
+  return headlessTurn({
     admission: serverTurnAdmission,
     intelligence: routineIntelligence,
     runner: routineAgentRunner,
@@ -2004,7 +2024,7 @@ const executeApprovedAction = createApprovedActionExecutor({
   refusalMarker: REFUSAL_MARKER,
   personInitiator: PERSON_INITIATOR,
 });
-const approvalContinuationRunner = createTurnRunner({
+const approvalContinuationRunner = headlessTurn({
   admission: serverTurnAdmission,
   intelligence: routineIntelligence,
   runner: routineAgentRunner,
@@ -2046,7 +2066,7 @@ const groupConversations = createGroupConversations({
     }
     return bots;
   },
-  runTurn: createTurnRunner({
+  runTurn: headlessTurn({
     admission: serverTurnAdmission,
     intelligence: routineIntelligence,
     runner: routineAgentRunner,
@@ -2225,7 +2245,7 @@ conversationSaid = (ownerUserId, channelId, activity) => {
  * no computer and no components. A check-in is NOT run through `approvalContinuationRunner` as a
  * started task is, because that runner offers the Bot's computer, and a check-in only offers cards.
  */
-const proactiveRunTurn = createTurnRunner({
+const proactiveRunTurn = headlessTurn({
   admission: serverTurnAdmission,
   intelligence: routineIntelligence,
   runner: routineAgentRunner,
@@ -2335,7 +2355,7 @@ const wakeUpRunner = createWakeUpRunner({
   owner: workOwner("wake-up"),
   actorFor,
   channels: channelStore,
-  runTurn: createTurnRunner({
+  runTurn: headlessTurn({
     admission: serverTurnAdmission,
     intelligence: routineIntelligence,
     runner: routineAgentRunner,

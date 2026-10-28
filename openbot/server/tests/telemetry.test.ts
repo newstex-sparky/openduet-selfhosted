@@ -29,6 +29,13 @@ async function capture(
     "COPILOTKIT_TELEMETRY_SAMPLE_RATE",
     "COPILOTKIT_TELEMETRY_URL",
     "COPILOTKIT_LICENSE_TOKEN",
+    /*
+     * And the mode. Telemetry defaults off in local mode (`server/src/telemetry.ts`), so leaving the
+     * caller's mode in the child's environment made these cases pass or fail on how the suite was
+     * started rather than on the runtime's own defaults. The local-mode default has its own case
+     * below.
+     */
+    "OPENDUET_LOCAL_MODE",
   ])
     delete env[key];
   try {
@@ -62,6 +69,15 @@ describe("runtime telemetry", () => {
     expect(event?.body.event).toBe("oss.runtime.instance_created");
     expect(event?.body.global_properties.accessibility_title).toBe("OpenDuet");
     expect(event?.body.global_properties.sampleRate).toBe(1);
+  });
+
+  test("a local-mode deployment sends nothing by default", async () => {
+    /*
+     * The point of local mode is a deployment that talks to no CopilotKit service, and the runtime's
+     * telemetry goes to one. Off by default, and an explicit setting still wins, which the case
+     * after this one proves for the opt-outs and the sample rate generally.
+     */
+    expect(await capture({ OPENDUET_LOCAL_MODE: "true" })).toEqual([]);
   });
 
   test("an explicit sample rate wins over the default", async () => {
