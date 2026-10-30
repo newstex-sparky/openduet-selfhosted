@@ -69,6 +69,14 @@ async function runtimeChild(endpoint: string) {
   );
   globalThis.fetch = guardedFetch;
 
+  // Phase 7 note (card t_2c2038cc, dependency cleanup): the @copilotkit/runtime references in this
+  // child are still load-bearing, so they stay. @copilotkit/runtime 1.77.0 is a direct dependency
+  // of server and toolkit and eleven source files import it, so runtime resolution is required to
+  // validate the shipped telemetry path. Phase 7 removes @copilotkit/runtime; at that point delete
+  // the whole runtime child (runtimeChild plus the runtime() driver and the runtime assertions),
+  // because the native emitter checks do not depend on it. The 1.70.1 pins below are already stale
+  // against the installed 1.77.0, so this child cannot pass until Phase 7 either rewrites or
+  // removes it.
   const runtimePackage = fromServer("@copilotkit/runtime/package.json");
   assert.equal(
     runtimePackage.version,
