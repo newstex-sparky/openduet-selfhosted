@@ -4,10 +4,10 @@ import { loadConfig } from "../src/config";
 import type { CredentialStatus } from "../src/credentials";
 import type { ModelCheckOutcome } from "../src/model-availability-check";
 import { createComputerCheck } from "../src/openduet/computer-check";
+import type { PageStore } from "../src/openduet/pages";
 import {
   type ComputerVerdict,
   createSetupSources,
-  intelligenceFact,
   modelKeyOf,
   modelKeySource,
   modelVerdict,
@@ -18,9 +18,7 @@ import {
   type SetupRow,
   setupRows,
 } from "../src/openduet/setup";
-import type { PageStore } from "../src/openduet/pages";
 import type { AppAccessState } from "../src/plugins/app-access";
-import type { RuntimeEntitlementResponse } from "../src/self-host-banner";
 import { testEnvironment } from "./support/environment";
 
 /**
@@ -34,7 +32,6 @@ import { testEnvironment } from "./support/environment";
 const PRODUCT = "OpenDuet";
 
 const READY: SetupFacts = {
-  intelligence: { state: "ready" },
   model: {
     provider: "openai",
     source: "environment",
@@ -51,7 +48,6 @@ const READY: SetupFacts = {
 };
 
 const UNSET: SetupFacts = {
-  intelligence: { state: "ready" },
   model: {
     provider: "openai",
     source: null,
@@ -66,25 +62,6 @@ const UNSET: SetupFacts = {
   chat: false,
 };
 
-/** An entitlement answer Intelligence gives a self-hosted deployment with no licence. */
-const UNLICENSED: RuntimeEntitlementResponse = {
-  status: "misconfigured",
-  error: {
-    code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
-    message: "No licence.",
-    retryable: false,
-  },
-};
-const ENTITLED: RuntimeEntitlementResponse = {
-  status: "ready",
-  entitlement: {
-    active: true,
-    source: "selfHostedDeploymentLicense",
-    features: {},
-    limits: {},
-  },
-};
-
 const row = (rows: SetupRow[], id: SetupRow["id"]) => {
   const found = rows.find((candidate) => candidate.id === id);
   if (!found) throw new Error(`no ${id} row`);
@@ -96,7 +73,6 @@ describe("setup rows", () => {
     const rows = setupRows(READY, { productName: PRODUCT, audience: "admin" });
 
     expect(rows.map((candidate) => candidate.id)).toEqual([
-      "intelligence",
       "model",
       "google",
       "gmail",
@@ -111,11 +87,11 @@ describe("setup rows", () => {
     }
   });
 
-  test("only Intelligence and the model are required", () => {
+  test("only the model is required", () => {
     const rows = setupRows(READY, { productName: PRODUCT, audience: "admin" });
     expect(
       rows.filter((candidate) => candidate.required).map((c) => c.id),
-    ).toEqual(["intelligence", "model"]);
+    ).toEqual(["model"]);
   });
 
   test("an admin is told what each gap costs and how to close it", () => {
@@ -281,51 +257,6 @@ describe("setup rows", () => {
       detail: "Set up, not checked yet.",
       fix: null,
     });
-  });
-
-  test("Intelligence that did not confirm the entitlement needs setup, with its own advice", () => {
-    const refused = intelligenceFact(UNLICENSED);
-    expect(refused.state).toBe("refused");
-    const admin = setupRows(
-      { ...READY, intelligence: refused },
-      { productName: PRODUCT, audience: "admin" },
-    );
-    expect(row(admin, "intelligence")).toMatchObject({
-      status: "needs_setup",
-      required: true,
-      fix: null,
-    });
-    expect(row(admin, "intelligence").detail).toContain(
-      "COPILOTKIT_LICENSE_TOKEN",
-    );
-
-    const member = setupRows(
-      { ...READY, intelligence: refused },
-      { productName: PRODUCT, audience: "member" },
-    );
-    expect(row(member, "intelligence").detail).toBe("Your admin sets this up.");
-    expect(JSON.stringify(member)).not.toContain("COPILOTKIT_LICENSE_TOKEN");
-  });
-
-  test("Intelligence that could not be reached needs setup, and names its variables to an admin", () => {
-    const rows = setupRows(
-      { ...READY, intelligence: intelligenceFact(new Error("timeout")) },
-      { productName: PRODUCT, audience: "admin" },
-    );
-    expect(row(rows, "intelligence")).toMatchObject({
-      status: "needs_setup",
-      detail:
-        "OpenDuet couldn't reach Intelligence, so conversations and memory may fail. Check again in a moment, or check its address and key.",
-      fix: {
-        kind: "env",
-        names: [
-          "INTELLIGENCE_API_URL",
-          "INTELLIGENCE_GATEWAY_WS_URL",
-          "INTELLIGENCE_API_KEY",
-        ],
-      },
-    });
-    expect(intelligenceFact(ENTITLED)).toEqual({ state: "ready" });
   });
 
   test("Gmail reads Ready only when the Bot can use it", () => {
@@ -538,8 +469,6 @@ describe("where the model key comes from", () => {
 
 /** Every secret this server reads from its environment, each set to a value no row may contain. */
 const SENTINELS = {
-  INTELLIGENCE_API_KEY: "sentinel-intelligence-key-0f3a",
-  COPILOTKIT_LICENSE_TOKEN: "sentinel-licence-token-91bc",
   OPENAI_API_KEY: "sentinel-openai-key-7d21",
   ANTHROPIC_API_KEY: "sentinel-anthropic-key-4e88",
   COMPOSIO_API_KEY: "sentinel-composio-key-2b6f",
@@ -577,7 +506,7 @@ const PEOPLE = {
 
 /**
  * The real route, mounted by `createApp`, with sources built from a real configuration. Only the
- * stores, Intelligence and the model provider are stand-ins.
+ * stores and the model provider are stand-ins.
  */
 function appWith(input: {
   environment: Record<string, string | undefined>;
@@ -589,7 +518,8 @@ function appWith(input: {
   modelCheckAtBoot?: ModelCheckOutcome;
   /** What a "Check again" hears from the provider; counted in `checks`. */
   modelCheck?: () => ModelCheckOutcome;
-  entitlements?: () => Promise<RuntimeEntitlementResponse>;
+  /** Called on every model-key read, which a recheck does before it waits on anything. */
+  onModelKeyRead?: () => void;
   computer?: boolean;
   computerCheck?: () => Promise<ComputerVerdict>;
   apps?: boolean;
@@ -615,7 +545,12 @@ function appWith(input: {
         return input.modelCheck?.() ?? { kind: "available" };
       },
     },
-    credentials: { list: async () => input.credentials ?? [] },
+    credentials: {
+      list: async () => {
+        input.onModelKeyRead?.();
+        return input.credentials ?? [];
+      },
+    },
     ...(input.modelCheckAtBoot
       ? {
           modelCheckAtBoot: Promise.resolve({
@@ -624,7 +559,6 @@ function appWith(input: {
           }),
         }
       : {}),
-    entitlements: input.entitlements ?? (async () => ENTITLED),
     plugins: {
       listServers: async () => input.servers ?? [],
       inspectApp: async (request) => {
@@ -732,33 +666,6 @@ describe("GET /api/openduet/setup", () => {
       apps: "env",
       chat: "env",
     });
-    // Intelligence answered ready and active, so that row is the one that holds.
-    expect(row(checklist.rows, "intelligence").ready).toBe(true);
-  });
-
-  test("Intelligence is read from its entitlement answer, not from its address being set", async () => {
-    const unlicensed = await checklistFrom(
-      appWith({
-        who: "admin",
-        environment: {},
-        entitlements: async () => UNLICENSED,
-      }),
-    );
-    expect(row(unlicensed.checklist.rows, "intelligence").status).toBe(
-      "needs_setup",
-    );
-
-    const down = await checklistFrom(
-      appWith({
-        who: "admin",
-        environment: {},
-        entitlements: () => Promise.reject(new Error("ECONNREFUSED")),
-      }),
-    );
-    expect(row(down.checklist.rows, "intelligence")).toMatchObject({
-      status: "needs_setup",
-      fix: { kind: "env" },
-    });
   });
 
   test("Gmail is asked of app access, for this person on the primary Bot", async () => {
@@ -831,24 +738,6 @@ describe("GET /api/openduet/setup", () => {
     expect(row(read.checklist.rows, "model").status).toBe("needs_setup");
   });
 
-  test("Check again asks Intelligence again too", async () => {
-    let answers = 0;
-    const app = appWith({
-      who: "admin",
-      environment: {},
-      entitlements: async () => {
-        answers += 1;
-        return answers === 1 ? UNLICENSED : ENTITLED;
-      },
-    });
-    const before = await checklistFrom(app);
-    expect(row(before.checklist.rows, "intelligence").status).toBe(
-      "needs_setup",
-    );
-    const after = await checklistFrom(app, "POST");
-    expect(row(after.checklist.rows, "intelligence").status).toBe("ready");
-  });
-
   test("Check again asks who is signed in", async () => {
     const app = appWith({ environment: {}, who: "member", signedIn: false });
     const response = await app.request(
@@ -897,7 +786,6 @@ describe("GET /api/openduet/setup", () => {
       appWith({
         who: "member",
         environment: { OPENAI_API_KEY: undefined },
-        entitlements: async () => UNLICENSED,
       }),
     );
     expect(checklist.audience).toBe("member");
@@ -926,7 +814,6 @@ describe("GET /api/openduet/setup", () => {
           AGENT_COMPUTER_URL: "http://localhost:4100",
         },
         servers: [{ id: "google-workspace", hasCredential: true }],
-        entitlements: async () => UNLICENSED,
         credentials: [
           {
             id: "credential-1",
@@ -966,16 +853,17 @@ test("healthy sequential computer pushes keep their own deadlines in the checkli
   ];
   const requested: string[] = [];
   let listings = 0;
-  let entitlements = 0;
+  let reads = 0;
   jest.useFakeTimers();
   try {
     const app = appWith({
       environment: {},
       who: "admin",
       computer: true,
-      entitlements: async () => {
-        if (++entitlements === 2) recheckStarted.resolve();
-        return ENTITLED;
+      // The second key read is the one the POST's recheck does, before it waits on the computer.
+      onModelKeyRead: () => {
+        reads += 1;
+        if (reads === 2) recheckStarted.resolve();
       },
       computerCheck: createComputerCheck({
         provider: {
