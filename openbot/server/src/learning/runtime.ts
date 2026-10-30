@@ -5,7 +5,6 @@ import {
   readSkillFile,
   SkillRegistry,
 } from "@copilotkit/runtime/internal/learned-skills";
-import type { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { z } from "zod";
 import type {
   LearningDeliveryStatus,
@@ -13,6 +12,24 @@ import type {
   LearningTarget,
 } from "@openbot/shared/learning";
 import type { LearningSettingsStore } from "./settings";
+import type { InspectorSnapshot } from "./auto-assign";
+
+/**
+ * The client this runtime needs: whatever the SDK's SkillRegistry reads, plus the Inspector read the
+ * Admin page asks through it.
+ *
+ * Structural, because this fork has no vendor client type to name. `SkillRegistry` owns its own
+ * client contract, so the rest is taken from the constructor rather than restated.
+ */
+type InspectorInput = { agentId?: string; runtimeContainerId?: string };
+export type LearnedSkillsClient = NonNullable<
+  NonNullable<ConstructorParameters<typeof SkillRegistry>[0]>["client"]
+> & {
+  getInspectorLearning(input: InspectorInput): Promise<InspectorSnapshot>;
+};
+export type LearnedSkillsInspection = {
+  getInspectorLearning(input: InspectorInput): Promise<InspectorSnapshot>;
+};
 
 // This published internal export is pinned to runtime 1.73.1. Keep its use here: the SDK owns
 // archive verification, refresh, revocation and stale-cache policy for every OpenBot framework.
@@ -90,7 +107,7 @@ export type LearningThread = {
 
 export function createLearningRuntime(options: {
   store: LearningSettingsStore;
-  client: CopilotKitIntelligence;
+  client: LearnedSkillsClient;
   freshnessWindowMs?: number;
 }) {
   const { store, client } = options;
@@ -197,7 +214,7 @@ export function createLearningRuntime(options: {
       };
     },
     inspect: (
-      input: Parameters<CopilotKitIntelligence["getInspectorLearning"]>[0],
+      input: Parameters<LearnedSkillsInspection["getInspectorLearning"]>[0],
     ) => client.getInspectorLearning(input),
   };
 }

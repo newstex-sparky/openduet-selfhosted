@@ -15,7 +15,7 @@ import {
 } from "@openbot/toolkit/copilotkit/agents";
 import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
 import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
-import { createIntelligenceThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
+import { createThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolsMiddleware } from "@openbot/toolkit/headless-tools";
@@ -1825,8 +1825,8 @@ export function mountCopilotRuntime(
   };
 
   /*
-   * The runtime in SSE mode, on this process's own thread platform. `mode` is inferred from the
-   * ABSENCE of `intelligence`: passing one is a type error, and this fork has none to pass.
+   * The runtime in SSE mode, on this process's own thread platform. The mode is inferred from the
+   * absence of a vendor client: passing one is a type error, and this fork has no client to pass.
    */
   const platform = localThreadPlatform(config);
   return mountLocalCopilotRuntime({
@@ -2008,7 +2008,7 @@ function mountLocalCopilotRuntime(input: {
       );
     },
     handoffRunner: (): unknown => platform.runner,
-    threadLock: createIntelligenceThreadLock({
+    threadLock: createThreadLock({
       client: platform,
       onRunBusy,
     }),

@@ -724,7 +724,7 @@ const approvalService = createServerApprovalService({
   actorFor,
   database,
   authoriseQuestion,
-  intelligence: localPlatform,
+  routineIntelligence: localPlatform,
   approvalComputerTools,
   review: (prompt, signal) => chooseSkills(prompt, signal),
   // Assigned further down, once delivery is wired.
@@ -1800,14 +1800,13 @@ const copilotRuntime = mountCopilotRuntime(
         .signalBusy(input.threadId, input.busy, input.runId)
         .catch(() => {});
     },
-    learningSettings,
   },
 );
 
 const responsibilityEngine = createServerResponsibilityEngine({
   database,
   responsibilityStore,
-  localPlatform,
+  routineIntelligence: localPlatform,
   routineAgentRunner,
   componentCatalog,
   buildAgentFor,
@@ -2684,7 +2683,6 @@ const app = createApp(
         },
         credentials: credentialStore,
         modelCheckAtBoot,
-        entitlements: runtimeEntitlements,
         plugins: pluginStore,
         primaryBot: primaryBotIdOf(
           tenantPackage.agents.map((agent) => agent.id),
