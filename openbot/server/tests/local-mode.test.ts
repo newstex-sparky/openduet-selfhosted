@@ -9,11 +9,12 @@ import { testDatabaseUrl } from "./support/database";
 import { testEnvironment } from "./support/environment";
 
 /**
- * LOCAL MODE: running with no CopilotKit Intelligence, by explicit opt-in only.
+ * LOCAL MODE: the only mode this fork has.
  *
- * Two promises are asserted here. The selection is strictly additive — nothing changes for a
- * deployment that has Intelligence configured or that configured nothing — and once selected, the
- * runtime mount reaches no Intelligence client at all and still refuses a run nobody signed in for.
+ * Two promises are asserted here. Local mode is what every deployment gets — with no Intelligence
+ * variables, with a leftover `.env` that still names them, and with no `OPENDUET_LOCAL_MODE` at all
+ * — and once mounted, the runtime reaches no Intelligence client and still refuses a run nobody
+ * signed in for.
  */
 
 /** The test environment with every Intelligence variable removed. */
@@ -30,61 +31,40 @@ function withoutIntelligence(
 }
 
 describe("choosing local mode", () => {
-  test("OPENDUET_LOCAL_MODE=true with no Intelligence selects local mode", () => {
-    expect(
-      loadConfig(withoutIntelligence({ OPENDUET_LOCAL_MODE: "true" })).runtime,
-    ).toEqual({ mode: "local", durableHistory: true });
-    expect(
-      runtimeCapabilities(withoutIntelligence({ OPENDUET_LOCAL_MODE: "1" })),
-    ).toEqual({ mode: "local", durableHistory: true });
-  });
-
-  test("a deployment with Intelligence configured is unchanged when the variable is absent or false", () => {
-    for (const value of [undefined, "", "false", "0"]) {
-      expect(
-        loadConfig(testEnvironment({ OPENDUET_LOCAL_MODE: value })).runtime
-          .mode,
-      ).toBe("intelligence");
+  test("boots into local mode whatever the mode variable says, including nothing", () => {
+    for (const value of [undefined, "", "false", "0", "true", "yes please"]) {
+      const environment = withoutIntelligence({ OPENDUET_LOCAL_MODE: value });
+      expect(loadConfig(environment).runtime).toEqual({
+        mode: "local",
+        durableHistory: true,
+      });
+      expect(runtimeCapabilities()).toEqual({
+        mode: "local",
+        durableHistory: true,
+      });
     }
   });
 
-  test("asking for local mode while an Intelligence key is set is refused", () => {
-    expect(() =>
-      loadConfig(testEnvironment({ OPENDUET_LOCAL_MODE: "true" })),
-    ).toThrow(/INTELLIGENCE_API_KEY is set/);
-    expect(() =>
-      loadConfig(
-        withoutIntelligence({
-          OPENDUET_LOCAL_MODE: "true",
-          INTELLIGENCE_API_KEY: "left-over",
-        }),
-      ),
-    ).toThrow(/INTELLIGENCE_API_KEY is set/);
-  });
-
-  test("the URLs .env.example ships filled in do not block local mode; only a key does", () => {
+  test("leftover Intelligence variables are ignored rather than refused", () => {
     expect(
       loadConfig(
-        withoutIntelligence({
+        testEnvironment({
           OPENDUET_LOCAL_MODE: "true",
           INTELLIGENCE_API_URL: "https://api.intelligence.copilotkit.ai",
-          INTELLIGENCE_GATEWAY_WS_URL:
-            "wss://realtime.intelligence.copilotkit.ai",
+          INTELLIGENCE_GATEWAY_WS_URL: "wss://realtime.intelligence.copilotkit.ai",
+          INTELLIGENCE_API_KEY: "left-over-key",
         }),
       ).runtime,
     ).toEqual({ mode: "local", durableHistory: true });
   });
 
-  test("configuring neither is still a refusal to boot, now pointing at the opt-in", () => {
-    expect(() => loadConfig(withoutIntelligence())).toThrow(
-      /CopilotKit Intelligence is required and is not configured\. Missing: .*OPENDUET_LOCAL_MODE=true/,
-    );
-  });
-
-  test("a value that is neither true nor false is refused rather than read as no", () => {
-    expect(() =>
-      loadConfig(withoutIntelligence({ OPENDUET_LOCAL_MODE: "yes please" })),
-    ).toThrow(/OPENDUET_LOCAL_MODE must be "true" or "false"/);
+  test("a licence token changes nothing, because nothing sends one", () => {
+    expect(
+      loadConfig({
+        ...withoutIntelligence(),
+        COPILOTKIT_LICENSE_TOKEN: "left-over-licence",
+      }).runtime,
+    ).toEqual({ mode: "local", durableHistory: true });
   });
 });
 

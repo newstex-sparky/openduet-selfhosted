@@ -25,7 +25,7 @@ import {
  * replace that memory.
  *
  * SHAPED LIKE THE PLATFORM, NOT LIKE THE PRODUCT. The columns are the fields
- * `CopilotKitIntelligence` returns — `id`, `user_id`, `agent_id`, `archived`, … — because the
+ * the SaaS platform returns — `id`, `user_id`, `agent_id`, `archived`, … — because the
  * readers in `server/src/copilot.ts` and the runtime's own thread endpoints read those shapes and
  * must not need to know which of the two is behind them.
  *

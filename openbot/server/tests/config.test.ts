@@ -2,9 +2,14 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { configuredAuthProviders, loadConfig } from "../src/config";
 
-// Intelligence is part of the MINIMUM contract, so it belongs in the base environment every other
-// case builds on. Leaving it out of the base would make most of this file assert the behaviour of a
-// deployment that is not allowed to exist.
+/**
+ * The minimum contract: a database, a key, and whichever sign-in the deployment wants.
+ *
+ * It used to carry `INTELLIGENCE_*` because Intelligence was part of that minimum. This fork is
+ * local-only, so those variables are no longer required — and no longer read — and a case that
+ * wants to prove they are ignored sets them itself. The licence token stays out for the same
+ * reason: nothing sends one.
+ */
 const baseEnvironment = {
   DATABASE_URL: "postgres://openbot:openbot@localhost:5432/openbot",
   KEY_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
@@ -13,10 +18,6 @@ const baseEnvironment = {
   BETTER_AUTH_SECRET: "a-long-enough-local-development-auth-secret",
   BETTER_AUTH_URL: "http://localhost:3001",
   INITIAL_ADMIN_EMAILS: "admin@openbot.test",
-  INTELLIGENCE_API_URL: "http://localhost:7100",
-  INTELLIGENCE_GATEWAY_WS_URL: "ws://localhost:7103",
-  INTELLIGENCE_API_KEY: "tenant-api-key",
-  COPILOTKIT_LICENSE_TOKEN: "license-token",
   MANAGED_AGENT_AG_UI_URL: " http://localhost:4200/ag-ui ",
   MANAGED_AGENT_TOKEN: "managed-agent-token",
 };
@@ -60,21 +61,12 @@ describe("deployment configuration", () => {
     expect(config.singleUser).toBe(false);
     expect(config.auth).toBeUndefined();
     expect(config.organizationAuthUrl).toBe("https://openbot.company.example");
-    expect(config.runtime.intelligence?.apiKey).toBe("tenant-api-key");
+    expect(config.runtime).toEqual({ mode: "local", durableHistory: true });
   });
-  test("resolves the Intelligence runtime, which is the only runtime", () => {
+  test("resolves local mode, which is the only runtime", () => {
     const config = loadConfig(baseEnvironment);
 
-    expect(config.runtime).toEqual({
-      mode: "intelligence",
-      durableHistory: true,
-      intelligence: {
-        apiUrl: "http://localhost:7100",
-        gatewayWsUrl: "ws://localhost:7103",
-        apiKey: "tenant-api-key",
-        licenseToken: "license-token",
-      },
-    });
+    expect(config.runtime).toEqual({ mode: "local", durableHistory: true });
     expect(config.managedAgent).toEqual({
       endpoint: new URL("http://localhost:4200/ag-ui"),
       token: "managed-agent-token",
@@ -86,9 +78,6 @@ describe("deployment configuration", () => {
     const config = loadConfig({
       DATABASE_URL: baseEnvironment.DATABASE_URL,
       KEY_ENCRYPTION_KEY: baseEnvironment.KEY_ENCRYPTION_KEY,
-      INTELLIGENCE_API_URL: baseEnvironment.INTELLIGENCE_API_URL,
-      INTELLIGENCE_GATEWAY_WS_URL: baseEnvironment.INTELLIGENCE_GATEWAY_WS_URL,
-      INTELLIGENCE_API_KEY: baseEnvironment.INTELLIGENCE_API_KEY,
       MANAGED_AGENT_AG_UI_URL: baseEnvironment.MANAGED_AGENT_AG_UI_URL,
       MANAGED_AGENT_TOKEN: baseEnvironment.MANAGED_AGENT_TOKEN,
       // Explicit, because no provider means every visitor is the administrator and a deployment has
@@ -99,64 +88,25 @@ describe("deployment configuration", () => {
     expect(config.auth).toBeUndefined();
   });
 
-  // Without the OPENDUET_LOCAL_MODE opt-in (see local-mode.test.ts) there is no mode without
-  // Intelligence, so each of these is a refusal to boot rather than a degraded capability. Named individually because a deployment that sets three of
-  // four is the likeliest real mistake, and the message has to say which one is missing.
-  test.each([
-    "INTELLIGENCE_API_URL",
-    "INTELLIGENCE_GATEWAY_WS_URL",
-    "INTELLIGENCE_API_KEY",
-  ])("refuses to start when %s is missing", (name) => {
-    const environment: Record<string, string | undefined> = {
-      ...baseEnvironment,
-    };
-    delete environment[name];
-
-    expect(() => loadConfig(environment)).toThrow(
-      `CopilotKit Intelligence is required and is not configured. Missing: ${name}`,
-    );
-  });
-
-  test("starts without COPILOTKIT_LICENSE_TOKEN, because managed Intelligence no longer issues one", () => {
-    const environment: Record<string, string | undefined> = {
-      ...baseEnvironment,
-    };
-    delete environment.COPILOTKIT_LICENSE_TOKEN;
-
-    const config = loadConfig(environment);
-
-    if (config.runtime.mode !== "intelligence") {
-      throw new Error("expected the Intelligence runtime");
-    }
-    expect(config.runtime.intelligence.licenseToken).toBeUndefined();
-    expect(config.runtime.intelligence.apiKey).toBe(
-      baseEnvironment.INTELLIGENCE_API_KEY,
-    );
-  });
-
-  test("still forwards a licence token when a deployment sets one", () => {
+  // A leftover managed-deployment `.env` is not a deployment asking for another mode, because there
+  // is no other mode. These variables are ignored rather than refused (see `runtimeCapabilities` in
+  // src/config.ts), and nothing sends a licence token any more, so setting one changes nothing.
+  test("ignores leftover Intelligence variables rather than refusing to boot", () => {
     const config = loadConfig({
       ...baseEnvironment,
-      COPILOTKIT_LICENSE_TOKEN: "self-hosted-licence",
+      INTELLIGENCE_API_URL: "http://localhost:7100",
+      INTELLIGENCE_GATEWAY_WS_URL: "ws://localhost:7103",
+      INTELLIGENCE_API_KEY: "left-over-key",
+      COPILOTKIT_LICENSE_TOKEN: "left-over-licence",
     });
 
-    if (config.runtime.mode !== "intelligence") {
-      throw new Error("expected the Intelligence runtime");
-    }
-    expect(config.runtime.intelligence.licenseToken).toBe(
-      "self-hosted-licence",
-    );
+    expect(config.runtime).toEqual({ mode: "local", durableHistory: true });
   });
 
-  test("refuses to start when Intelligence is absent entirely, rather than degrading", () => {
-    expect(() =>
-      loadConfig({
-        DATABASE_URL: baseEnvironment.DATABASE_URL,
-        KEY_ENCRYPTION_KEY: baseEnvironment.KEY_ENCRYPTION_KEY,
-        MANAGED_AGENT_AG_UI_URL: baseEnvironment.MANAGED_AGENT_AG_UI_URL,
-        MANAGED_AGENT_TOKEN: baseEnvironment.MANAGED_AGENT_TOKEN,
-      }),
-    ).toThrow("CopilotKit Intelligence is required and is not configured");
+  test("starts with no Intelligence variables at all, in local mode", () => {
+    const config = loadConfig(baseEnvironment);
+
+    expect(config.runtime).toEqual({ mode: "local", durableHistory: true });
   });
 
   test("rejects incomplete OAuth client configuration", () => {

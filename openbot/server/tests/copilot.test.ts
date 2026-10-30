@@ -143,7 +143,7 @@ describe("deployment model selection", () => {
     environment: Record<string, string | undefined>,
   ) {
     const config = loadConfig({ ...testEnvironment(), ...environment });
-    expect(config.runtime.mode).toBe("intelligence");
+    expect(config.runtime.mode).toBe("local");
     const tenantPackage = await loadTenantPackage(packagePath);
     const model = runtimeModelForEnvironment(tenantPackage.model, environment);
     const recorder = new LLMock();

@@ -9,7 +9,7 @@
  *   - the runner (`runner`): an `AgentRunner` for `new CopilotRuntime({ runner })` in SSE mode, and
  *     the same object every headless turn (`toolkit/run-turn.ts`) drives;
  *   - the thread record and its history (`getOrCreateThread`, `getThread`, `getThreadMessages`),
- *     shaped like `CopilotKitIntelligence`'s answers so the existing call sites read it unchanged;
+ *     shaped like the SaaS platform's answers so the existing call sites read it unchanged;
  *   - the per-thread run lock (`ɵacquireThreadLock`, `ɵrenewThreadLock`, `ɵcleanupThreadLock`), with
  *     Intelligence's error contract: a conflict is a `PlatformRequestError` with status 409, a thread
  *     that is not there (or not yours) is one with status 404. `isLockConflict` and

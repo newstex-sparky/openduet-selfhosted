@@ -21,7 +21,6 @@ import {
 } from "@/lib/setup/queries";
 
 const ICONS: Record<SetupRowId, DuetIconName> = {
-  intelligence: "bulb",
   model: "waveform",
   google: "lock",
   gmail: "mail",

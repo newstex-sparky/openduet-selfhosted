@@ -11,7 +11,6 @@ import { client } from "@/lib/client";
  * Nothing on it is a secret's value: a key is reported as there or not there.
  */
 export type SetupRowId =
-  | "intelligence"
   | "model"
   | "google"
   | "gmail"

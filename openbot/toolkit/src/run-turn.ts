@@ -42,8 +42,8 @@
  *
  * WHY A SECOND RUNNER INSTANCE IS SAFE. The thread lock is a platform resource, not a process one —
  * `POST /api/threads/:id/lock`, Redis-backed, keyed by thread — so a lock taken by this runner is seen
- * by the runtime's runner and by every other replica. `IntelligenceAgentRunner.threads` is a local
- * fast path (`intelligence.mjs:105`, "Thread already running") and nothing else, which is why the
+ * by the runtime's runner and by every other replica. The runtime runner's own `threads` map is a
+ * local fast path ("Thread already running") and nothing else, which is why the
  * runner is built ONCE at wiring time and reused: one instance per turn would fragment that map, and
  * two concurrent turns on one thread would then race past the local check and collide at the platform
  * lock instead of failing cheaply here.
@@ -121,7 +121,7 @@ type ThreadHistoryMessage = {
  * The platform client, named by the methods this file calls and nothing else.
  *
  * Narrow and structural on purpose. It is what lets the tests drive every exit path without a
- * gateway, and it is the honest documentation of how much of `CopilotKitIntelligence` a headless turn
+ * gateway, and it is the honest documentation of how much of the platform a headless turn
  * depends on. The real client satisfies it; see the seam note above about the `ɵ` shapes being
  * restatements rather than imports.
  */
@@ -168,7 +168,7 @@ type EventStream = {
   }): unknown;
 };
 
-/** The `IntelligenceAgentRunner`, named by the two methods this file calls. */
+/** The platform's agent runner, named by the two methods this file calls. */
 export type RunnerLike = {
   run(request: {
     threadId: string;

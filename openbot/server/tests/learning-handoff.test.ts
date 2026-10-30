@@ -1,54 +1,33 @@
-import { expect, spyOn, test } from "bun:test";
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { expect, test } from "bun:test";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import { createStallGuard } from "../src/channels/stall-guard";
 import { loadConfig } from "../src/config";
 import { mountCopilotRuntime } from "../src/copilot";
-import { createLearningSettingsStore } from "../src/learning/settings";
+import { localThreadPlatform } from "../src/local-mode";
+import { testDatabaseUrl } from "./support/database";
 import { testEnvironment } from "./support/environment";
 
-test("delegation creates its scratch Thread with the addressed Bot's Learning assignment before locking", async () => {
-  const order: string[] = [];
-  const reads = spyOn(
-    CopilotKitIntelligence.prototype,
-    "getThread",
-  ).mockImplementation(async () => {
-    order.push("check-thread");
-    const error = new Error("Missing synthetic Thread");
-    error.name = "PlatformRequestError";
-    Object.assign(error, { status: 404 });
-    throw error;
-  });
-  const created = spyOn(
-    CopilotKitIntelligence.prototype,
-    "getOrCreateThread",
-  ).mockImplementation(async (input) => {
-    order.push("create-thread");
-    return { thread: { id: input.threadId, name: null }, created: true };
-  });
-  const locked = spyOn(
-    CopilotKitIntelligence.prototype,
-    "ɵacquireThreadLock",
-  ).mockImplementation(async (input) => {
-    order.push("lock");
-    return {
-      threadId: input.threadId,
-      runId: input.runId,
-      joinToken: "synthetic-join",
-    };
-  });
+/**
+ * A delegation's scratch Thread, in the only mode this fork has.
+ *
+ * The lock used to be Intelligence's, and the addressed Bot's Learning assignment was handed to the
+ * platform so it could attach a container. Local mode has no Learning containers: the lock creates
+ * the thread in this deployment's Postgres and takes that thread's lock row. What is asserted here
+ * is that the thread exists before the lock is held, that it belongs to the person who asked for
+ * it, and that a second run in the same conversation is refused rather than queued.
+ */
+test("delegation creates its scratch Thread before locking, then refuses a second run", async () => {
   const guard = createStallGuard({ stallMs: 0 });
+  const config = loadConfig(
+    testEnvironment({
+      OPENDUET_LOCAL_MODE: undefined,
+      DATABASE_URL: testDatabaseUrl(),
+    }),
+  );
+  const threadId = `learning-handoff-scratch-${crypto.randomUUID()}`;
   try {
-    const settings = createLearningSettingsStore(undefined, {
-      containerId: "general",
-    });
-    await settings.write({
-      enabled: true,
-      defaultTarget: { containerId: "general" },
-      agents: { specialist: { containerId: "specialist-work" } },
-    });
     const runtime = mountCopilotRuntime(
-      loadConfig(testEnvironment()),
+      config,
       createActorAgentResolver({
         model: { provider: "openai", defaultModel: "unused" },
         loadAgents: async () => [],
@@ -57,37 +36,44 @@ test("delegation creates its scratch Thread with the addressed Bot's Learning as
       }),
       async () => ({ id: "person", name: "Person" }),
       async () => ({ id: "person", role: "user" }),
-      { learningSettings: settings },
     );
+
     expect(
       await runtime.threadLock.acquire({
-        threadId: "scratch",
+        threadId,
         runId: "delegation-run",
         userId: "person",
         agentId: "specialist",
       }),
     ).toEqual({ runId: "delegation-run" });
-    expect(order).toEqual(["check-thread", "create-thread", "lock"]);
-    expect(reads.mock.calls[0]?.[0]).toEqual({
-      threadId: "scratch",
-      userId: "person",
-    });
-    expect(created.mock.calls[0]?.[0]).toMatchObject({
-      threadId: "scratch",
-      userId: "person",
+
+    // The thread the lock was taken on is real, and it belongs to the person the hop was made for.
+    expect(
+      await localThreadPlatform(config).getThread({
+        threadId,
+        userId: "person",
+      }),
+    ).toMatchObject({
+      id: threadId,
       agentId: "specialist",
-      learningContainerId: "specialist-work",
+      createdById: "person",
     });
-    expect(locked.mock.calls[0]?.[0]).toMatchObject({
-      threadId: "scratch",
-      userId: "person",
-      agentId: "specialist",
-      learningContainerId: "specialist-work",
+
+    // A second run in the same conversation is refused rather than queued.
+    expect(
+      await runtime.threadLock.acquire({
+        threadId,
+        runId: "second-run",
+        userId: "person",
+        agentId: "specialist",
+      }),
+    ).toBeNull();
+
+    await runtime.threadLock.release({
+      threadId,
+      runId: "delegation-run",
     });
   } finally {
-    reads.mockRestore();
-    created.mockRestore();
-    locked.mockRestore();
     guard.stop();
   }
 });
