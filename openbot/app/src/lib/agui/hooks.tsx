@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -52,11 +53,15 @@ export interface UseAgentProps {
 export interface UseAgentResult {
   agent: RuntimeAgent;
   /**
-   * Whether there is an agent to send to.
+   * Whether this surface may act on the agent yet.
    *
-   * True as soon as one exists, which is synchronous here: there is no discovery round-trip
-   * between this tab and its own server, so "not ready yet" is not a state this client has. A run
-   * that cannot reach the runtime fails at the run, where the failure is reported.
+   * False on the render that mounts the caller and true from the next one. There is no discovery
+   * round-trip to wait for — the agent is resolved synchronously — so the wait is for the commit,
+   * not for the server. It matters because a surface acts on readiness from an effect (`ChannelChat`
+   * joins its thread there): an effect that can start on the mounting render also runs a second time
+   * under StrictMode, and two concurrent joins on one agent replay the thread twice. Starting after
+   * mount keeps it to one. A send that arrives before then is ordered by the caller's own gate, so
+   * nothing is lost by waiting.
    */
   isReady: boolean;
 }
@@ -111,7 +116,12 @@ export function useAgent({
   );
   // Subscribing is the effect; the value returned is the revision React compares.
   useSyncExternalStore(subscribe, () => revisionOf(agent));
-  return { agent, isReady: true };
+  // Ready from the commit after mount, never on the render that mounts the caller. See `isReady`.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setReady(true);
+  }, []);
+  return { agent, isReady: ready };
 }
 
 function subscribeToAgent(

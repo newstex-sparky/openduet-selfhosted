@@ -355,10 +355,17 @@ export class CopilotKit {
         ...this.contextArgsFor(agent),
         ...(forwardedProps === undefined ? {} : { forwardedProps }),
       });
+      /*
+       * THE CONTINUATION IS ONE OF THIS CALL'S RUNS. A turn that ends on a browser-side tool
+       * continues in another run, and that run is refused the same ways (the thread is locked by
+       * another device, the network drops). It has to report through the same subscribers and
+       * return here too: thrown past this point it skips the surface's rollback, and a refused
+       * continuation was left drawn as a finished turn.
+       */
+      await this.settleClientTools(agent);
     } catch {
       return;
     }
-    await this.settleClientTools(agent);
   }
 
   /** Add context to every run this agent makes until the id comes back to `removeContext`. */

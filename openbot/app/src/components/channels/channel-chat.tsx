@@ -470,6 +470,11 @@ export function ChannelChat({
       alive.current = false;
     };
   }, []);
+  /**
+   * This mount's own join is replaying (`connectAgent`), which holds `agent.isRunning` true the way
+   * a run does. See the join effect and the guard in `say`: it is a wait already ordered, not a turn.
+   */
+  const joining = useRef(false);
 
   /**
    * First-message seed from the compose screen. It is taken once per mount and retained until the
@@ -584,10 +589,21 @@ export function ChannelChat({
         },
       });
       const connect = copilotkit.connectAgent({ agent });
-      const joined = connect.then(
-        () => undefined,
-        () => undefined,
-      );
+      /*
+       * A JOIN IS NOT A TURN. `connectAgent` holds `agent.isRunning` true for its whole replay,
+       * exactly as a run does, and this client is ready in the same commit that starts the join —
+       * so a seed's `say` would look at a running agent and queue itself behind a connect that
+       * already has the message ordered after it. Tracked here, so `say` can tell the two apart.
+       */
+      joining.current = true;
+      const joined = connect
+        .then(
+          () => undefined,
+          () => undefined,
+        )
+        .finally(() => {
+          joining.current = false;
+        });
       let live: Promise<void> | null = null;
       let followed = false;
       try {
@@ -1327,7 +1343,11 @@ export function ChannelChat({
       );
     }
     // A turn this tab did not start is going: not a refusal, a wait. The queue parks the words.
-    if (followingRef.current || agentRef.current.isRunning) {
+    // The join is not one: the message it is about to send is ordered behind that join already.
+    if (
+      followingRef.current ||
+      (agentRef.current.isRunning && !joining.current)
+    ) {
       throw new ThreadBusyError();
     }
 
