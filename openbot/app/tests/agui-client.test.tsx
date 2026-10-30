@@ -270,6 +270,23 @@ describe("the agent on the wire", () => {
     expect(agent.messages.at(-1)?.content).toBe("The file says a.");
   });
 
+  test("keeps the sentence a failed run reported", async () => {
+    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    stubRuntime([
+      [
+        frame({ type: "RUN_STARTED", threadId: "thread-1", runId: "run-1" }),
+        frame({
+          type: "RUN_ERROR",
+          message: "The Bot's stream stopped.",
+          code: "stalled",
+        }),
+      ].join(""),
+    ]);
+    const agent = kit.agentFor({ agentId: "bot", threadId: "thread-1" });
+    await kit.runAgent({ agent }).catch(() => undefined);
+    expect(agent.error?.message).toBe("The Bot's stream stopped.");
+  });
+
   test("stops the run, and stops answering a tool still in flight", async () => {
     const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
     stubRuntime([toolTurn({ id: "call-1", name: "slow", args: "{}" })]);

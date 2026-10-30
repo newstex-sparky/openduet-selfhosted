@@ -65,6 +65,16 @@ function runtimeBase(runtimeUrl: string): string {
 export class RuntimeAgent extends HttpAgent {
   readonly runtimeUrl: string;
   readonly runtimeAgentId: string;
+  /**
+   * What went wrong on this agent's last run, or null.
+   *
+   * The base agent reports a failure through its subscribers and keeps nothing, which leaves a
+   * surface that mounts after the failure with no way to say what happened. Held here so a reload of
+   * the same screen — or a second card on it — reads the same sentence the first one saw. Cleared
+   * when the next run begins, because a sentence about a turn that is over should stay until there is
+   * something newer to look at.
+   */
+  error: Error | null = null;
 
   constructor(config: RuntimeAgentConfig) {
     const { runtimeUrl, runtimeAgentId } = config;
@@ -80,6 +90,21 @@ export class RuntimeAgent extends HttpAgent {
     // Assigned after `super`, because `super` is called before these fields exist.
     this.runtimeUrl = runtimeBase(runtimeUrl);
     this.runtimeAgentId = runtimeAgentId;
+    this.subscribe({
+      onRunInitialized: () => {
+        this.error = null;
+      },
+      onRunErrorEvent: ({ event }) => {
+        this.error = new Error(
+          typeof event.message === "string" && event.message.trim()
+            ? event.message
+            : "The run failed.",
+        );
+      },
+      onRunFailed: ({ error }) => {
+        this.error = error;
+      },
+    });
   }
 
   /** Every request this agent makes carries the session cookie. */
