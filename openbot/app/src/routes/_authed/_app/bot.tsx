@@ -1,4 +1,4 @@
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@/lib/agui";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -238,13 +238,11 @@ function BotChat({ agentId, name }: { agentId: string; name: string }) {
         ) : null}
         <div className="min-h-0 flex-1">
           {/*
-           * Keyed on the thread as well as the agent. Switching agents was already handled by
-           * `agentId`, but `startNew` changes only the thread while the agent stays put, and the
-           * packaged chat's own `startNewThread`/`setActiveThreadId` are proven no-ops once
-           * `threadId` is a controlled prop (node_modules/@copilotkit/react-core/dist/copilotkit-
-           * C4RqjAba.mjs:226-254): asking it to start over does nothing while it still holds the
-           * old id. A key that omits the thread would leave the previous conversation on screen
-           * under a composer that silently posts to the new one.
+           * Keyed on the thread as well as the agent. `CopilotChat` binds the agent and thread it
+           * is given and never writes a thread back, so `startNew` — which changes only the thread
+           * while the agent stays put — would otherwise leave the previous conversation on screen
+           * under a composer that posts to the new one. A key that names the thread gives each
+           * conversation its own agent binding, transcript and staged attachments.
            */}
           {threadId ? (
             <CopilotChat

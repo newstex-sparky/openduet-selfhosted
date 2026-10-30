@@ -7,7 +7,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
@@ -84,7 +84,7 @@ function mount(
   });
   const tree = (next: typeof props) => (
     <QueryClientProvider client={client}>
-      <CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
         <ReplyChipsTool />
         <ConversationView
           disabled={next.disabled ?? false}

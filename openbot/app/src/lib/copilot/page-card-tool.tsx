@@ -1,4 +1,4 @@
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useRenderTool } from "@/lib/agui";
 import { Link, useRouter } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import {

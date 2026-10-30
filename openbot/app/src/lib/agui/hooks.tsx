@@ -312,7 +312,14 @@ export function useRenderTool<S extends ParametersSchema>(
  */
 export function useRenderToolCall(): (props: {
   toolCall: ToolCall;
-  toolMessage?: { content: string };
+  /**
+   * The `tool` message that answered the call, when one has arrived.
+   *
+   * Only `content` is read here; the field accepts the whole protocol message because that is what
+   * a transcript holds and re-shaping it at every call site would be a copy of a value nothing
+   * needs copied.
+   */
+  toolMessage?: { content: string } & Record<string, unknown>;
 }) => ReactNode | null {
   const { copilotkit } = useCopilotKit();
   const configuredAgentId = useDefaultAgentId();

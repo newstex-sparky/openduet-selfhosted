@@ -1,9 +1,9 @@
 import type { ActivityMessage, Message } from "@ag-ui/core";
-import type { Attachment } from "@copilotkit/react-core/v2";
+import type { Attachment } from "@/lib/agui";
 import {
   useRenderActivityMessage,
   useRenderToolCall,
-} from "@copilotkit/react-core/v2";
+} from "@/lib/agui";
 import {
   readConnectPrompt,
   SHOW_APP_ACCESS_TOOL,

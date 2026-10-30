@@ -1,5 +1,5 @@
 import type { RunAgentInput } from "@ag-ui/core";
-import type { ReactFrontendTool } from "@copilotkit/react-core/v2";
+import type { ReactFrontendTool } from "@/lib/agui";
 
 type HandlerContext = Parameters<NonNullable<ReactFrontendTool["handler"]>>[1];
 type Agent = NonNullable<HandlerContext["agent"]>;

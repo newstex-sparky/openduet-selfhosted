@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeAll, expect, spyOn, test } from "bun:test";
-import * as ReactCoreV2 from "@copilotkit/react-core/v2";
+import * as ReactCoreV2 from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render } from "@testing-library/react";
+import { z } from "zod";
 import { observeApprovalAgent } from "@/lib/copilot/approval-context";
 import { useFrontendTool } from "@/lib/copilot/approval-tools";
 
@@ -54,6 +55,7 @@ function Tools() {
   useFrontendTool({
     name: "computer_click",
     description: "Click",
+    parameters: z.object({}),
     handler: async (args: Record<string, unknown>) => {
       direct.push(args);
       return { clicked: true };

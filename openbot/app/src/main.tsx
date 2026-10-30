@@ -4,7 +4,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { queryClient } from "./query-client";
 import { router } from "./router";
-import "@copilotkit/react-core/v2/styles.css";
 import "./styles.css";
 
 const rootElement = document.getElementById("root");

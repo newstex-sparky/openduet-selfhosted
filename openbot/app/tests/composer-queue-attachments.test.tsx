@@ -15,7 +15,7 @@ import {
   type RenderResult,
   waitFor,
 } from "@testing-library/react";
-import * as ReactCoreV2 from "@copilotkit/react-core/v2";
+import * as ReactCoreV2 from "@/lib/agui";
 import { useCallback } from "react";
 import { Composer } from "@/components/channels/composer/composer";
 import { ConversationView } from "@/components/channels/conversation-view";

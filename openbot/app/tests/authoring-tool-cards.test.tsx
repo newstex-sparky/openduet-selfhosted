@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { CopilotKitProvider, useCopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, useCopilotKit } from "@/lib/agui";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
@@ -131,7 +131,7 @@ function Capture({ kept, names }: { kept: Kept; names: string[] }) {
       (candidate) => candidate.name === name,
     );
     if (entry) kept.renderers.set(name, entry.render as Renderer);
-    const tool = copilotkit.getTool({ toolName: name });
+    const tool = copilotkit.handlerFor(name, undefined)?.tool;
     if (tool?.handler) kept.handlers.set(name, tool.handler as Handler);
   }
   return null;
@@ -145,7 +145,7 @@ function Declare() {
 function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
         <ActiveBotProvider>
           <Declare />
           {children}

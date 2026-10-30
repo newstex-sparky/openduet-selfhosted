@@ -19,7 +19,7 @@
  * `respondToInterrupt` is what continues it.
  */
 import type { AbstractAgent } from "@ag-ui/client";
-import type { Message, Tool, ToolCall } from "@ag-ui/core";
+import type { Message, RunAgentInput, Tool, ToolCall } from "@ag-ui/core";
 import { z } from "zod";
 import { RuntimeAgent } from "./agent";
 import type {
@@ -101,7 +101,26 @@ export class CopilotKit {
   >();
   private readonly subscribers = new Set<CopilotKitSubscriber>();
   private readonly aborts = new WeakMap<AbstractAgent, AbortController>();
+  /**
+   * Extra context a run is given, by the id `addContext` handed back.
+   *
+   * The voice bridge attaches the channel's earlier conversations this way: the words are data the
+   * model reads, not instructions, and they belong to one turn's input rather than to the thread's
+   * stored messages.
+   */
+  private readonly contexts = new Map<
+    string,
+    { description: string; value: string; agentIds?: string[] }
+  >();
   private renderVersion = 0;
+  /**
+   * The registry read as one array, rebuilt only when the registry changes.
+   *
+   * `useSyncExternalStore` compares snapshots by identity, so a fresh array per read would loop
+   * forever. The version counter below is what invalidates this.
+   */
+  private renderToolCallsCache?: readonly ReactToolCallRenderer[];
+  private activityRenderersCache?: readonly ReactActivityMessageRenderer<unknown>[];
 
   constructor(config: CopilotKitConfig) {
     this.runtimeUrl = config.runtimeUrl;
@@ -201,14 +220,21 @@ export class CopilotKit {
   // -------------------------------------------------------------- renders
 
   get renderToolCalls(): readonly ReactToolCallRenderer[] {
-    return [...this.configuredRenderToolCalls, ...this.hookRenderers.values()];
+    if (!this.renderToolCallsCache)
+      this.renderToolCallsCache = [
+        ...this.configuredRenderToolCalls,
+        ...this.hookRenderers.values(),
+      ];
+    return this.renderToolCallsCache;
   }
 
   get renderActivityMessages(): readonly ReactActivityMessageRenderer<unknown>[] {
-    return [
-      ...this.configuredActivityRenderers,
-      ...this.hookActivityRenderers.values(),
-    ];
+    if (!this.activityRenderersCache)
+      this.activityRenderersCache = [
+        ...this.configuredActivityRenderers,
+        ...this.hookActivityRenderers.values(),
+      ];
+    return this.activityRenderersCache;
   }
 
   /** The counter a component subscribes to; it changes whenever a card is added or removed. */
@@ -281,6 +307,8 @@ export class CopilotKit {
 
   private notifyRenderChange(): void {
     this.renderVersion += 1;
+    this.renderToolCallsCache = undefined;
+    this.activityRenderersCache = undefined;
     for (const subscriber of this.subscribers) {
       subscriber.onRenderToolCallsChanged?.({
         copilotkit: this,
@@ -298,10 +326,70 @@ export class CopilotKit {
    * The loop is the whole point of a client tool: a run that calls one ends, its answer is appended
    * as a `tool` message, and the next run reads it. A card waiting on a person is not in this loop —
    * it is an interrupt, and `respondToInterrupt` is what continues that run.
+   *
+   * `forwardedProps` rides this one run and nothing after it. An A2UI action is the case that needs
+   * it: the click names the surface and the values a person edited, the server reads them once, and
+   * a later turn of the same conversation must not inherit them.
    */
-  async runAgent({ agent }: { agent: AbstractAgent }): Promise<void> {
-    await agent.runAgent({ tools: this.toolsFor(agent) });
+  async runAgent({
+    agent,
+    forwardedProps,
+  }: {
+    agent: AbstractAgent;
+    forwardedProps?: Record<string, unknown>;
+  }): Promise<void> {
+    /*
+     * A FAILED RUN RESOLVES HERE, and that is deliberate.
+     *
+     * The surfaces around this call were written against an SDK whose `runAgent` reported a
+     * failure through the agent's subscribers (`onRunFailed`, `onRunErrorEvent`) and returned
+     * anyway; `channel-chat.tsx` reads the failure from exactly those subscribers and decides
+     * from them whether the turn's bubble comes off screen and its words go back in the box.
+     * Letting the raw throw out of here skips every one of those decisions — the failed send
+     * stayed drawn as sent. Nothing is lost by keeping the older shape: the agent still records
+     * the error in `agent.error`, and every subscriber still hears it.
+     */
+    try {
+      await agent.runAgent({
+        tools: this.toolsFor(agent),
+        ...this.contextArgsFor(agent),
+        ...(forwardedProps === undefined ? {} : { forwardedProps }),
+      });
+    } catch {
+      return;
+    }
     await this.settleClientTools(agent);
+  }
+
+  /** Add context to every run this agent makes until the id comes back to `removeContext`. */
+  addContext(context: {
+    description: string;
+    value: string;
+    agentIds?: string[];
+  }): string {
+    const id = `context-${crypto.randomUUID()}`;
+    this.contexts.set(id, context);
+    return id;
+  }
+
+  removeContext(id: string): void {
+    this.contexts.delete(id);
+  }
+
+  /** The context one agent's run carries: what was attached for it, and what was attached for all. */
+  private contextArgsFor(agent: AbstractAgent): { context?: RunAgentInput["context"] } {
+    const agentId = agent.agentId;
+    const context = [...this.contexts.values()]
+      .filter(
+        (entry) =>
+          entry.agentIds === undefined ||
+          (agentId !== undefined && entry.agentIds.includes(agentId)),
+      )
+      .map((entry) => ({
+        description: entry.description,
+        value: entry.value,
+      }));
+    return context.length > 0 ? { context } : {};
   }
 
   /**
@@ -381,10 +469,13 @@ export class CopilotKit {
         answerable.map((call) => this.executeTool(agent, call, signal)),
       );
       if (signal.aborted) return;
-      agent.addMessages(answers);
+      await agent.addMessages(answers);
       await this.waitForPendingFrameworkUpdates();
       if (signal.aborted) return;
-      await agent.runAgent({ tools: this.toolsFor(agent) });
+      await agent.runAgent({
+        tools: this.toolsFor(agent),
+        ...this.contextArgsFor(agent),
+      });
     }
   }
 

@@ -8,7 +8,7 @@ import {
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
 import { frameTaskInput, frameTaskReply } from "@openbot/shared/task-brief";
-import { CopilotKitContext } from "@copilotkit/react-core/v2/context";
+import { CopilotKitContext } from "@/lib/agui/context";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render } from "@testing-library/react";

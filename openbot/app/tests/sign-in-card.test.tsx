@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { CopilotKitProvider, useCopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, useCopilotKit } from "@/lib/agui";
 import {
   focusManager,
   QueryClient,
@@ -83,9 +83,8 @@ function Capture({ kept }: { kept: Kept }) {
     (candidate) => candidate.name === "computer_request_sign_in",
   );
   kept.renderer = entry?.render as Renderer | undefined;
-  kept.handler = copilotkit.getTool({
-    toolName: "computer_request_sign_in",
-  })?.handler as Kept["handler"];
+  kept.handler = copilotkit.handlerFor("computer_request_sign_in", undefined)?.tool
+    .handler as Kept["handler"];
   return null;
 }
 
@@ -98,7 +97,7 @@ function Providers({
 }) {
   return (
     <QueryClientProvider client={queries}>
-      <CopilotKitProvider>{children}</CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">{children}</CopilotKitProvider>
     </QueryClientProvider>
   );
 }

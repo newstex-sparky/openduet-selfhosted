@@ -1,4 +1,4 @@
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@/lib/agui";
 import { useEffect, useState } from "react";
 import { sayableReason } from "@/lib/channels/run-lifecycle";
 

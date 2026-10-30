@@ -1,5 +1,5 @@
 import type { Message } from "@ag-ui/core";
-import type { Attachment } from "@copilotkit/react-core/v2";
+import type { Attachment } from "@/lib/agui";
 import { text } from "prompt-area/helpers";
 import {
   type ReactNode,

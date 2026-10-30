@@ -1,4 +1,4 @@
-import type { Attachment } from "@copilotkit/react-core/v2";
+import type { Attachment } from "@/lib/agui";
 import {
   afterAll,
   afterEach,

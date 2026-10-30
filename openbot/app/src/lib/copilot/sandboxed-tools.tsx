@@ -1,7 +1,7 @@
 import {
   OpenGenerativeUIActivityRenderer,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@/lib/agui";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import * as z from "zod";

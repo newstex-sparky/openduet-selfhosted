@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render } from "@testing-library/react";
@@ -81,7 +81,7 @@ function Chat({
 }) {
   return (
     <QueryClientProvider client={queries}>
-      <CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
         <PageCardTool />
         <ConversationView busy={busy} messages={messages} onSubmit={() => {}} />
       </CopilotKitProvider>

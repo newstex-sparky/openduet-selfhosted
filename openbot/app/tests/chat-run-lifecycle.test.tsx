@@ -10,12 +10,16 @@ import {
 } from "bun:test";
 import type { Message, RunAgentInput } from "@ag-ui/core";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  type ParametersSchema,
+  useFrontendTool,
+} from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type ComponentProps, StrictMode } from "react";
+import { StrictMode } from "react";
 import { z } from "zod";
 import { ChannelChat } from "@/components/channels/channel-chat";
 import { stashFirstMessage } from "@/components/channels/transcript-messages";
@@ -234,10 +238,15 @@ function reset({
     ]);
 }
 
-function tree(
-  channel: AgentChannel,
-  frontendTools?: ComponentProps<typeof CopilotKitProvider>["frontendTools"],
-) {
+/** A browser-answered tool a test hands to the registry. */
+type TestTool = {
+  name: string;
+  description: string;
+  handler?: (...args: never[]) => unknown;
+  parameters: ParametersSchema;
+};
+
+function tree(channel: AgentChannel, frontendTools?: readonly TestTool[]) {
   queryClient.setQueryData(channelKeys.list(), {
     pages: [
       {
@@ -259,14 +268,28 @@ function tree(
   });
   return (
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider
-        frontendTools={frontendTools}
-        runtimeUrl="http://localhost/api/copilotkit"
-      >
+      <CopilotKitProvider runtimeUrl="http://localhost/api/copilotkit">
+        {frontendTools && <FrontendTools tools={frontendTools} />}
         <ChannelChat channel={channel} runtimeAgentId={BOT} />
       </CopilotKitProvider>
     </QueryClientProvider>
   );
+}
+
+/** Registers the tools a test wants the browser to answer, inside the provider's registry. */
+function FrontendTools({
+  tools,
+}: {
+  tools: readonly TestTool[];
+}) {
+  for (const tool of tools)
+    useFrontendTool({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+      handler: tool.handler as never,
+    });
+  return null;
 }
 
 async function type(view: ReturnType<typeof render>, text: string) {
@@ -784,7 +807,12 @@ test.each(["network failure", "thread conflict"])(
     };
     const view = render(
       tree(freshChannel(), [
-        { name: "look", handler: tool, parameters: z.object({}) },
+        {
+          name: "look",
+          description: "Look at the screen.",
+          handler: tool,
+          parameters: z.object({}),
+        },
       ]),
     );
     await waitFor(() => expect(connectCalls).toBe(1));

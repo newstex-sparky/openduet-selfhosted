@@ -1,4 +1,4 @@
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useRenderTool } from "@/lib/agui";
 import { useState } from "react";
 import { z } from "zod";
 import { repliesShown } from "@/components/channels/chat-messages";

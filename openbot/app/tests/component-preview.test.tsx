@@ -7,7 +7,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import * as ReactCoreV2 from "@copilotkit/react-core/v2";
+import * as ReactCoreV2 from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render } from "@testing-library/react";

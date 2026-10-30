@@ -1,8 +1,9 @@
 import {
   type Attachment,
+  type AttachmentUploadError,
   type AttachmentsConfig,
   useAttachments,
-} from "@copilotkit/react-core/v2";
+} from "@/lib/agui";
 import {
   IconArrowUp,
   IconPlayerStopFilled,
@@ -68,13 +69,10 @@ import { useDictation } from "./use-dictation";
 import { VoiceSheet } from "./voice-sheet";
 
 /**
- * The SDK's upload failure, derived rather than imported for the reason `attachments.ts` records
- * against the same derivation: `@copilotkit/shared` declares `AttachmentUploadError` and is not a
- * dependency of `app/`, so the only public spelling of this shape is the config it is passed to.
+ * Why a file the composer took did not become an attachment: the reason, the file, and the
+ * sentence to show. Named here so the rejection bookkeeping below reads in one word.
  */
-type UploadFailure = Parameters<
-  NonNullable<AttachmentsConfig["onUploadFailed"]>
->[0];
+type UploadFailure = AttachmentUploadError;
 
 /**
  * WHY A STAGED ATTACHMENT LEFT THE COMPOSER WITHOUT BEING SENT.

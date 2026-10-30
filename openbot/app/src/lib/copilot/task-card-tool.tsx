@@ -1,4 +1,4 @@
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useRenderTool } from "@/lib/agui";
 import { Link, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import { ToolLine } from "@/components/channels/tool-line";

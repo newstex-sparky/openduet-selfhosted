@@ -1,4 +1,4 @@
-import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useFrontendTool, useHumanInTheLoop } from "@/lib/agui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import {

@@ -1,16 +1,17 @@
 import {
-  type ReactFrontendTool,
+  type FrontendToolConfig,
+  type ParametersOf,
+  type ParametersSchema,
+  type ToolRenderProps,
   useCopilotKit,
   useFrontendTool as useSDKFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@/lib/agui";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { InlineApproval } from "@/components/approvals/inline-approval";
 import { tryClient } from "@/lib/client";
 import { useActiveBotHolder } from "./active-bot";
 import { frontendApprovalSnapshot } from "./approval-context";
-
-type RenderProps = { toolCallId: string; [key: string]: unknown };
 
 const writes = new Set([
   "computer_click",
@@ -26,17 +27,20 @@ const writes = new Set([
  *
  * EVERY CHANGE GOES THROUGH THE GATE, not only when "Ask before making changes" is on. The server
  * decides, and it can ask for reasons the browser cannot see: a team rule, a safety requirement, the
- * auto-review model. It used to read the person's switch here, and the SDK registers a tool's
- * handler once and never again (its registration effect does not depend on the handler), so the
- * handler kept the switch as it was on first render, usually still loading. Every change then went
- * straight to the computer outside any run, and the gate could only answer "this action needs an
- * authenticated run". Nothing in this handler may depend on render-time state for that reason.
+ * auto-review model. It used to read the person's switch here, and a registration that kept the
+ * first render's handler forever kept the switch as it was on that render, usually still loading.
+ * Every change then went straight to the computer outside any run, and the gate could only answer
+ * "this action needs an authenticated run". Nothing in this handler may depend on render-time state
+ * for that reason.
+ *
+ * The generic is the tool's SCHEMA, not its argument object: `useFrontendTool` types the handler's
+ * arguments from `parameters`, so a caller's own shape is checked where it is written.
  */
-export function useFrontendTool<T extends Record<string, unknown>>(
-  tool: ReactFrontendTool<T>,
+export function useFrontendTool<S extends ParametersSchema>(
+  tool: FrontendToolConfig<S>,
 ) {
   const { copilotkit } = useCopilotKit();
-  // Stable for the provider's life, so the SDK's once-registered handler may keep it.
+  // Stable for the provider's life, so a handler may keep it.
   const queryClient = useQueryClient();
   const bot = useActiveBotHolder();
   const render = tool.render;
@@ -44,10 +48,10 @@ export function useFrontendTool<T extends Record<string, unknown>>(
     ...tool,
     ...(writes.has(tool.name)
       ? {
-          // A component, so the approval card can use hooks; the SDK keeps this function forever.
-          render: (props: RenderProps) => {
+          // A component, so the approval card can use hooks.
+          render: (props: ToolRenderProps<ParametersOf<S>>) => {
             const Original = render as
-              | ((props: RenderProps) => ReactNode)
+              | ((card: ToolRenderProps<ParametersOf<S>>) => ReactNode)
               | undefined;
             return (
               <InlineApproval
@@ -59,7 +63,7 @@ export function useFrontendTool<T extends Record<string, unknown>>(
         }
       : {}),
     handler: tool.handler
-      ? async (args, context) => {
+      ? async (args: ParametersOf<S>, context) => {
           if (!writes.has(tool.name)) return tool.handler?.(args, context);
           let snapshot: ReturnType<typeof frontendApprovalSnapshot>;
           try {
@@ -77,7 +81,7 @@ export function useFrontendTool<T extends Record<string, unknown>>(
           if (response.status === 202) {
             if (!context.agent)
               throw new Error("The interrupted conversation is unavailable.");
-            // Stop signals the SDK to discard this handler's unfinished result. The server owns
+            // Stop signals the client to discard this handler's unfinished result. The server owns
             // resume: the decision executes the action once and continues this conversation.
             copilotkit.stopAgent({ agent: context.agent });
             // Draw the card now rather than on the inbox's next poll.

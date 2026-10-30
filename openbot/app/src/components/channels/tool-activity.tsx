@@ -1,4 +1,4 @@
-import { CopilotKitContext } from "@copilotkit/react-core/v2/context";
+import { CopilotKitContext } from "@/lib/agui/context";
 import { useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 import { Streamdown } from "streamdown";
 import { PendingApprovals } from "@/components/approvals/inline-approval";

@@ -1,4 +1,4 @@
-import { OpenGenerativeUIActivityRenderer } from "@copilotkit/react-core/v2";
+import { OpenGenerativeUIActivityRenderer } from "@/lib/agui";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { galleryComponent } from "@/lib/copilot/gallery-registry";

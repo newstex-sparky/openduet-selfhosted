@@ -114,7 +114,11 @@ test("the public catalog renders a generated form and its action resolves the ed
 test("disabled and unresolved deployments do not activate or advertise the A2UI catalog", () => {
   expect(a2uiProviderOptions(false)).toEqual({});
   expect(a2uiProviderOptions(undefined)).toEqual({});
-  expect(a2uiProviderOptions(true).a2ui?.catalog).toBe(OPENBOT_A2UI_CATALOG);
+  expect(
+    a2uiProviderOptions(true).renderActivityMessages?.map(
+      (entry) => entry.activityType,
+    ),
+  ).toEqual(["a2ui-surface"]);
   // Existing OpenBot gallery components retain their separate per-Bot tool/grant path.
   expect(OPENBOT_A2UI_CATALOG.components.has("showTable")).toBe(false);
   expect(OPENBOT_A2UI_CATALOG.components.has("askForm")).toBe(false);

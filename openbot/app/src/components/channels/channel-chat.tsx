@@ -5,7 +5,7 @@ import {
   UseAgentUpdate,
   useAgent,
   useCopilotKit,
-} from "@copilotkit/react-core/v2";
+} from "@/lib/agui";
 import type { TaskReplyContext } from "@openbot/shared/task-reply";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {

@@ -7,7 +7,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, within } from "@testing-library/react";
@@ -97,7 +97,7 @@ function Chat({
 }) {
   return (
     <QueryClientProvider client={queries}>
-      <CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
         <ReplyChipsTool />
         <ConversationView
           messages={messages}

@@ -7,7 +7,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -268,7 +268,7 @@ function renderHeader(first: ReactNode, floating = true) {
   // The transcript draws a lone tool call through CopilotKit, so Chat needs its provider.
   const view = render(
     <QueryClientProvider client={client}>
-      <CopilotKitProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
         <RouterProvider router={router as never} />
       </CopilotKitProvider>
     </QueryClientProvider>,

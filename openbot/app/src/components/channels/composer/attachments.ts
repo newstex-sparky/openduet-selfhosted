@@ -1,27 +1,14 @@
-import type { AttachmentsConfig } from "@copilotkit/react-core/v2";
+import type {
+  AttachmentsConfig,
+  AttachmentUploadError,
+  AttachmentUploadResult,
+} from "@/lib/agui";
 import {
   ACCEPTED_IMAGE_MIME,
   ACCEPTED_TEXT_MIME,
   attachmentUrl,
   MAX_IMAGE_BYTES,
 } from "@/lib/channels/attachments";
-
-/**
- * Uploads a picked file to this deployment and hands the composer a link to it, never the bytes.
- *
- * Neither `AttachmentUploadResult` nor `AttachmentUploadError` is exported by anything installed
- * here: `@copilotkit/shared` declares both, but it is not a dependency of `app/` — the only
- * installed CopilotKit package in this workspace is `react-core`, and its `v2` entry point does
- * not re-export these two. They are derived instead from `AttachmentsConfig["onUpload"]` /
- * `["onUploadFailed"]`, the one signature that IS public, so they can never drift from what the
- * SDK actually calls.
- */
-type AttachmentUploadResult = Awaited<
-  ReturnType<NonNullable<AttachmentsConfig["onUpload"]>>
->;
-type AttachmentUploadError = Parameters<
-  NonNullable<AttachmentsConfig["onUploadFailed"]>
->[0];
 
 /** The shape `POST /api/channels/:channelId/attachments` sends back on success. */
 type UploadedAttachment = {

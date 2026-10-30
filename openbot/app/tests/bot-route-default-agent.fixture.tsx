@@ -1,7 +1,7 @@
 import { mock } from "bun:test";
 import { useState } from "react";
 
-mock.module("@copilotkit/react-core/v2", () => ({
+mock.module("@/lib/agui", () => ({
   CopilotChat: ({
     agentId,
     threadId,

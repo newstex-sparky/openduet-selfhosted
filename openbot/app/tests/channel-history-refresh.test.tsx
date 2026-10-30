@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { Message, RunAgentInput } from "@ag-ui/core";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
-import { CopilotKitProvider, useCopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, useCopilotKit } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { type InfiniteData, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
@@ -296,12 +296,15 @@ test("A2UI activity actions run the actual channel agent and thread with edited 
       },
     },
   });
+  // The action rides that one run and nothing after it: no ambient property bag holds it.
   await waitFor(() =>
-    expect(core?.properties).not.toHaveProperty("a2uiAction"),
+    expect(Object.keys(runRequests[0]?.input.forwardedProps ?? {})).toEqual([
+      "a2uiAction",
+    ]),
   );
 });
 function currentAgent(selected = channel) {
-  const agent = core?.getAgent(`channel:${selected.id}`);
+  const agent = core?.agentFor({ agentId: `channel:${selected.id}` });
   if (!agent) throw new Error("Mounted channel agent is not registered");
   return agent;
 }

@@ -8,7 +8,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { MORNING_BRIEF_FRAME } from "@openbot/shared/morning-brief";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -416,7 +416,7 @@ describe("the transcript on a later day", () => {
     ) as typeof fetch;
     const view = render(
       <QueryClientProvider client={queries}>
-        <CopilotKitProvider>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           <MorningBriefTool />
           <ConversationView messages={briefed} onSubmit={() => {}} />
         </CopilotKitProvider>
@@ -449,7 +449,7 @@ describe("the transcript on a later day", () => {
     ) as typeof fetch;
     const view = render(
       <QueryClientProvider client={queries}>
-        <CopilotKitProvider>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           <MorningBriefTool />
           <ConversationView messages={briefed} onSubmit={() => {}} />
         </CopilotKitProvider>
