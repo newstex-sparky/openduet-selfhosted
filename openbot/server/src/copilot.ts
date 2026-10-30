@@ -47,6 +47,7 @@ import {
 } from "./channels/attachment-parts";
 import type { AgentFetch, StallGuard } from "./channels/stall-guard";
 import type { DeploymentConfig } from "./config";
+import { AG_UI_HEARTBEAT_MS } from "./delivery/opentag";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
 import { observeIntelligenceAuthentication } from "./intelligence-client";
@@ -1785,6 +1786,17 @@ export function mountCopilotRuntime(
    * Everything about WHERE threads live differs between the two and is decided below.
    */
   const sharedRuntimeOptions = {
+    /*
+     * UNDER BUN'S IDLE TIMEOUT, OR A SLOW MODEL LOSES ITS STREAM.
+     *
+     * `Bun.serve` closes a connection that has sent nothing for 10 seconds (BUN_IDLE_TIMEOUT_MS in
+     * delivery/opentag.ts), and the runtime's own SSE keep-alive defaults to 15. So a run whose
+     * model said nothing for more than 10s had its `/agent/:id/run` stream cut after RUN_STARTED:
+     * the run still finished and was stored, but the browser never saw the reply. The keep-alive is
+     * an SSE comment, which AG-UI parsers drop, so this adds bytes on a quiet wire and no events.
+     * The same beat OpenTag's AG-UI stream uses, for the same reason.
+     */
+    sseKeepAliveIntervalSeconds: AG_UI_HEARTBEAT_MS / 1000,
     // Carried on the events the runtime already sends, so OpenDuet's traffic is separable from any
     // other deployment's. Adds no events of its own. See telemetry.ts.
     telemetryProperties: {

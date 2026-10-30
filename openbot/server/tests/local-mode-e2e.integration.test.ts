@@ -141,10 +141,58 @@ function scriptModel(
   )[],
 ): void {
   modelScript = [...responses];
-  llm.onMessage(/.*/, () => {
+  llm.onMessage(/.*/, async () => {
+    if (modelDelayMs > 0) await Bun.sleep(modelDelayMs);
     const next = modelScript.length > 1 ? modelScript.shift() : modelScript[0];
     return next ?? { content: "No script left." };
   });
+}
+
+/** How long the scripted model sits silent before it answers. Reset by the case that sets it. */
+let modelDelayMs = 0;
+
+/**
+ * One chat turn over the deployment's own HTTP surface: `POST /api/copilotkit/agent/openduet/run`,
+ * the request a browser sends, read to the end of its SSE stream.
+ *
+ * What a client can see is the point, so this keeps the status and content type and every event
+ * the stream carried, and reads the whole body: a stream the server cut short throws here, which is
+ * exactly the failure a slow model used to cause.
+ */
+async function runOverHttp(threadId: string, runId: string, text: string) {
+  const response = await fetch(
+    `${publicUrl}/api/copilotkit/agent/openduet/run`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        threadId,
+        runId,
+        messages: [{ id: randomUUID(), role: "user", content: text }],
+        tools: [],
+        context: [],
+        state: {},
+        forwardedProps: {},
+      }),
+    },
+  );
+  const body = await response.text();
+  const events = body
+    .split("\n")
+    .filter((line) => line.startsWith("data: "))
+    .map(
+      (line) => JSON.parse(line.slice(6)) as { type: string; delta?: string },
+    );
+  return {
+    status: response.status,
+    contentType: response.headers.get("content-type") ?? "",
+    body,
+    types: events.map((event) => event.type),
+    text: events
+      .filter((event) => event.type === "TEXT_MESSAGE_CONTENT")
+      .map((event) => event.delta ?? "")
+      .join(""),
+  };
 }
 
 /** A Bot the deployment can run: a built-in one, which is the local platform's model path. */
@@ -458,6 +506,9 @@ afterAll(async () => {
       .where(eq(agentProfiles.agentId, agentId));
     await database.delete(agents).where(eq(agents.id, agentId));
   }
+  /* The conversations the HTTP cases opened on the tenant's Bot; their runs, events and messages
+   * cascade with them. */
+  await database.$client`delete from copilotkit_threads where id like ${`${prefix}%`}`;
   await database.$client.close();
   await llm.stop();
 }, 60_000);
@@ -691,3 +742,36 @@ test("an approval-gated action pauses the turn, and carries on after the person 
   });
   expect(evidence).toContain("The form was submitted.");
 }, 120_000);
+
+test("a run whose model is silent for longer than Bun's idle timeout still streams its reply", async () => {
+  /*
+   * `Bun.serve` closes a connection that has sent nothing for 10 seconds, and the runtime's own SSE
+   * keep-alive defaulted to 15, so this run used to lose its stream after RUN_STARTED while the run
+   * itself finished and was stored. Twelve seconds of silence is past Bun's limit and under the
+   * case's own timeout.
+   */
+  scriptModel([{ content: "The slow model answered." }]);
+  modelDelayMs = 12_000;
+  try {
+    const run = await runOverHttp(
+      `${prefix}-slow-${randomUUID()}`,
+      randomUUID(),
+      "Take your time.",
+    );
+    expect({
+      status: run.status,
+      first: run.types[0],
+      last: run.types.at(-1),
+      text: run.text,
+    }).toEqual({
+      status: 200,
+      first: "RUN_STARTED",
+      last: "RUN_FINISHED",
+      text: "The slow model answered.",
+    });
+    /* What kept it open: the runtime's SSE comment, which AG-UI parsers drop. */
+    expect(run.body).toContain(": keep-alive");
+  } finally {
+    modelDelayMs = 0;
+  }
+}, 60_000);
