@@ -1,7 +1,7 @@
 /**
  * What a run request means: which Bot, which conversation, and what the vendor protocol allows.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `handlers/shared/agent-utils.mjs` and
+ * Ported from the CopilotKit runtime package, 1.77.0: `handlers/shared/agent-utils.mjs` and
  * `handlers/header-utils.mjs` (MIT), with the vendor-only branches removed: there is no vendor
  * client in this deployment, so nothing here resolves a user, attaches a vendor's MCP tools or
  * reads a licence.

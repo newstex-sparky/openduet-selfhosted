@@ -2,7 +2,7 @@
  * What a finished run reports about the model that answered it: the terminal metadata and the
  * token counts, as AG-UI's `RUN_FINISHED` carries them.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `dist/agent/converters/usage.mjs` (MIT).
+ * Ported from the CopilotKit runtime package, 1.77.0 (`dist/agent/converters/usage.mjs`, MIT).
  *
  * WHY A COUNT IS ABSENT RATHER THAN ZERO. A provider that omits a token count is saying it does
  * not know, and a run that reports `0` for it is reporting a measurement nobody made. Only a

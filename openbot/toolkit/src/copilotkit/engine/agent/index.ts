@@ -39,7 +39,7 @@ import { createStateEventNormalizer } from "./state-delta";
 /**
  * A built-in Bot: an AG-UI agent whose whole answer is a model call this process makes.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `dist/agent/index.mjs` (MIT), which this repository
+ * Ported from the CopilotKit runtime package, 1.77.0 (`dist/agent/index.mjs`, MIT), which this repository
  * stops depending on in Phase 6. What is kept is what this fork actually runs — the classic model
  * path (`model`, `prompt`, `apiKey`, `tools`, `maxSteps`) and factory mode for a caller that owns
  * the model call (`type:"custom"` + `factory`, which `builtInAgentConfiguration` uses for a Bot

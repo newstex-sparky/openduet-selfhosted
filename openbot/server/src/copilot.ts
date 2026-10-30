@@ -79,7 +79,6 @@ import {
   selectTools,
 } from "./plugins/selection";
 import { grantedToolGuidance } from "./plugins/tools";
-import { runtimeTelemetryProperties } from "./telemetry";
 import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
 
 /**
@@ -1910,7 +1909,7 @@ async function claimRunLock(
   if (!threadId || !runId || !agentId) return undefined;
   try {
     await runAsLocalUser(userId, () =>
-      platform.ɵacquireThreadLock({ threadId, runId, userId, agentId }),
+      platform.acquireThreadLock({ threadId, runId, userId, agentId }),
     );
   } catch (error) {
     if (isLockConflict(error))
@@ -1982,7 +1981,7 @@ function mountLocalCopilotRuntime(input: {
       claim &&
       !response.headers.get("content-type")?.startsWith("text/event-stream")
     )
-      await platform.ɵcleanupThreadLock(claim);
+      await platform.cleanupThreadLock(claim);
     return response;
   };
   handler.all(basePath, (context) => gate(context.req.raw));

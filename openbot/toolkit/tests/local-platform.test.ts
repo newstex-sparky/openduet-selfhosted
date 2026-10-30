@@ -285,9 +285,9 @@ describe("local thread platform", () => {
       agentId: "helper",
       ttlSeconds: 60,
     };
-    await platform.ɵacquireThreadLock({ ...lock, runId: "held" });
+    await platform.acquireThreadLock({ ...lock, runId: "held" });
     const conflict = await platform
-      .ɵacquireThreadLock({ ...lock, runId: "other" })
+      .acquireThreadLock({ ...lock, runId: "other" })
       .catch((error: unknown) => error);
     expect(isLockConflict(conflict)).toBe(true);
 
@@ -306,17 +306,17 @@ describe("local thread platform", () => {
     expect(
       isLockConflict(
         await platform
-          .ɵrenewThreadLock({ threadId: "t1", runId: "other", ttlSeconds: 60 })
+          .renewThreadLock({ threadId: "t1", runId: "other", ttlSeconds: 60 })
           .catch((error: unknown) => error),
       ),
     ).toBe(true);
 
-    await platform.ɵcleanupThreadLock({ threadId: "t1", runId: "held" });
-    await platform.ɵacquireThreadLock({ ...lock, runId: "other" });
+    await platform.cleanupThreadLock({ threadId: "t1", runId: "held" });
+    await platform.acquireThreadLock({ ...lock, runId: "other" });
 
     // A lock nobody renewed lapses on its own, as the platform's TTL does.
     clock += 61_000;
-    await platform.ɵacquireThreadLock({ ...lock, runId: "third" });
+    await platform.acquireThreadLock({ ...lock, runId: "third" });
   });
 
   test("the shared thread lock adapter drives the local platform exactly as it drives Intelligence", async () => {

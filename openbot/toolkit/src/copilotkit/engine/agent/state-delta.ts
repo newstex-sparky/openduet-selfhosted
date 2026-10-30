@@ -4,7 +4,7 @@ import { type BaseEvent, EventType } from "@ag-ui/client";
  * JSON Pointer reads, JSON Patch application and state-event normalization for a built-in Bot's
  * run.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `dist/agent/state-delta.mjs` (MIT), which this
+ * Ported from the CopilotKit runtime package, 1.77.0 (`dist/agent/state-delta.mjs`, MIT), which this
  * repository stops depending on in Phase 6. The rules are the vendor's, unchanged: a pointer
  * that is not RFC 6901 is refused rather than guessed at, a patch applies to a structured clone
  * so a rejected operation cannot half-mutate the state, and the first state event of a run is

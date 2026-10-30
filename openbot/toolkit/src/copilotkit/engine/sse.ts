@@ -1,7 +1,7 @@
 /**
  * An AG-UI event stream as an SSE response, kept open while the model is quiet.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `handlers/shared/sse-response.mjs` and
+ * Ported from the CopilotKit runtime package, 1.77.0: `handlers/shared/sse-response.mjs` and
  * `handlers/shared/sse-keep-alive.mjs` (MIT). The wire format itself is not ours: `@ag-ui/encoder`
  * encodes each event, and that package stays a dependency. What this module owns is the response
  * around it — the `text/event-stream` headers, the writer, and the keep-alive.

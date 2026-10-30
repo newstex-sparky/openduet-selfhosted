@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { LLMock } from "../testing/llmock";
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { buildAgents, type RuntimeModel } from "../src/copilot";
 import {
   createLearningRuntime,
+  type LearnedSkillsClient,
   type AcquireLearnedSkills,
 } from "../src/learning/runtime";
 import { createLearningSettingsStore } from "../src/learning/settings";
@@ -41,11 +41,22 @@ function agents(
 }
 
 function learning() {
-  const client = new CopilotKitIntelligence({ apiKey: "synthetic-never-sent" });
   let fetches = 0;
-  client.getLearnedSkillsSnapshot = async () => {
-    fetches++;
-    return skillSnapshot();
+  /*
+   * A hand-written client: the vendor class is gone. This runtime is seeded with a default target,
+   * so the thread and Inspector reads are never reached, and both say so if that ever changes.
+   */
+  const client: LearnedSkillsClient = {
+    getLearnedSkillsSnapshot: async () => {
+      fetches++;
+      return skillSnapshot();
+    },
+    getThread: async () => {
+      throw new Error("Synthetic client: no Thread reads");
+    },
+    getInspectorLearning: async () => {
+      throw new Error("Synthetic client: no Inspector reads");
+    },
   };
   return {
     runtime: createLearningRuntime({

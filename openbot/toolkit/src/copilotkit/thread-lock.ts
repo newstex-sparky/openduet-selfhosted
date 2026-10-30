@@ -27,7 +27,7 @@ export type ThreadLockClient = {
     agentId: string;
     learningContainerId?: string;
   }): Promise<unknown>;
-  ɵacquireThreadLock(params: {
+  acquireThreadLock(params: {
     threadId: string;
     runId: string;
     userId: string;
@@ -35,12 +35,12 @@ export type ThreadLockClient = {
     ttlSeconds?: number;
     learningContainerId?: string;
   }): Promise<{ runId: string }>;
-  ɵrenewThreadLock(params: {
+  renewThreadLock(params: {
     threadId: string;
     runId: string;
     ttlSeconds: number;
   }): Promise<unknown>;
-  ɵcleanupThreadLock(params: {
+  cleanupThreadLock(params: {
     threadId: string;
     runId: string;
   }): Promise<void>;
@@ -81,7 +81,7 @@ export function createThreadLock(options: {
           ...input,
           ...(learningContainerId ? { learningContainerId } : {}),
         });
-        const held = await client.ɵacquireThreadLock({
+        const held = await client.acquireThreadLock({
           ...input,
           ...(learningContainerId ? { learningContainerId } : {}),
         });
@@ -106,8 +106,8 @@ export function createThreadLock(options: {
          *
          * A conversation somebody is already running in answers 409, and that is ordinary: the hop
          * waits and is tried again. Anything else is not — a platform that cannot be reached, a
-         * token that stopped working, or one of the underscored APIs below being renamed by a
-         * routine version bump. Returned as `null` those all read as contention: every hop retries
+         * token that stopped working, or one of the methods below renamed without a matching change
+         * here. Returned as `null` those all read as contention: every hop retries
          * to exhaustion, every person is told their question was never answered, and the only
          * evidence is a warning line that looks like a busy conversation.
          *
@@ -123,7 +123,7 @@ export function createThreadLock(options: {
       }
     },
     renew: async (input) => {
-      await client.ɵrenewThreadLock({
+      await client.renewThreadLock({
         ...input,
         ttlSeconds: THREAD_LOCK_TTL_SECONDS,
       });
@@ -138,7 +138,7 @@ export function createThreadLock(options: {
           busy: false,
         });
       } catch {}
-      await client.ɵcleanupThreadLock(input);
+      await client.cleanupThreadLock(input);
     },
   };
 }

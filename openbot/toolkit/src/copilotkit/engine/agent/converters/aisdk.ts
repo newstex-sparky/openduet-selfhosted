@@ -1,7 +1,7 @@
 /**
  * The AI SDK stream parts a built-in Bot's answer is read from.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `dist/agent/converters/aisdk.mjs` (MIT). The vendor's
+ * Ported from the CopilotKit runtime package, 1.77.0 (`dist/agent/converters/aisdk.mjs`, MIT). The vendor's
  * `convertAISDKStream` — the whole-stream converter used by its `type:"aisdk"` factory — is not
  * here: this fork's agent runs on the classic model path and on `type:"custom"`, so the converter
  * had no caller. What a classic run does use is kept: the finish part's usage, a tool error's

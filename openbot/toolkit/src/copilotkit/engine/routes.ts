@@ -1,7 +1,7 @@
 /**
  * The routes the protocol engine answers, and the HTTP methods each one takes.
  *
- * Ported from `@copilotkit/runtime` 1.77.0 `dist/v2/runtime/core/fetch-router.mjs` (MIT), which this
+ * Ported from the CopilotKit runtime package, 1.77.0 (`dist/v2/runtime/core/fetch-router.mjs`, MIT), which this
  * fork used to depend on for its whole HTTP surface. The paths are the wire contract the browser
  * half of OpenDuet speaks, so they are kept exactly: an engine that answered a different path would
  * be a different protocol, not a reimplementation of this one.

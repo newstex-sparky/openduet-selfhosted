@@ -4,7 +4,7 @@ import { inflateRawSync } from "node:zlib";
 /**
  * Published learned skills, delivered to an agent invocation.
  *
- * Ported from `@copilotkit/runtime` 1.77.0
+ * Ported from the CopilotKit runtime package, 1.77.0:
  * `dist/v2/runtime/intelligence-platform/skill-registry/*` and its
  * `internal/learned-skills` re-export (MIT), which this repository stops depending
  * on in Phase 6. The rules below are the vendor's and are unchanged:
