@@ -76,7 +76,7 @@ function isSilent(message: Message): boolean {
  * @param answeredElsewhere Call ids that are about to be answered by something this history cannot
  * see, and so must survive. That is the interrupt resume: `BuiltInAgent.run` appends a tool result
  * per `input.resume` entry, keyed by `interruptId`, AFTER converting the messages
- * (`@copilotkit/runtime/dist/agent/index.mjs`, the `resumeEntries` block in `run`). Dropping the
+ * (the CopilotKit runtime's `dist/agent/index.mjs`, the `resumeEntries` block in `run`). Dropping the
  * call that the resume answers would turn a resumable interrupt into an orphaned result, which is
  * the same error seen from the other side.
  */

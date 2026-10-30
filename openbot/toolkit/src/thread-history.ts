@@ -8,7 +8,8 @@
  *
  * Matched on the shape rather than with `instanceof`. The class is `PlatformRequestError` and it
  * carries `.status` for exactly this — its own documentation gives `error.status === 404` as the
- * example — but it is not re-exported from `@copilotkit/runtime/v2`, and the package's `exports` map
+ * example — but it is not re-exported from the CopilotKit runtime package's `v2` entry point, and
+ * the package's `exports` map
  * offers no subpath that reaches it, so there is no type to test against. The name is set by the
  * constructor and the status is a number on the instance; both are checked, so an unrelated error
  * carrying a `status` of 404 does not qualify.

@@ -1,10 +1,5 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { type AbstractAgent, HttpAgent } from "@ag-ui/client";
-import {
-  type BuiltInAgentConfiguration,
-  CopilotRuntime,
-} from "@copilotkit/runtime/v2";
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
 import {
@@ -13,6 +8,12 @@ import {
   RunBuiltAgent,
   UnavailableAgent,
 } from "@openbot/toolkit/copilotkit/agents";
+import type { BuiltInAgentConfiguration } from "@openbot/toolkit/copilotkit/engine/agent/index";
+import type {
+  Engine as ProtocolEngine,
+  EngineRunner as ProtocolEngineRunner,
+} from "@openbot/toolkit/copilotkit/engine/engine";
+import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
 import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
 import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
 import { createThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
@@ -26,8 +27,8 @@ import {
   historyOrEmpty,
   isMissingThread,
 } from "@openbot/toolkit/thread-history";
-import { defer, from, switchMap } from "rxjs";
 import { Hono } from "hono";
+import { defer, from, switchMap } from "rxjs";
 import { z } from "zod";
 import {
   type ActorAgentResolver,
@@ -51,7 +52,6 @@ import type { DeploymentConfig } from "./config";
 import { AG_UI_HEARTBEAT_MS } from "./delivery/opentag";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
-import { localThreadPlatform } from "./local-mode";
 import { RemoteLearnedSkillsMiddleware } from "./learning/remote";
 import {
   type AcquireLearnedSkills,
@@ -59,6 +59,7 @@ import {
   type LearnedSkillInvocation,
   type LearningRuntime,
 } from "./learning/runtime";
+import { localThreadPlatform } from "./local-mode";
 import {
   type LoadPersonalMemory,
   PersonalMemoryMiddleware,
@@ -78,7 +79,6 @@ import {
   selectTools,
 } from "./plugins/selection";
 import { grantedToolGuidance } from "./plugins/tools";
-import { runtimeTelemetryProperties } from "./telemetry";
 import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
 
 /**
@@ -1778,27 +1778,27 @@ export function mountCopilotRuntime(
   };
 
   /*
-   * What both modes hand the runtime unchanged: the agents, generative UI and telemetry naming.
-   * Everything about WHERE threads live differs between the two and is decided below.
+   * The process's one thread platform: threads, history, run lock and runner.
+   *
+   * Built once and handed to BOTH the engine and the gate below. The gate primes this platform's
+   * read mirror, takes its run lock and releases it, so a second instance would be a second mirror
+   * and a second view of the same conversation.
    */
-  const sharedRuntimeOptions = {
-    /*
-     * UNDER BUN'S IDLE TIMEOUT, OR A SLOW MODEL LOSES ITS STREAM.
-     *
-     * `Bun.serve` closes a connection that has sent nothing for 10 seconds (BUN_IDLE_TIMEOUT_MS in
-     * delivery/opentag.ts), and the runtime's own SSE keep-alive defaults to 15. So a run whose
-     * model said nothing for more than 10s had its `/agent/:id/run` stream cut after RUN_STARTED:
-     * the run still finished and was stored, but the browser never saw the reply. The keep-alive is
-     * an SSE comment, which AG-UI parsers drop, so this adds bytes on a quiet wire and no events.
-     * The same beat OpenTag's AG-UI stream uses, for the same reason.
-     */
+  const platform = localThreadPlatform(config);
+
+  /*
+   * What this deployment tells the protocol engine: the Bots, the generative-UI switch, and how
+   * often a quiet event stream writes an SSE comment.
+   *
+   * The keep-alive is the one that bit live. `Bun.serve` closes a connection that has sent nothing
+   * for ten seconds (BUN_IDLE_TIMEOUT_MS in delivery/opentag.ts), and the engine's own default is
+   * 15. So a run whose model said nothing for more than 10s had its `/agent/:id/run` stream cut
+   * after RUN_STARTED: the run still finished and was stored, but the browser never saw the reply.
+   * The keep-alive is an SSE comment, which AG-UI parsers drop, so this adds bytes on a quiet wire
+   * and no events. The same beat OpenTag's AG-UI stream uses, for the same reason.
+   */
+  const engine: ProtocolEngine = {
     sseKeepAliveIntervalSeconds: AG_UI_HEARTBEAT_MS / 1000,
-    // Carried on the events the runtime already sends, so OpenDuet's traffic is separable from any
-    // other deployment's. Adds no events of its own. See telemetry.ts.
-    telemetryProperties: {
-      ...runtimeTelemetryProperties(config.accessibility),
-      ...desktopTelemetryProperties(),
-    },
     /*
      * What lets a Bot answer with an interface it wrote itself.
      *
@@ -1809,31 +1809,20 @@ export function mountCopilotRuntime(
      * that paints: the tool's own renderer shows the waiting message and then returns nothing. So a
      * deployment with the browser half and not this one has Bots generating whole interfaces that
      * never appear, which is the shape this capability arrived in.
-     *
-     * `true` rather than a list of Bots. The list narrows only the event transform, and the tool
-     * stays offered to every Bot regardless, so naming some Bots here would leave the others able to
-     * call it and draw nothing. Whether the capability exists at all is the switch this deployment
-     * has; see DeploymentConfig.generativeUi.
      */
-    ...(config.generativeUi ? { openGenerativeUI: true as const } : {}),
+    openGenerativeUi: config.generativeUi,
     // A browser catalog enables the public A2UI middleware/tool. Explicitly disable it on the
     // server too, so stale clients cannot reactivate a deployment's generative UI opt-out.
     a2ui: { enabled: config.generativeUi },
-    // `identifyUser` is the Intelligence projection of the same person `identifyActor` returns:
-    // one resolver decides both whose threads these are and whose coworkers exist.
+    // A factory rather than a fixed map, so a Bot registered while the server is running is
+    // reachable on the next request.
     agents: createRequestAgents(identifyActor, resolver) as never,
+    runner: localThreadPlatform(config)
+      .runner as unknown as ProtocolEngineRunner,
   };
 
-  /*
-   * The runtime in SSE mode, on this process's own thread platform. The mode is inferred from the
-   * absence of a vendor client: passing one is a type error, and this fork has no client to pass.
-   */
-  const platform = localThreadPlatform(config);
   return mountLocalCopilotRuntime({
-    runtime: new CopilotRuntime({
-      runner: platform.runner as never,
-      ...sharedRuntimeOptions,
-    }),
+    engine,
     platform,
     basePath,
     identifyUser,
@@ -1920,7 +1909,7 @@ async function claimRunLock(
   if (!threadId || !runId || !agentId) return undefined;
   try {
     await runAsLocalUser(userId, () =>
-      platform.ɵacquireThreadLock({ threadId, runId, userId, agentId }),
+      platform.acquireThreadLock({ threadId, runId, userId, agentId }),
     );
   } catch (error) {
     if (isLockConflict(error))
@@ -1948,12 +1937,12 @@ function mountLocalCopilotRuntime(input: {
     botId: string;
     initiator?: AuditInitiator;
   }) => Promise<AbstractAgent | null>;
-  runtime: CopilotRuntime;
+  engine: ProtocolEngine;
   platform: PostgresThreadPlatform;
 }) {
-  const { basePath, identifyUser, onRunBusy, agentFor, runtime, platform } =
+  const { basePath, identifyUser, onRunBusy, agentFor, engine, platform } =
     input;
-  const inner = createCopilotHonoHandler({ runtime, basePath });
+  const inner = createEngineHandler({ engine, basePath });
 
   const handler = new Hono();
   const gate = async (request: Request): Promise<Response> => {
@@ -1992,7 +1981,7 @@ function mountLocalCopilotRuntime(input: {
       claim &&
       !response.headers.get("content-type")?.startsWith("text/event-stream")
     )
-      await platform.ɵcleanupThreadLock(claim);
+      await platform.cleanupThreadLock(claim);
     return response;
   };
   handler.all(basePath, (context) => gate(context.req.raw));

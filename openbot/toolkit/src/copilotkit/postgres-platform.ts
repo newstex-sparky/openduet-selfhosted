@@ -9,7 +9,7 @@
  * is that, on the Postgres the deployment already has.
  *
  * THE SAME SURFACE, DELIBERATELY. `getOrCreateThread` / `getThread` / `getThreadMessages`,
- * `ɵacquireThreadLock` / `ɵrenewThreadLock` / `ɵcleanupThreadLock`, and a runner with
+ * `acquireThreadLock` / `renewThreadLock` / `cleanupThreadLock`, and a runner with
  * `run` / `connect` / `isRunning` / `stop` plus the runtime's local thread endpoints. Every caller —
  * the turn code, the thread lock, the history readers, the runtime — is written against those names
  * and does not learn where the rows are.
@@ -582,8 +582,11 @@ export function createPostgresThreadPlatform(
    * ------------------------------------------------------------------------------------------- */
 
   const runner = {
-    /** Turns on the runtime's `GET /threads` family in SSE mode; every answer is scoped below. */
-    ɵsupportsLocalThreadEndpoints: true as const,
+    /**
+     * Inert since the engine became first-party; see the same flag in `./local-platform.ts`. Every
+     * answer from this runner is scoped below.
+     */
+    supportsLocalThreadEndpoints: true as const,
 
     run(request: {
       threadId: string;
@@ -1074,7 +1077,7 @@ export function createPostgresThreadPlatform(
      * else as a real failure. `joinToken` is empty because nobody joins a local run over a socket —
      * the type requires a string and nothing reads it.
      */
-    async ɵacquireThreadLock(params: {
+    async acquireThreadLock(params: {
       threadId: string;
       runId: string;
       userId: string;
@@ -1096,7 +1099,7 @@ export function createPostgresThreadPlatform(
       };
     },
 
-    async ɵrenewThreadLock(params: {
+    async renewThreadLock(params: {
       threadId: string;
       runId: string;
       ttlSeconds: number;
@@ -1106,7 +1109,7 @@ export function createPostgresThreadPlatform(
       return { threadId: params.threadId, runId: params.runId };
     },
 
-    async ɵcleanupThreadLock(params: {
+    async cleanupThreadLock(params: {
       threadId: string;
       runId: string;
     }): Promise<void> {

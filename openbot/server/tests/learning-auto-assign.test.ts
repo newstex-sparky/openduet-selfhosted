@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import {
-  type CopilotKitIntelligence,
-  LearnedSkillsError,
-} from "@copilotkit/runtime/v2";
+import { LearnedSkillsError } from "@openbot/toolkit/copilotkit/engine/learned-skills";
 import type { AuditEventInput, AuditStore } from "../src/audit";
+import type { LearnedSkillsInspection } from "../src/learning/runtime";
 import {
   type ContainerCreation,
   type ContainerProbe,
@@ -121,7 +119,7 @@ describe("probing a Learning container with the runtime key", () => {
 describe("which project a runtime key belongs to", () => {
   const snapshot = (learning: string) =>
     ({ links: { learning, candidates: null, runs: null } }) as Awaited<
-      ReturnType<CopilotKitIntelligence["getInspectorLearning"]>
+      ReturnType<LearnedSkillsInspection["getInspectorLearning"]>
     >;
 
   test("is read from the project's Learning link", async () => {

@@ -9,8 +9,8 @@ import type { ThreadReader } from "./thread-routes";
  * can hand it a stub with no client to construct.
  *
  * The status check is duck-typed on `error?.status === 404` rather than an `instanceof` check
- * against the client's own error class, because that class is not part of `@copilotkit/runtime/v2`'s
- * public surface: importing it would mean reaching past the package's exports into its internals,
+ * against the client's own error class, because that class is not part of the CopilotKit runtime
+ * package's `v2` public surface: importing it would mean reaching past the package's exports into its internals,
  * which is exactly the kind of dependency a version bump breaks without warning. The shape of a 404
  * is a much smaller promise for the vendor to keep than the identity of an internal class.
  *

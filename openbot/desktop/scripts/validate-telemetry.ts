@@ -1,19 +1,23 @@
 /**
- * Real HTTP validation of the production native emitter and the installed runtime.
+ * Real HTTP validation of the production native emitter.
  * Build the native example separately, then run:
  * bun --no-env-file --no-install desktop/scripts/validate-telemetry.ts /absolute/path/to/telemetry_probe
  * No credentials, containers, model calls, or production telemetry endpoints are used.
+ *
+ * This script used to carry a second child that booted the installed vendor runtime and checked the
+ * instance event it emitted on the same native identity. That child is deleted with the package: the
+ * engine this fork mounts captures no telemetry at all (see `toolkit/src/copilotkit/engine/engine.ts`),
+ * so there is no runtime event left to validate. The native emitter, which this fork does own, is
+ * validated here exactly as before.
  */
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { desktopTelemetryProperties } from "../../server/src/desktop-telemetry";
 
 const root = resolve(import.meta.dir, "../..");
-const fromServer = createRequire(join(root, "server/package.json"));
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 type Env = Record<string, string>;
@@ -35,87 +39,6 @@ function lastObject(stdout: string): Record<string, unknown> {
   const line = stdout.trim().split("\n").at(-1);
   assert.ok(line, "child did not return a JSON report");
   return object(JSON.parse(line));
-}
-
-function loopback(value: string): URL {
-  const url = new URL(value);
-  assert.equal(url.protocol, "http:");
-  assert.equal(url.hostname, "127.0.0.1");
-  return url;
-}
-
-/** Fresh process: the SDK snapshots opt-out and sampling before any runtime import. */
-async function runtimeChild(endpoint: string) {
-  loopback(endpoint);
-  assert.equal(process.env.COPILOTKIT_TELEMETRY_URL, endpoint);
-  const fetchHttp = globalThis.fetch;
-  const sends: Promise<Response>[] = [];
-  const blocked: string[] = [];
-  const guardedFetch: typeof fetch = Object.assign(
-    (
-      input: Parameters<typeof fetch>[0],
-      init?: Parameters<typeof fetch>[1],
-    ) => {
-      const url = new URL(input instanceof Request ? input.url : String(input));
-      if (url.protocol !== "http:" || url.hostname !== "127.0.0.1") {
-        blocked.push(url.origin);
-        return Promise.reject(new Error("Validation forbids external fetches"));
-      }
-      const result = fetchHttp(input, init);
-      if (url.href === endpoint) sends.push(result);
-      return result;
-    },
-    { preconnect: fetchHttp.preconnect },
-  );
-  globalThis.fetch = guardedFetch;
-
-  // Phase 7 note (card t_2c2038cc, dependency cleanup): the @copilotkit/runtime references in this
-  // child are still load-bearing, so they stay. @copilotkit/runtime 1.77.0 is a direct dependency
-  // of server and toolkit and eleven source files import it, so runtime resolution is required to
-  // validate the shipped telemetry path. Phase 7 removes @copilotkit/runtime; at that point delete
-  // the whole runtime child (runtimeChild plus the runtime() driver and the runtime assertions),
-  // because the native emitter checks do not depend on it. The 1.70.1 pins below are already stale
-  // against the installed 1.77.0, so this child cannot pass until Phase 7 either rewrites or
-  // removes it.
-  const runtimePackage = fromServer("@copilotkit/runtime/package.json");
-  assert.equal(
-    runtimePackage.version,
-    "1.70.1",
-    "recheck the wire contract before changing the installed version",
-  );
-  // Match production-entry.ts's preload and the server's public ESM imports. Requiring the
-  // CJS runtime selects a different dependency graph and does not validate the shipped path.
-  await import(Bun.resolveSync("eventsource", join(root, "server")));
-  const { CopilotRuntime } = await import(
-    Bun.resolveSync("@copilotkit/runtime/v2", join(root, "server"))
-  );
-  const { createCopilotHonoHandler } = await import(
-    Bun.resolveSync("@copilotkit/runtime/v2/hono", join(root, "server"))
-  );
-  const runtime = new CopilotRuntime({
-    agents: {},
-    telemetryProperties: desktopTelemetryProperties(),
-  });
-  const handler = createCopilotHonoHandler({
-    runtime,
-    basePath: "/api/copilotkit",
-  });
-  const info = await handler.fetch(
-    new Request("http://127.0.0.1/api/copilotkit/info"),
-  );
-  assert.equal(info.status, 200);
-  await info.text();
-  // Handler creation queues instance_created in a promise continuation. Drain it before
-  // waiting on the real fetches; no transport is mocked and no polling timeout proves success.
-  await new Promise<void>((done) => setImmediate(done));
-  await Promise.all(sends);
-  assert.deepEqual(blocked, []);
-  console.log(
-    JSON.stringify({
-      runtimeVersion: runtimePackage.version,
-      requests: sends.length,
-    }),
-  );
 }
 
 async function validate(nativePath: string) {
@@ -207,26 +130,6 @@ async function validate(nativePath: string) {
     return JSON.parse(
       await readFile(join(directory, "telemetry-state.json"), "utf8"),
     );
-  }
-  async function runtime(env: Env) {
-    const result = await processRun(
-      [
-        process.execPath,
-        "--no-env-file",
-        "--no-install",
-        import.meta.path,
-        "--runtime-child",
-        endpoint,
-      ],
-      { ...env, COPILOTKIT_TELEMETRY_URL: endpoint },
-      join(root, "server"),
-    );
-    assert.equal(
-      result.code,
-      0,
-      `runtime child failed: ${result.stderr.slice(0, 1000)}`,
-    );
-    return lastObject(result.stdout);
   }
   const checks: string[] = [];
   try {
@@ -321,44 +224,6 @@ async function validate(nativePath: string) {
       "native wire envelope uses closed metadata, seconds and full sampling",
     );
 
-    const runtimeResult = await runtime({
-      ...nativeEnv,
-      OPENBOT_UNKNOWN: "synthetic-private-value",
-    });
-    assert.equal(runtimeResult.requests, 1);
-    const runtimeRequest = received.at(-1);
-    assert.ok(runtimeRequest);
-    assert.equal(received.length, nativeRequests + 1);
-    assert.equal(runtimeRequest.identity, original.install_id);
-    assert.equal(runtimeRequest.body.event, "oss.runtime.instance_created");
-    assert.deepEqual(runtimeRequest.body.package, {
-      name: "@copilotkit/runtime",
-      version: "1.70.1",
-    });
-    assert.deepEqual(runtimeRequest.body.properties, {
-      actionsAmount: 0,
-      endpointTypes: [],
-      endpointsAmount: 0,
-      agentsAmount: 0,
-      "cloud.api_key_provided": false,
-    });
-    assert.deepEqual(runtimeRequest.body.global_properties, {
-      ...desktopTelemetryProperties(nativeEnv),
-      sampleRate: 1,
-      sampleWeight: 1,
-      sampleRateAdjustmentFactor: 0,
-      telemetry_identified: false,
-      telemetry_emitter: "v2-runtime",
-      telemetry_transport: "lambda",
-    });
-    assert.ok(
-      Number(runtimeRequest.body.ts) > 1_000_000_000 &&
-        Number(runtimeRequest.body.ts) < 10_000_000_000,
-    );
-    checks.push(
-      "installed runtime1.70.1 Hono boot event: same native UUID, closed metadata, full sampling",
-    );
-
     for (const variable of ["COPILOTKIT_TELEMETRY_DISABLED", "DO_NOT_TRACK"]) {
       for (const value of ["true", "1"]) {
         const before: number = received.length;
@@ -379,29 +244,18 @@ async function validate(nativePath: string) {
           optedOutEnv,
         );
         assert.equal(existsSync(join(fresh, "telemetry-state.json")), false);
-        // Test the SDK's own override too, even if a caller retained an older enabled ID.
-        assert.equal(
-          (await runtime({ ...nativeEnv, [variable]: value })).requests,
-          0,
-        );
         assert.equal(received.length, before);
         checks.push(
-          `${variable}=${value}: queue purged, no identity or HTTP sends, runtime also disabled`,
+          `${variable}=${value}: queue purged, no identity or HTTP sends`,
         );
       }
     }
-    assert.equal(
-      (await runtime({ COPILOTKIT_TELEMETRY_DISABLED: "1" })).requests,
-      0,
-    );
     console.log(
       JSON.stringify(
         {
           ok: true,
           checks,
           nativeRequests,
-          runtimeRequests: 1,
-          runtimeVersion: "1.70.1",
           externalRequests: 0,
         },
         null,
@@ -414,11 +268,7 @@ async function validate(nativePath: string) {
   }
 }
 
-if (process.argv[2] === "--runtime-child") {
-  await runtimeChild(process.argv[3]);
-} else {
-  const nativePath =
-    process.argv[2] ??
-    join(root, "desktop/src-tauri/target/release/examples/telemetry_probe");
-  await validate(resolve(nativePath));
-}
+const nativePath =
+  process.argv[2] ??
+  join(root, "desktop/src-tauri/target/release/examples/telemetry_probe");
+await validate(resolve(nativePath));

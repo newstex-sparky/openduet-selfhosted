@@ -39,15 +39,15 @@ function harness(
       calls.push({ method: "getOrCreateThread", input });
       return {};
     },
-    ɵacquireThreadLock: async (input: Record<string, unknown>) => {
+    acquireThreadLock: async (input: Record<string, unknown>) => {
       calls.push({ method: "acquire", input });
       if (options.acquire) return options.acquire();
       return { runId: "platform-run", joinToken: "browser-only" };
     },
-    ɵrenewThreadLock: async (input: Record<string, unknown>) => {
+    renewThreadLock: async (input: Record<string, unknown>) => {
       calls.push({ method: "renew", input });
     },
-    ɵcleanupThreadLock: async (input: Record<string, unknown>) => {
+    cleanupThreadLock: async (input: Record<string, unknown>) => {
       calls.push({ method: "cleanup", input });
     },
   } as unknown as ThreadLockClient;

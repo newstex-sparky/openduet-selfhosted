@@ -1,8 +1,8 @@
 /**
  * One headless turn, run into the Intelligence thread the person will open.
  *
- * WRITTEN AGAINST `@copilotkit/runtime` 1.69.0, MIRRORING
- * `node_modules/@copilotkit/runtime/dist/v2/runtime/core/channel-manager.mjs:189-316`
+ * WRITTEN AGAINST the CopilotKit runtime package, 1.69.0, MIRRORING
+ * its own `dist/v2/runtime/core/channel-manager.mjs:189-316`
  * (`runCanonicalChannelAgent`, the package's own module-private headless-turn engine) and
  * `dist/v2/runtime/handlers/intelligence/run.mjs:114-127` for `persistedInputMessages`. That engine is
  * not exported, so this is a hand copy of it with one addition — `getOrCreateThread` first — and it
@@ -18,18 +18,18 @@
  * a websocket back into the gateway — which is strictly more moving parts for strictly less
  * information than driving the runner in-process.
  *
- * WHAT WE ARE REACHING INTO. Five `ɵ`-prefixed methods: `ɵgetRunnerWsUrl` and `ɵgetRunnerAuthToken`
- * (at wiring time, in `index.ts`), and `ɵacquireThreadLock`, `ɵrenewThreadLock`,
- * `ɵcleanupThreadLock` here. They typecheck today and are how the package's own handlers do this, but
- * the `ɵ` prefix is the package saying it may change them without a major. Their request and response
- * interfaces — `AcquireThreadLockRequest`, `RenewThreadLockRequest`, `CleanupThreadLockRequest` — are
- * declared in `dist/v2/runtime/intelligence-platform/client.d.mts:339-367` and are NOT exported from
- * `@copilotkit/runtime/v2`, so the shapes in `IntelligenceLike` below are RESTATED BY HAND. Nothing
- * fails loudly when the package changes them: a renamed field would typecheck against our own
- * restatement and be silently dropped on the wire. That is what the test file is for.
+ * WHAT WE ARE REACHING INTO. Three lock methods — `acquireThreadLock`, `renewThreadLock` and
+ * `cleanupThreadLock` — plus the runner's URL and token at wiring time in `index.ts`. All of them
+ * belong to this repository now: `./copilotkit/thread-lock.ts` names the lock's request and response
+ * shapes, and `./copilotkit/local-platform.ts` plus `./copilotkit/postgres-platform.ts` implement
+ * them. This file still declares those shapes again in `IntelligenceLike` below rather than
+ * importing the platform classes, so a test can drive every exit path without a database. A change
+ * to the platform that the restatement does not follow is a compile error at the call site in
+ * `copilot.ts`, which is where the real client is bound. `routine-run-turn.test.ts` pins the
+ * lifecycle this file has to keep.
  *
- * THE LOCK LIFECYCLE IS NOW OURS TO KEEP CORRECT. In the browser path the runtime holds the lock and
- * releases it; here we do. A bug in it is not a failed routine, it is a thread the person cannot chat
+ * THE LOCK LIFECYCLE IS NOW OURS TO KEEP CORRECT. In the browser path the engine handler takes the
+ * lock and releases it; here we do. A bug in it is not a failed routine, it is a thread the person cannot chat
  * in — see the `finally` block, which is the single most important thing in this file.
  *
  * GATEWAY AVAILABILITY IS NOW ON THE CRON RUN'S CRITICAL PATH. Driving the runner means the turn goes
@@ -122,8 +122,8 @@ type ThreadHistoryMessage = {
  *
  * Narrow and structural on purpose. It is what lets the tests drive every exit path without a
  * gateway, and it is the honest documentation of how much of the platform a headless turn
- * depends on. The real client satisfies it; see the seam note above about the `ɵ` shapes being
- * restatements rather than imports.
+ * depends on. The real client (`PostgresThreadPlatform`) satisfies it; the shapes are restated
+ * here rather than imported so these tests never load a platform class.
  */
 export type IntelligenceLike = {
   getOrCreateThread(params: {
@@ -136,7 +136,7 @@ export type IntelligenceLike = {
     threadId: string;
     userId: string;
   }): Promise<{ messages: ThreadHistoryMessage[] }>;
-  ɵacquireThreadLock(params: {
+  acquireThreadLock(params: {
     threadId: string;
     runId: string;
     userId: string;
@@ -145,12 +145,12 @@ export type IntelligenceLike = {
     learningContainerId?: string;
   }): Promise<unknown>;
   /** NOTE: no `userId` and no `agentId` — renew is identified by the thread and the run alone. */
-  ɵrenewThreadLock(params: {
+  renewThreadLock(params: {
     threadId: string;
     runId: string;
     ttlSeconds: number;
   }): Promise<unknown>;
-  ɵcleanupThreadLock(params: {
+  cleanupThreadLock(params: {
     threadId: string;
     runId: string;
   }): Promise<void>;
@@ -421,7 +421,7 @@ async function takeLease(input: {
     onLost,
   } = input;
   try {
-    await intelligence.ɵacquireThreadLock({
+    await intelligence.acquireThreadLock({
       threadId,
       runId,
       userId,
@@ -437,7 +437,7 @@ async function takeLease(input: {
   }
 
   const heartbeat = keepLease({
-    renew: () => intelligence.ɵrenewThreadLock({ threadId, runId, ttlSeconds }),
+    renew: () => intelligence.renewThreadLock({ threadId, runId, ttlSeconds }),
     everyMs: heartbeatMs,
     lifetimeMs: ttlSeconds * 1000,
     onLost,
@@ -447,7 +447,7 @@ async function takeLease(input: {
     stopHeartbeat: heartbeat.stop,
     release: () =>
       intelligence
-        .ɵcleanupThreadLock({ threadId, runId })
+        .cleanupThreadLock({ threadId, runId })
         .catch(() => undefined),
   };
 }
@@ -690,7 +690,7 @@ export function createTurnRunner(options: {
      * One id for this turn, minted once.
      *
      * The same value goes to the lock acquire, to every renew, to `runner.stop`, and to the cleanup.
-     * `ɵacquireThreadLock` does echo back a canonical `threadId` and `runId` — and the Channels path
+     * `acquireThreadLock` does echo back a canonical `threadId` and `runId` — and the Channels path
      * adopts them, because a Slack thread id is not a platform one — but ours already IS the canonical
      * pair: the thread was just created through `getOrCreateThread` below, and the run id is minted
      * here and nowhere else. Re-minting or re-reading it is how a renew keeps a different lock alive

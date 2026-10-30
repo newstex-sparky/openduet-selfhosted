@@ -1,5 +1,3 @@
-// First, before anything that imports the CopilotKit runtime: see telemetry.ts.
-import "./telemetry";
 import type { AbstractAgent } from "@ag-ui/client";
 import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
