@@ -15,11 +15,10 @@ export const THREAD_LOCK_TTL_SECONDS = 120;
 /**
  * The four platform calls the lock makes, and nothing else of the client.
  *
- * Structural rather than `Pick<CopilotKitIntelligence, …>` so the local-mode platform
- * (`./local-platform.ts`) satisfies it as well: it answers the same four calls with the same error
- * contract (409 is "not now") without being the vendor class. `CopilotKitIntelligence` still
- * satisfies this: `server/src/copilot.ts` hands the real client to the lock in Intelligence mode,
- * so a drift fails the server's typecheck.
+ * Structural rather than `Pick<…, …>` of any concrete class so that both platforms satisfy it: the
+ * in-process one (`./local-platform.ts`) and the Postgres one (`./postgres-platform.ts`) answer the
+ * same four calls with the same error contract (409 is "not now"). Nothing here names the vendor
+ * type, so a platform that drifts fails the server's typecheck at the call site in `copilot.ts`.
  */
 export type ThreadLockClient = {
   getOrCreateThread(params: {
@@ -58,7 +57,7 @@ export type ThreadLockClient = {
  * A conversation somebody else is already running in refuses rather than queues, which is right:
  * the caller waits and tries again rather than two Bots writing over each other.
  */
-export function createIntelligenceThreadLock(options: {
+export function createThreadLock(options: {
   client: ThreadLockClient;
   learning?: {
     containerForThread: (input: {

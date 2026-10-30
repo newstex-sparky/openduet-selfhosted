@@ -1069,7 +1069,7 @@ export function createPostgresThreadPlatform(
     /**
      * The platform's lock API, on the lock table.
      *
-     * `createIntelligenceThreadLock` (`./thread-lock.ts`) is the caller, and it is the same object
+     * `createThreadLock` (`./thread-lock.ts`) is the caller, and it is the same object
      * in both modes: it reads a 409 as "somebody is in this conversation, come back" and everything
      * else as a real failure. `joinToken` is empty because nobody joins a local run over a socket —
      * the type requires a string and nothing reads it.

@@ -85,7 +85,6 @@ import type { HostAccessBroker } from "./host-access/broker";
 import { createHostAccessRoutes } from "./host-access/routes";
 import { identityRoutes } from "./identity/routes";
 import type { IdentityStore } from "./identity/store";
-import { createIntelligenceClient } from "./intelligence-client";
 import { localThreadPlatform } from "./local-mode";
 import {
   createLearningRoutes,
@@ -2001,14 +2000,9 @@ export function createApp(
       createThreadRoutes(
         threadIdentity,
         requireUser,
-        // Intelligence's own thread lookup, or — in local mode, where there is no Intelligence —
-        // the process's local thread platform, which answers `getThread` with the same 404
-        // contract. Either way a remembered thread is "known" only if its owner can still read it.
-        createThreadReader(
-          config.runtime.mode === "intelligence"
-            ? createIntelligenceClient(config.runtime.intelligence)
-            : localThreadPlatform(config),
-        ),
+        // The process's thread platform answers `getThread` with the 404 contract, so a remembered
+        // thread is "known" only if its owner can still read it.
+        createThreadReader(localThreadPlatform(config)),
       ),
     );
   }

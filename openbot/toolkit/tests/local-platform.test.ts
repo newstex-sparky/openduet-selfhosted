@@ -7,7 +7,7 @@ import {
   currentLocalUser,
   runAsLocalUser,
 } from "../src/copilotkit/local-platform";
-import { createIntelligenceThreadLock } from "../src/copilotkit/thread-lock";
+import { createThreadLock } from "../src/copilotkit/thread-lock";
 import { isLockConflict } from "../src/lease";
 import { createTurnRunner } from "../src/run-turn";
 import { historyOrEmpty, isMissingThread } from "../src/thread-history";
@@ -322,7 +322,7 @@ describe("local thread platform", () => {
   test("the shared thread lock adapter drives the local platform exactly as it drives Intelligence", async () => {
     const platform = createLocalThreadPlatform();
     const busy: boolean[] = [];
-    const lock = createIntelligenceThreadLock({
+    const lock = createThreadLock({
       client: platform,
       onRunBusy: ({ busy: value }) => {
         busy.push(value);
