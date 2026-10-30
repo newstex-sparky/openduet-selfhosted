@@ -14,12 +14,10 @@
  *   2. THE GUARD. An unknown `agentId` is a 404 `Response` returned in the agent's place. Both the
  *      run and the connect path depend on that shape, so callers must `instanceof Response`-check.
  */
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
-import {
-  A2UIMiddleware,
-  OpenGenerativeUIMiddleware,
-} from "@copilotkit/shared/event-transforms";
+import { OpenGenerativeUIMiddleware } from "./open-generative-ui";
 
 /** Exact header names (lowercased) this engine never forwards to a Bot's endpoint. */
 const DEFAULT_DENY_HEADER_NAMES = new Set([
