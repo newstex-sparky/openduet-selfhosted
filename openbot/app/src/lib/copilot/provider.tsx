@@ -1,36 +1,37 @@
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@/lib/agui";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
-import { a2uiProviderOptions } from "./a2ui";
-import { SignInTool } from "./sign-in-tool";
 import "./a2ui.css";
 import { ActiveBotProvider } from "./active-bot";
 import { BotTools } from "./bot-tools";
 import { ComputerTools } from "./computer-tools";
 import { EscalationTool } from "./escalation-tool";
 import { GalleryTools } from "./gallery-tools";
-import { GENERATIVE_UI_DESIGN_SKILL } from "./generative-ui";
 import { HandoffTool } from "./handoff-tool";
 import { MorningBriefTool } from "./morning-brief-tool";
 import { OfferTaskTool } from "./offer-task-tool";
 import { PageCardTool } from "./page-card-tool";
-import { TaskCardTool } from "./task-card-tool";
 import { ReplyChipsTool } from "./reply-chips-tool";
 import { SandboxedTools } from "./sandboxed-tools";
+import { SignInTool } from "./sign-in-tool";
 import { SkillTools } from "./skill-tools";
+import { TaskCardTool } from "./task-card-tool";
 
 /**
  * Whether CopilotKit's developer inspector is drawn over the app. Off unless a developer asks for it
  * with `VITE_COPILOTKIT_INSPECTOR=true` when starting the app.
  *
- * OFF BY DEFAULT BECAUSE THE SDK'S DEFAULT IS WRONG FOR THIS PRODUCT. The SDK turns the inspector on
+ * OFF BY DEFAULT BECAUSE THE VENDOR'S DEFAULT WAS WRONG FOR THIS PRODUCT. It turned the inspector on
  * for every development build served from localhost, and the README's own path (`start.sh`) serves
  * the app through Vite in development mode. So everybody who followed the README got a floating
- * button over the tab bar, plus the SDK's own promotional popover over the header and the page
+ * button over the tab bar, plus the vendor's own promotional popover over the header and the page
  * titles. The button also sat on the New channel sheet's Create and on a page's "…". That is a
- * developer's tool drawn over a person's product. `enableInspector={false}` is the SDK's documented
- * switch (`CopilotKitProviderProps.enableInspector`, react-core 1.77), and it removes both.
+ * developer's tool drawn over a person's product.
+ *
+ * THE FIRST-PARTY PROVIDER DRAWS NO INSPECTOR, so there is no longer a switch for this to set: the
+ * flag is read here and nowhere else, and it is kept only until the test that pins the variable's
+ * meaning goes with the rest of the migration.
  */
 export function inspectorEnabled(
   environment: Record<string, string | boolean | undefined> = import.meta.env,
@@ -39,46 +40,38 @@ export function inspectorEnabled(
 }
 
 /**
- * The CopilotKit client, wrapped once for the whole authenticated app.
+ * The client, wrapped once for the whole authenticated app.
  *
- * `credentials: "include"` is the load-bearing part. OpenBot authenticates with a Better Auth
- * session cookie, and the runtime endpoint sits behind the same guard as every other API route, so
- * without it every run is rejected as anonymous while the rest of the app looks signed in.
+ * `credentials: "include"` is the load-bearing part, and it now lives in the agent every request is
+ * made through rather than in a provider prop: OpenBot authenticates with a Better Auth session
+ * cookie, and the runtime endpoint sits behind the same guard as every other API route, so without
+ * it every run is rejected as anonymous while the rest of the app looks signed in.
  *
  * The URL is relative, like every other call in the app, so the Vite dev proxy and a single-origin
  * deployment both work without a build-time base URL to get wrong.
  *
- * There is no `publicApiKey`. The Intelligence key and licence token are deployment secrets held by
+ * There is no `publicApiKey`. The Intelligence key and licence token were deployment secrets held by
  * the server; a browser never sees them (see server/src/app.ts, where /api/capabilities projects the
  * runtime rather than returning it).
+ *
+ * THE VENDOR'S `enableInspector`, `openGenerativeUI` AND `a2ui` PROPS ARE GONE. None has an
+ * equivalent here: this provider draws no inspector, and an interface the Bot writes is drawn from
+ * the activity it sends by `OpenGenerativeUIActivityRenderer`, not from a prop that switches a whole
+ * runtime middleware on for every deployment that passes it.
  */
 export function CopilotProvider({ children }: { children: ReactNode }) {
   const { data: capabilities } = useQuery(deploymentCapabilitiesQueryOptions());
 
+  /*
+   * Still read, and no longer spread. The surfaces below ask the capability query what this
+   * deployment can do — a computer, voice, generative UI — and hide what it cannot. It used to decide
+   * two provider props as well; drawing a generated interface is a renderer's job now, and a renderer
+   * with nothing to draw draws nothing.
+   */
+  void capabilities;
+
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      credentials="include"
-      enableInspector={inspectorEnabled()}
-      {...a2uiProviderOptions(capabilities?.generativeUi)}
-      /*
-       * Passed only when this deployment actually has the capability, and this is the load-bearing
-       * part rather than a tidiness. The SDK reads generative UI as on when EITHER the runtime says
-       * so OR this prop is present at all, so passing it unconditionally would switch the browser
-       * half on in a deployment that had switched the server half off. The Bot would then be offered
-       * the tool, generate a whole interface, and nothing would draw it, because the events that
-       * paint one come from the runtime middleware this deployment declined to run.
-       *
-       * Absent, the SDK asks the runtime and believes the answer, which is the behaviour we want
-       * while this query is still in flight.
-       *
-       * The object carries guidance only. It does not turn anything on that the server has not
-       * already turned on; it replaces the SDK's shadcn-flavoured house style with OpenBot's.
-       */
-      {...(capabilities?.generativeUi
-        ? { openGenerativeUI: { designSkill: GENERATIVE_UI_DESIGN_SKILL } }
-        : {})}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       {/* Computer tools target the Bot declared by the mounted surface. */}
       <ActiveBotProvider>
         <ComputerTools />

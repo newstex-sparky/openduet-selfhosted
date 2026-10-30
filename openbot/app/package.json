@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
+    "@ag-ui/client": "1.0.1",
     "@ag-ui/core": "1.0.1",
     "@base-ui/react": "^1.6.0",
     "@better-auth/sso": "^1.7.1",
