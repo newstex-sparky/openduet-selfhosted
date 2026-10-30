@@ -467,6 +467,12 @@ export function createPostgresThreadPlatform(
    * The run record (what a conversation's last run did, and a stop that crossed a replica)
    * ------------------------------------------------------------------------------------------- */
 
+  /**
+   * Keyed by (thread_id, run_id), as the table is: the run id is the client's, so it names a run
+   * only within its thread. The same id again on the same thread is that run retried and restarts
+   * its row; on another thread it is another run with a row of its own. Every read and write of a
+   * run below names its thread for the same reason.
+   */
   async function startRun(
     runId: string,
     threadId: string,
@@ -476,12 +482,13 @@ export function createPostgresThreadPlatform(
     await sql`
       insert into copilotkit_thread_runs (run_id, thread_id, user_id, agent_id, status)
       values (${runId}, ${threadId}, ${userId ?? null}, ${agentId}, 'running')
-      on conflict (run_id) do update
+      on conflict (thread_id, run_id) do update
         set status = 'running', stop_requested = false, finished_at = null, error = null
     `;
   }
 
   async function finishRun(
+    threadId: string,
     runId: string,
     status: "finished" | "error" | "stopped",
     error?: string,
@@ -489,22 +496,29 @@ export function createPostgresThreadPlatform(
     await sql`
       update copilotkit_thread_runs
         set status = ${status}, finished_at = now(), error = ${error ?? null}
-        where run_id = ${runId}
+        where thread_id = ${threadId} and run_id = ${runId}
     `;
   }
 
-  async function stopRequestedFor(runId: string): Promise<boolean> {
+  async function stopRequestedFor(
+    threadId: string,
+    runId: string,
+  ): Promise<boolean> {
     const rows = await read<{ stop_requested: boolean }>(sql`
-      select stop_requested from copilotkit_thread_runs where run_id = ${runId}
+      select stop_requested from copilotkit_thread_runs
+        where thread_id = ${threadId} and run_id = ${runId}
     `);
     return rows[0]?.stop_requested === true;
   }
 
   /** Ask a run to stop, wherever it is running. Answers whether there was one to ask. */
-  async function requestStop(runId: string): Promise<boolean> {
+  async function requestStop(
+    threadId: string,
+    runId: string,
+  ): Promise<boolean> {
     const rows = await read<{ run_id: string }>(sql`
       update copilotkit_thread_runs set stop_requested = true
-        where run_id = ${runId} and status = 'running'
+        where thread_id = ${threadId} and run_id = ${runId} and status = 'running'
       returning run_id
     `);
     return rows.length > 0;
@@ -672,7 +686,7 @@ export function createPostgresThreadPlatform(
                   } catch {}
                   return;
                 }
-                if (await stopRequestedFor(runId)) {
+                if (await stopRequestedFor(threadId, runId)) {
                   current.stopRequested = true;
                   try {
                     agent.abortRun();
@@ -782,6 +796,7 @@ export function createPostgresThreadPlatform(
           }
 
           await finishRun(
+            threadId,
             runId,
             run.lockLost
               ? "error"
@@ -919,7 +934,7 @@ export function createPostgresThreadPlatform(
         run.stopRequested = true;
         /* Written down, so a run being driven by another replica is stopped too rather than only
          * the one this process happens to hold. */
-        await requestStop(run.runId).catch(() => false);
+        await requestStop(threadId, run.runId).catch(() => false);
         try {
           run.agent.abortRun();
           return true;
@@ -930,7 +945,7 @@ export function createPostgresThreadPlatform(
       }
       /* Nothing here: the run may be another replica's. Ask it through the run record. */
       if (runId === undefined) return false;
-      return requestStop(runId);
+      return requestStop(threadId, runId);
     },
 
     /* The runtime's local thread endpoints, answered from the mirror `prime`/`refresh` load. */

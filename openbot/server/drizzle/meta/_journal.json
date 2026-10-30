@@ -484,6 +484,13 @@
       "when": 1793155096470,
       "tag": "0068_white_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793320714324,
+      "tag": "0069_thread_runs_scoped_by_thread",
+      "breakpoints": true
     }
   ]
 }

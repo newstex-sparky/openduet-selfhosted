@@ -6,6 +6,7 @@ import {
   customType,
   index,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -171,7 +172,7 @@ export const copilotThreadEvents = pgTable(
 export const copilotThreadRuns = pgTable(
   "copilotkit_thread_runs",
   {
-    runId: text("run_id").primaryKey(),
+    runId: text("run_id").notNull(),
     threadId: text("thread_id")
       .notNull()
       .references(() => copilotThreads.id, { onDelete: "cascade" }),
@@ -187,6 +188,13 @@ export const copilotThreadRuns = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
   (table) => [
+    /*
+     * A RUN IS NAMED WITHIN ITS THREAD, as a message is (`copilotkit_thread_messages_message_idx`).
+     * The run id comes from the client's RunAgentInput, and with `run_id` alone as the key a client
+     * reusing one on another thread hit the upsert in `startRun` and kept the first thread's row:
+     * the second run had no record of its own and its finish was written onto the first one's.
+     */
+    primaryKey({ columns: [table.threadId, table.runId] }),
     index("copilotkit_thread_runs_thread_idx").on(
       table.threadId,
       table.startedAt,

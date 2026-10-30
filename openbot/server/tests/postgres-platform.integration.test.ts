@@ -361,4 +361,77 @@ describe("the Postgres thread platform", () => {
     expect(isLockConflict(reason)).toBe(true);
     expect((reason as { status?: number }).status).toBe(409);
   }, 120_000);
+
+  test("a client run id reused on another thread is another run, with its own record", async () => {
+    /*
+     * The run id is the client's (RunAgentInput.runId). With `run_id` alone as the key, the second
+     * thread's run hit the upsert and kept the first thread's row: it had no record of its own, its
+     * finish was written onto the first one's, and a stop for it could reach the first thread.
+     */
+    const url = await migratedDatabase();
+    const platform = platformOn(url);
+    const client = postgres(url, { max: 1, onnotice: () => {} });
+    clients.push(client);
+    const runsOf = () => client<
+      { thread_id: string; run_id: string; status: string; stop: boolean }[]
+    >`
+      select thread_id, run_id, status, stop_requested as stop
+        from copilotkit_thread_runs order by thread_id`;
+
+    for (const threadId of ["thread-one", "thread-two"]) {
+      const events = await turn(
+        platform,
+        "alice",
+        threadId,
+        "shared-run",
+        [userMessage(`u-${threadId}`, "Hi")],
+        new ScriptedAgent(`hello from ${threadId}`),
+      );
+      expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+    }
+    expect([...(await runsOf())]).toEqual([
+      {
+        thread_id: "thread-one",
+        run_id: "shared-run",
+        status: "finished",
+        stop: false,
+      },
+      {
+        thread_id: "thread-two",
+        run_id: "shared-run",
+        status: "finished",
+        stop: false,
+      },
+    ]);
+
+    /* A stop names its thread: one sent from another replica for thread-two's run id does not
+     * reach a run of the same id working in thread-one. */
+    const held = turn(
+      platform,
+      "alice",
+      "thread-one",
+      "again",
+      [userMessage("u-again", "Again")],
+      new ScriptedAgent("slow", 600),
+    );
+    await platformOn(url).getOrCreateThread({
+      threadId: "thread-three",
+      userId: "alice",
+      agentId: "openduet",
+    });
+    const stopped = await runAsLocalUser("alice", () =>
+      platformOn(url).runner.stop({ threadId: "thread-three", runId: "again" }),
+    );
+    expect(stopped).toBe(false);
+    expect((await held).at(-1)?.type).toBe(EventType.RUN_FINISHED);
+    expect(
+      (await runsOf())
+        .filter((row) => row.run_id === "again")
+        .map((row) => ({
+          thread: row.thread_id,
+          status: row.status,
+          stop: row.stop,
+        })),
+    ).toEqual([{ thread: "thread-one", status: "finished", stop: false }]);
+  }, 120_000);
 });
