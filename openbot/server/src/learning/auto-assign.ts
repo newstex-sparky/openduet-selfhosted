@@ -1,7 +1,7 @@
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import {
   AUTOMATIC_LEARNING_CONTAINER_ID,
   type LearningAutoAssignState,
+  type LearningOverview,
 } from "@openbot/shared/learning";
 import {
   type AuditStore,
@@ -16,6 +16,44 @@ export type ContainerProbe =
   | "absent"
   | "not_entitled"
   | "unavailable";
+
+/**
+ * The Inspector projection, as the Admin page reads it.
+ *
+ * Named here rather than derived from a vendor client: this fork imports no such client, and the
+ * shape is what OpenBot reads, not what some package happens to return.
+ */
+export type InspectorSnapshot = {
+  configuration:
+    | { state: Exclude<LearningOverview["configuration"], "configured"> }
+    | { state: "configured"; container: NonNullable<LearningOverview["container"]> };
+  pendingThreadCount: number;
+  pendingCandidateCount: number;
+  skillsPage: { total: number };
+  insightsPage: { total: number };
+  run: { hasActiveRun: boolean; latest?: { status: string } | null };
+  links: LearningOverview["links"];
+};
+
+/** The one learned-skills read the container probe makes. */
+export type LearnedSkillsReads = {
+  getLearnedSkillsSnapshot(input: {
+    containerId: string;
+    revision?: string;
+    signal?: AbortSignal;
+  }): Promise<unknown>;
+};
+
+/** The two Inspector reads the container helpers make. */
+export type InspectorReads = {
+  getInspectorLearning(input: {
+    agentId?: string;
+    runtimeContainerId?: string;
+  }): Promise<InspectorSnapshot>;
+  getInspectorMetadata(): Promise<
+    { identity?: { organizationName?: string; projectName?: string } } | undefined
+  >;
+};
 
 /**
  * Read a learned-skills error into whether the container is there.
@@ -44,7 +82,7 @@ export function classifyProbeError(error: unknown): ContainerProbe {
 
 /** Ask whether `containerId` exists in the project the runtime key belongs to. */
 export async function probeLearningContainer(
-  client: Pick<CopilotKitIntelligence, "getLearnedSkillsSnapshot">,
+  client: LearnedSkillsReads,
   containerId: string,
   timeoutMs = 5_000,
 ): Promise<ContainerProbe> {
@@ -71,7 +109,7 @@ export type KeyProject = { organizationSlug: string; projectSlug: string };
  * unreadable is `undefined`, and callers treat that as "cannot prove it".
  */
 export async function keyProject(
-  client: Pick<CopilotKitIntelligence, "getInspectorLearning">,
+  client: Pick<InspectorReads, "getInspectorLearning">,
   timeoutMs = 10_000,
 ): Promise<KeyProject | undefined> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -120,7 +158,7 @@ export type KeyIdentity = KeyProject & {
  */
 export async function keyIdentity(
   client: Pick<
-    CopilotKitIntelligence,
+    InspectorReads,
     "getInspectorLearning" | "getInspectorMetadata"
   >,
   timeoutMs = 10_000,
@@ -152,19 +190,6 @@ export async function keyIdentity(
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** A client holding only a runtime key, for helpers that run without the server. */
-export function runtimeKeyClient(
-  apiUrl: string,
-  apiKey: string,
-  wsUrl?: string,
-) {
-  return new CopilotKitIntelligence({
-    apiUrl,
-    apiKey,
-    ...(wsUrl ? { wsUrl } : {}),
-  });
 }
 
 /** What creating the container with a credential that can did. `skipped`: nothing here could. */

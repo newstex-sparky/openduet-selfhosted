@@ -29,9 +29,6 @@ import { isAbsolute, join, resolve } from "node:path";
 import {
   type ContainerProbe,
   type KeyIdentity,
-  keyIdentity,
-  probeLearningContainer,
-  runtimeKeyClient,
 } from "./auto-assign";
 
 export const MANAGED_API = "https://api.intelligence.copilotkit.ai";
@@ -48,15 +45,17 @@ export type KeyIntelligence = {
   project: () => Promise<KeyIdentity | undefined>;
 };
 
-export function keyIntelligence(
-  apiUrl: string,
-  apiKey: string,
-  wsUrl?: string,
-): KeyIntelligence {
-  const client = runtimeKeyClient(apiUrl, apiKey, wsUrl);
+/**
+ * What the configured runtime key can answer about its own project: nothing, in this fork.
+ *
+ * There is no Intelligence project to ask and no client to build, so this reports "unavailable"
+ * rather than constructing one. The shape stays because the container helpers and the Admin page
+ * still speak it; the answer is the truth this build can give.
+ */
+export function keyIntelligence(): KeyIntelligence {
   return {
-    probe: (containerId) => probeLearningContainer(client, containerId),
-    project: () => keyIdentity(client),
+    probe: async () => "unavailable",
+    project: async () => undefined,
   };
 }
 
@@ -548,11 +547,7 @@ async function jobMain() {
     directory: process.cwd(),
     apiUrl,
     nonInteractive: true,
-    key: keyIntelligence(
-      apiUrl,
-      apiKey,
-      environment.INTELLIGENCE_GATEWAY_WS_URL?.trim() || undefined,
-    ),
+    key: keyIntelligence(),
     ...(token && projectId ? { serviceToken: { token, projectId } } : {}),
   });
   console.log(

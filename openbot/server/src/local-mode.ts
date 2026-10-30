@@ -1,11 +1,9 @@
 /**
  * Local mode's one piece of process state: the thread platform, and the client it talks to.
  *
- * ONE PER PROCESS, ON PURPOSE. In local mode the runtime's runner, every headless turn, the thread
- * lock, the history readers and `/api/threads/:id` must all see the same conversations, exactly as
- * they all see the same Intelligence project in Intelligence mode. Built lazily so that Intelligence
- * mode never creates it, and handed out from here rather than threaded through `createApp`'s
- * positional parameters.
+ * ONE PER PROCESS, ON PURPOSE. The runtime's runner, every headless turn, the thread lock, the
+ * history readers and `/api/threads/:id` must all see the same conversations, so the platform is
+ * built once here and handed out rather than threaded through `createApp`'s positional parameters.
  *
  * WHAT IT TALKS TO. The deployment's own Postgres (`DATABASE_URL`), against the tables migration
  * `0068` adds: threads, messages, the event log and the run lock. Nothing is held in this process's
@@ -24,7 +22,6 @@ import type {
 import { createPostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
 import postgres from "postgres";
 import type { DeploymentConfig } from "./config";
-import type { RuntimeEntitlementResponse } from "./self-host-banner";
 
 let platform: PostgresThreadPlatform | undefined;
 
@@ -47,35 +44,14 @@ export function localThreadPlatform(
   return platform;
 }
 
-export function isLocalMode(
-  config: Pick<DeploymentConfig, "runtime">,
-): boolean {
-  return config.runtime.mode === "local";
-}
-
-/**
- * What a feature that needs Intelligence says in local mode instead of reaching for it.
- *
- * An `Error`, so the readers that already treat a failed entitlement read as "unreachable" (the
- * setup checklist, the boot entitlement report) do so here without a branch of their own — and no
- * request leaves the process.
- */
-export function localModeEntitlements(): Promise<RuntimeEntitlementResponse> {
-  return Promise.reject(
-    new Error(
-      "Local mode: CopilotKit Intelligence is not configured, so there is no entitlement to read.",
-    ),
-  );
-}
-
-/** Said once at boot, so nobody mistakes local mode for a deployment that forgets. */
+/** Said once at boot, so nobody mistakes this deployment for one whose history is not durable. */
 export function announceLocalMode(log: (line: string) => void = console.warn) {
   log(
     JSON.stringify({
       type: "openduet-local-mode",
       durableHistory: true,
       message:
-        "Running WITHOUT CopilotKit Intelligence (OPENDUET_LOCAL_MODE=true). Threads, history and run locks are stored in this deployment's Postgres and survive a restart. Automatic Learning, the Intelligence entitlement check and the self-host banner are off; memory uses OpenBot's own tables.",
+        "Running in local mode. Threads, history and run locks are stored in this deployment's Postgres and survive a restart. Automatic Learning, the entitlement check and the self-host banner are off; memory uses OpenBot's own tables.",
     }),
   );
 }

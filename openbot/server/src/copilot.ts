@@ -1,10 +1,8 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { type AbstractAgent, HttpAgent } from "@ag-ui/client";
-import type { BuiltInAgentConfiguration } from "@copilotkit/runtime/v2";
 import {
-  type CopilotKitIntelligence,
+  type BuiltInAgentConfiguration,
   CopilotRuntime,
-  IntelligenceAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
@@ -12,13 +10,12 @@ import { defaultModelFor } from "@openbot/shared/model-providers";
 import {
   BuiltInAgentWithSaneHistory,
   CloningRemoteAgent,
-  IntelligenceKnowingANewThread,
   RunBuiltAgent,
   UnavailableAgent,
 } from "@openbot/toolkit/copilotkit/agents";
 import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
 import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
-import { createIntelligenceThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
+import { createThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolsMiddleware } from "@openbot/toolkit/headless-tools";
@@ -54,17 +51,14 @@ import type { DeploymentConfig } from "./config";
 import { AG_UI_HEARTBEAT_MS } from "./delivery/opentag";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
-import { observeIntelligenceAuthentication } from "./intelligence-client";
 import { localThreadPlatform } from "./local-mode";
 import { RemoteLearnedSkillsMiddleware } from "./learning/remote";
 import {
   type AcquireLearnedSkills,
-  createLearningRuntime,
   LEARNED_SKILL_TOOL_NAMES,
   type LearnedSkillInvocation,
   type LearningRuntime,
 } from "./learning/runtime";
-import type { LearningSettingsStore } from "./learning/settings";
 import {
   type LoadPersonalMemory,
   PersonalMemoryMiddleware,
@@ -88,18 +82,17 @@ import { runtimeTelemetryProperties } from "./telemetry";
 import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
 
 /**
- * The CopilotKit runtime, in Intelligence mode or (opted into) local SSE mode.
+ * The CopilotKit runtime, in SSE mode on this process's own thread platform.
  *
  * Package-declared built-in Bots run as CopilotKit `BuiltInAgent` instances. External Bots are
  * reached over AG-UI as `HttpAgent` instances, so anything that speaks the protocol remains a Bot
  * with no framework adapter here: LangGraph, Pydantic-AI, CrewAI, Mastra, ADK, or a hand-written
  * server.
  *
- * Intelligence owns durable threads, memory and learning, and a deployment without it forgets every
- * conversation on restart. So the SSE branch exists only as an explicit opt-in: config.ts refuses to
- * boot without the full Intelligence contract unless `OPENDUET_LOCAL_MODE=true` is set with no
- * Intelligence configured, and then `mountLocalCopilotRuntime` (bottom of this file) runs the same
- * runtime in SSE mode on the process's in-memory thread platform. See `RuntimeCapabilities`.
+ * Threads, memory and learning used to live in CopilotKit Intelligence, and this function used to
+ * mount that instead. This fork is local-only by product decision: `mountLocalCopilotRuntime` (bottom
+ * of this file) runs the same runtime in SSE mode on the process's Postgres thread platform, so a
+ * restart keeps every conversation. See `RuntimeCapabilities`.
  */
 
 /** Resolve the signed-in person for a request. Threads and memory are scoped to whoever this returns. */
@@ -1747,10 +1740,9 @@ export function mountCopilotRuntime(
       runId: string;
       busy: boolean;
     }) => void | Promise<void>;
-    learningSettings?: LearningSettingsStore;
   } = {},
 ) {
-  const { basePath = "/api/copilotkit", onRunBusy, learningSettings } = options;
+  const { basePath = "/api/copilotkit", onRunBusy } = options;
 
   /**
    * The same Bot a person's run would get, built without a request.
@@ -1832,145 +1824,37 @@ export function mountCopilotRuntime(
     agents: createRequestAgents(identifyActor, resolver) as never,
   };
 
-  if (config.runtime.mode === "local") {
-    const platform = localThreadPlatform(config);
-    return mountLocalCopilotRuntime({
-      // `mode` is inferred from the ABSENCE of `intelligence`: this is the runtime's SSE mode.
-      runtime: new CopilotRuntime({
-        runner: platform.runner as never,
-        ...sharedRuntimeOptions,
-      }),
-      platform,
-      basePath,
-      identifyUser,
-      onRunBusy,
-      agentFor,
-    });
-  }
-  const { intelligence } = config.runtime;
-
   /*
-   * One client, used by the runtime and by anything reading a thread beside it, so a hop reads the
-   * history a person's run would read rather than a second view of it that could disagree.
+   * The runtime in SSE mode, on this process's own thread platform. The mode is inferred from the
+   * absence of a vendor client: passing one is a type error, and this fork has no client to pass.
    */
-  const intelligenceClient: CopilotKitIntelligence =
-    observeIntelligenceAuthentication(
-      new IntelligenceKnowingANewThread({
-        apiUrl: intelligence.apiUrl,
-        wsUrl: intelligence.gatewayWsUrl,
-        apiKey: intelligence.apiKey,
-        getLearningContainerId: async ({
-          agentId,
-          input,
-          user,
-        }): Promise<string | undefined> => {
-          if (!user)
-            throw new Error(
-              "Learning Thread assignment requires a verified user.",
-            );
-          return learning?.containerForThread({
-            agentId,
-            threadId: input.threadId,
-            userId: user.id,
-          });
-        },
-      }),
-    );
-
-  const learning: LearningRuntime | undefined = learningSettings
-    ? createLearningRuntime({
-        store: learningSettings,
-        client: intelligenceClient,
-      })
-    : undefined;
-
-  const runtime = new CopilotRuntime({
-    // `mode` is inferred from the presence of `intelligence`; passing it is a type error.
-    //
-    // identifyUser is NOT optional in practice. Threads and memory are scoped to the user it
-    // returns, so omitting it puts every person in the deployment in the same thread space and one
-    // person's conversations become another's.
+  const platform = localThreadPlatform(config);
+  return mountLocalCopilotRuntime({
+    runtime: new CopilotRuntime({
+      runner: platform.runner as never,
+      ...sharedRuntimeOptions,
+    }),
+    platform,
+    basePath,
     identifyUser,
-    // The subclass, not the base: a thread nobody has run yet reads as empty rather than as a 500.
-    // See IntelligenceKnowingANewThread.
-    intelligence: intelligenceClient,
-    licenseToken: intelligence.licenseToken,
-    ...sharedRuntimeOptions,
-  });
-
-  return {
-    handler: createCopilotHonoHandler({ runtime, basePath }),
-    learning,
-    /**
-     * How to reach the platform's runner, exactly as the runtime reaches it.
-     *
-     * TAKEN FROM THE CLIENT, NOT FROM CONFIGURATION, and this is the whole of a bug that only a real
-     * gateway could show. Built from `gatewayWsUrl` and the deployment's API key, every join was
-     * refused with `active_lock_mismatch`: a thread's active run is a lock the platform issues, and
-     * the token that holds it is not the API key. The runtime asks the client for both, so anything
-     * else driving a run has to ask the same client the same way.
-     */
-    runnerConnection: () => ({
-      url: intelligenceClient.ɵgetRunnerWsUrl(),
-      authToken: intelligenceClient.ɵgetRunnerAuthToken(),
-    }),
-    /**
-     * The runner a Bot-to-Bot hop drives, built the way `runnerConnection` says. A function so each
-     * caller gets its own, as `handoff-wiring.ts` always built one; local mode returns its shared one.
-     */
-    handoffRunner: (): unknown =>
-      new IntelligenceAgentRunner({
-        url: intelligenceClient.ɵgetRunnerWsUrl(),
-        authToken: intelligenceClient.ɵgetRunnerAuthToken(),
-      }),
-    threadLock: createIntelligenceThreadLock({
-      client: intelligenceClient,
-      learning,
-      onRunBusy,
-    }),
+    onRunBusy,
     agentFor,
-    /**
-     * A thread's messages, as the platform holds them.
-     *
-     * The same client the runtime uses, so a hop reads the history a person's run would read rather
-     * than a second view of it that could disagree.
-     */
-    history: async (input: { threadId: string; actorId: string }) => {
-      /*
-       * The platform's own message type rather than AG-UI's, inferred rather than named: the two are
-       * compatible where it matters and naming the wrong one here would mean converting a history
-       * that does not need converting.
-       */
-      type Read = Awaited<
-        ReturnType<CopilotKitIntelligence["getThreadMessages"]>
-      >;
-      const read = await historyOrEmpty<Read>(
-        () =>
-          intelligenceClient.getThreadMessages({
-            threadId: input.threadId,
-            userId: input.actorId,
-          }),
-        { messages: [] } as Read,
-      );
-      return read.messages;
-    },
-  };
+  });
 }
 
 /**
- * LOCAL MODE: the same runtime in SSE mode, on an in-process runner, with no Intelligence anywhere.
+ * The runtime in SSE mode, on an in-process runner, with no vendor platform anywhere.
  *
  * `new CopilotRuntime({ runner })` with no `intelligence` is the runtime's documented SSE mode
- * (`CopilotSseRuntimeOptions`). The runner is the process's local thread platform's
+ * (`CopilotSseRuntimeOptions`). The runner is the process's thread platform
  * (`local-mode.ts`), which is also what every headless turn, the thread lock and the history readers
  * use, so a hop and a routine see the conversation a person's run wrote.
  *
- * THE ONE THING SSE MODE DOES NOT DO FOR US IS SAY WHO IS ASKING. In Intelligence mode the runtime
- * calls `identifyUser` on every thread operation and a run with no signed-in person fails there; in
- * SSE mode the runtime never calls it, so without the gate below an unauthenticated request could run
- * a Bot. The gate answers 401 for every route but `/info` (which Intelligence mode also serves to
- * anyone, so a deployment check can read it), and runs the rest as the person `identifyUser`
- * returns, which is how the runner scopes threads to their owner.
+ * THE ONE THING SSE MODE DOES NOT DO FOR US IS SAY WHO IS ASKING. The runtime never calls
+ * `identifyUser` on a thread operation, so without the gate below an unauthenticated request could run
+ * a Bot. The gate answers 401 for every route but `/info` (which the runtime serves to anyone, so a
+ * deployment check can read it), and runs the rest as the person `identifyUser` returns, which is how
+ * the runner scopes threads to their owner.
  */
 /**
  * Fill the platform's read mirror for whatever thread this request is about.
@@ -2124,7 +2008,7 @@ function mountLocalCopilotRuntime(input: {
       );
     },
     handoffRunner: (): unknown => platform.runner,
-    threadLock: createIntelligenceThreadLock({
+    threadLock: createThreadLock({
       client: platform,
       onRunBusy,
     }),
