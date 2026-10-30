@@ -1,3 +1,4 @@
+import { appConfig } from "@/lib/generated/application-config";
 import { SANDBOX_THEME_ASK, SANDBOX_THEME_MESSAGE } from "@/lib/theme";
 import {
   DARK_TOKENS,
@@ -6,7 +7,6 @@ import {
   TYPE_SCALE,
   tokenDeclarations,
 } from "@/lib/theme-tokens";
-import { appConfig } from "@/lib/generated/application-config";
 
 /**
  * What a Bot is told about drawing an interface it wrote itself.
