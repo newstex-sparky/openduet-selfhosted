@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { BaseEvent } from "@ag-ui/client";
-import { resolveModel } from "@copilotkit/runtime/v2";
 import { readFirstDay } from "@openbot/shared/first-day";
 import { readMorningBrief } from "@openbot/shared/morning-brief";
+import { resolveModel } from "@openbot/toolkit/copilotkit/engine/agent/index";
 import { nativeRunWaiting } from "@openbot/toolkit/native-approval";
 import { Observable } from "rxjs";
 import type { PlanLanguageModel } from "../agents/plan-model";

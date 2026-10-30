@@ -1,11 +1,5 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { type AbstractAgent, HttpAgent } from "@ag-ui/client";
-import type { BuiltInAgentConfiguration } from "@copilotkit/runtime/v2";
-import type {
-  Engine as ProtocolEngine,
-  EngineRunner as ProtocolEngineRunner,
-} from "@openbot/toolkit/copilotkit/engine/engine";
-import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
 import {
@@ -14,6 +8,12 @@ import {
   RunBuiltAgent,
   UnavailableAgent,
 } from "@openbot/toolkit/copilotkit/agents";
+import type { BuiltInAgentConfiguration } from "@openbot/toolkit/copilotkit/engine/agent/index";
+import type {
+  Engine as ProtocolEngine,
+  EngineRunner as ProtocolEngineRunner,
+} from "@openbot/toolkit/copilotkit/engine/engine";
+import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
 import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
 import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
 import { createThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
@@ -27,8 +27,8 @@ import {
   historyOrEmpty,
   isMissingThread,
 } from "@openbot/toolkit/thread-history";
-import { defer, from, switchMap } from "rxjs";
 import { Hono } from "hono";
+import { defer, from, switchMap } from "rxjs";
 import { z } from "zod";
 import {
   type ActorAgentResolver,
@@ -52,7 +52,6 @@ import type { DeploymentConfig } from "./config";
 import { AG_UI_HEARTBEAT_MS } from "./delivery/opentag";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
-import { localThreadPlatform } from "./local-mode";
 import { RemoteLearnedSkillsMiddleware } from "./learning/remote";
 import {
   type AcquireLearnedSkills,
@@ -60,6 +59,7 @@ import {
   type LearnedSkillInvocation,
   type LearningRuntime,
 } from "./learning/runtime";
+import { localThreadPlatform } from "./local-mode";
 import {
   type LoadPersonalMemory,
   PersonalMemoryMiddleware,
@@ -1818,7 +1818,8 @@ export function mountCopilotRuntime(
     // A factory rather than a fixed map, so a Bot registered while the server is running is
     // reachable on the next request.
     agents: createRequestAgents(identifyActor, resolver) as never,
-    runner: localThreadPlatform(config).runner as unknown as ProtocolEngineRunner,
+    runner: localThreadPlatform(config)
+      .runner as unknown as ProtocolEngineRunner,
   };
 
   return mountLocalCopilotRuntime({

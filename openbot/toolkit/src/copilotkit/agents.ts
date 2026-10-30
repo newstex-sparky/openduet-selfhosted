@@ -4,7 +4,6 @@ import {
   type Message,
   type RunAgentInput,
 } from "@ag-ui/client";
-import { BuiltInAgent, type BuiltInAgentConfiguration } from "@copilotkit/runtime/v2";
 import {
   defer,
   finalize,
@@ -16,6 +15,7 @@ import {
 } from "rxjs";
 import { sanitizeSeededHistory } from "../history-sanitize";
 import { nativeApprovalRun } from "../native-approval";
+import { BuiltInAgent, type BuiltInAgentConfiguration } from "./engine/agent";
 
 /**
  * The CopilotKit agents OpenBot runs its Bots as: a built-in Bot that will not send a broken
@@ -323,4 +323,3 @@ export class UnavailableAgent extends AbstractAgent {
     throw new Error(this.reason);
   }
 }
-
