@@ -1,7 +1,7 @@
 /**
  * A deterministic AG-UI agent, in the repo.
  *
- * This replaces `@copilotkit/aimock`'s `AGUIMock`. It answers a run with the events a fixture names,
+ * This is the repo's own AG-UI mock. It answers a run with the events a fixture names,
  * over the AG-UI wire format (`data: {json}\n\n`), which is what an agent registered against this
  * deployment has to speak. The connection test exists to find out whether somebody else's agent
  * really answers, so what it is pointed at has to be a real endpoint rather than a stubbed fetch.

@@ -9,8 +9,8 @@ import {
 } from "bun:test";
 import type { RunAgentInput } from "@ag-ui/client";
 import { MastraAgent } from "@ag-ui/mastra";
-import { buildAGUITextResponse, LLMock } from "@copilotkit/aimock";
-import { AGUIMock } from "@copilotkit/aimock/agui";
+import { AGUIMock, buildAGUITextResponse } from "../testing/agui-mock";
+import { LLMock } from "../testing/llmock";
 import { CopilotRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
 import { z } from "zod";
@@ -41,8 +41,8 @@ declare global {
  * The unit tests next door prove `selectTools` narrows correctly. They cannot prove the narrowing
  * arrives: the tools are attached at agent construction, the runtime clones the agent before every
  * run, and both of those sit between the decision and the request. So this drives the real
- * `buildAgents`, through a real clone, against `@copilotkit/aimock` — ours, the org's deterministic
- * backend — and reads the tool list out of the request the mock actually received. If the agent were
+ * `buildAgents`, through a real clone, against the repo's own scriptable model mock — and reads the
+ * tool list out of the request the mock actually received. If the agent were
  * built with the whole catalogue, or the clone lost the wrapper, or pass one never happened, the
  * decision would still be right and every one of these would fail.
  *

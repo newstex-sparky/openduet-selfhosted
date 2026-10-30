@@ -1,7 +1,7 @@
 /**
  * A deterministic, in-repo stand-in for the model APIs this deployment talks to.
  *
- * This replaces `@copilotkit/aimock`'s `LLMock`. It speaks the three wire protocols the product
+ * This is the repo's own model mock. It speaks the three wire protocols the product
  * actually uses, on one port, and answers from a list of fixtures:
  *
  *   POST /v1/chat/completions   OpenAI chat completions (streaming and not)
@@ -12,7 +12,7 @@
  * answers with `on` / `onMessage`. The journal behind `getRequests()` is what a test reads to assert
  * what the product actually sent.
  *
- * The protocol shapes are copied from the responses aimock produced for the same requests, so a
+ * The protocol shapes were captured from the mock this one replaced, so a
  * client that parsed aimock's answers parses these.
  */
 
@@ -560,6 +560,230 @@ function protocolOf(pathname: string): "chat" | "responses" | "anthropic" | null
 	return null;
 }
 
+/** The text of an Anthropic content block list, or of a plain string. */
+function blockText(content: unknown): string {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((part) => {
+			if (!part || typeof part !== "object") return "";
+			const record = part as Record<string, unknown>;
+			return record.type === "text" && typeof record.text === "string"
+				? record.text
+				: "";
+		})
+		.join("");
+}
+
+function recordParts(content: unknown): Record<string, unknown>[] {
+	return Array.isArray(content)
+		? content.filter(
+				(part): part is Record<string, unknown> =>
+					!!part && typeof part === "object",
+			)
+		: [];
+}
+
+/**
+ * An Anthropic conversation, in the chat shape.
+ *
+ * The journal and the fixtures both read `messages` the way the chat protocol spells it, because
+ * that is the only shape with one spelling for a tool result. A `tool_result` block becomes a
+ * `tool` message, a `tool_use` block becomes `tool_calls`, and the system prompt becomes a leading
+ * `system` message — which is exactly what a consumer asserting on `body.messages` expects.
+ */
+function anthropicMessages(body: MockRequestBody): Record<string, unknown>[] {
+	const messages: Record<string, unknown>[] = [];
+	if (body.system !== undefined) {
+		const system = blockText(body.system);
+		if (system) messages.push({ role: "system", content: system });
+	}
+	const turns = Array.isArray(body.messages) ? body.messages : [];
+	for (const turn of turns) {
+		if (!turn || typeof turn !== "object") continue;
+		const record = turn as Record<string, unknown>;
+		const parts = recordParts(record.content);
+		if (record.role === "user") {
+			const results = parts.filter((part) => part.type === "tool_result");
+			const texts = parts.filter((part) => part.type === "text");
+			if (results.length > 0) {
+				if (texts.length > 0)
+					messages.push({
+						role: "user",
+						content: texts
+							.map((part) =>
+								typeof part.text === "string" ? part.text : "",
+							)
+							.join(""),
+					});
+				for (const result of results)
+					messages.push({
+						role: "tool",
+						content: blockText(result.content),
+						tool_call_id: result.tool_use_id,
+					});
+				continue;
+			}
+			messages.push({ role: "user", content: blockText(record.content) });
+			continue;
+		}
+		if (record.role === "assistant") {
+			const calls = parts.filter((part) => part.type === "tool_use");
+			const text = blockText(record.content);
+			if (calls.length > 0)
+				messages.push({
+					role: "assistant",
+					content: text || null,
+					tool_calls: calls.map((call) => ({
+						id: call.id,
+						type: "function",
+						function: {
+							name: typeof call.name === "string" ? call.name : "",
+							arguments:
+								typeof call.input === "string"
+									? call.input
+									: JSON.stringify(call.input ?? {}),
+						},
+					})),
+				});
+			else messages.push({ role: "assistant", content: text || null });
+			continue;
+		}
+		messages.push({ role: "assistant", content: null });
+	}
+	return messages;
+}
+
+/** The text of a Responses-API content list (`input_text` / `output_text` parts). */
+function responsesText(content: unknown): string {
+	if (typeof content === "string") return content;
+	return recordParts(content)
+		.filter((part) => part.type === "input_text" || part.type === "output_text")
+		.map((part) => (typeof part.text === "string" ? part.text : ""))
+		.join("");
+}
+
+/** A Responses-API conversation, in the chat shape. Same reason as `anthropicMessages`. */
+function responsesMessages(body: MockRequestBody): Record<string, unknown>[] {
+	const messages: Record<string, unknown>[] = [];
+	if (typeof body.instructions === "string" && body.instructions)
+		messages.push({ role: "system", content: body.instructions });
+	const input = body.input;
+	if (typeof input === "string") {
+		messages.push({ role: "user", content: input });
+		return messages;
+	}
+	for (const item of Array.isArray(input) ? input : []) {
+		if (!item || typeof item !== "object") continue;
+		const record = item as Record<string, unknown>;
+		if (
+			record.role === "system" ||
+			record.role === "developer" ||
+			record.role === "user" ||
+			record.role === "assistant"
+		) {
+			messages.push({
+				role: record.role === "developer" ? "system" : record.role,
+				content: responsesText(record.content),
+			});
+			continue;
+		}
+		if (record.type === "function_call")
+			messages.push({
+				role: "assistant",
+				content: null,
+				tool_calls: [
+					{
+						id: record.call_id ?? randomId("call"),
+						type: "function",
+						function: {
+							name: typeof record.name === "string" ? record.name : "",
+							arguments:
+								typeof record.arguments === "string"
+									? record.arguments
+									: JSON.stringify(record.arguments ?? {}),
+						},
+					},
+				],
+			});
+		else if (record.type === "function_call_output")
+			messages.push({
+				role: "tool",
+				content: record.output ?? "",
+				tool_call_id: record.call_id,
+			});
+		else if (record.type === "item_reference")
+			messages.push({ role: "assistant", content: "" });
+	}
+	return messages;
+}
+
+/** Responses-API tools, in the chat shape a consumer reads `body.tools[].function` from. */
+function responsesTools(tools: unknown): unknown {
+	if (!Array.isArray(tools) || tools.length === 0) return undefined;
+	return tools
+		.filter(
+			(tool): tool is Record<string, unknown> =>
+				!!tool && typeof tool === "object" && tool.type === "function",
+		)
+		.map((tool) => ({
+			type: "function",
+			function: {
+				name: tool.name,
+				description: tool.description,
+				parameters: tool.parameters,
+			},
+		}));
+}
+
+/**
+ * Every protocol's request body, in the one shape a test can read.
+ *
+ * Consumers assert on `body.messages[].role` and `body.tools[].function.name`, and neither is the
+ * shape the Anthropic or Responses wire protocol carries. Normalise once, here, so the journal and
+ * the fixtures agree with the chat protocol rather than each test re-deriving three spellings.
+ */
+function normalizeRequestBody(
+	protocol: "chat" | "responses" | "anthropic",
+	body: MockRequestBody,
+): MockRequestBody {
+	if (protocol === "anthropic") {
+		const tools = Array.isArray(body.tools)
+			? body.tools.map((tool) => {
+					const record = (tool ?? {}) as Record<string, unknown>;
+					return {
+						type: "function",
+						function: {
+							name: record.name,
+							description: record.description,
+							parameters: record.input_schema,
+						},
+					};
+				})
+			: undefined;
+		return {
+			model: body.model,
+			messages: anthropicMessages(body),
+			stream: body.stream,
+			temperature: body.temperature,
+			max_tokens: body.max_tokens,
+			...(tools ? { tools } : {}),
+		};
+	}
+	if (protocol === "responses")
+		return {
+			model: body.model,
+			messages: responsesMessages(body),
+			stream: body.stream,
+			temperature: body.temperature,
+			max_tokens: body.max_output_tokens,
+			tools: responsesTools(body.tools),
+			tool_choice: body.tool_choice,
+			response_format: body.response_format,
+		};
+	return body;
+}
+
 /**
  * A scriptable model API on a loopback port.
  *
@@ -656,17 +880,20 @@ export class LLMock {
 			body = {};
 		}
 
+		const normalized = normalizeRequestBody(protocol, body);
 		const entry: MockRequestEntry = {
 			id: randomId("req"),
 			timestamp: Date.now(),
 			method: request.method,
 			path: pathname,
 			headers: Object.fromEntries(request.headers.entries()),
-			body,
+			body: normalized,
 		};
 		this.#requests.push(entry);
 
-		const fixture = this.#fixtures.find((candidate) => matches(candidate, body));
+		const fixture = this.#fixtures.find((candidate) =>
+			matches(candidate, normalized),
+		);
 		if (!fixture)
 			return Response.json(
 				{ error: { message: "No fixture matched the request." } },
@@ -675,7 +902,7 @@ export class LLMock {
 
 		const answer =
 			typeof fixture.response === "function"
-				? await fixture.response(body)
+				? await fixture.response(normalized)
 				: fixture.response;
 		const resolved = resolveResponse(answer);
 

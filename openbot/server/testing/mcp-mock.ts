@@ -1,7 +1,7 @@
 /**
  * A deterministic MCP server, in the repo.
  *
- * This replaces `@copilotkit/aimock`'s `MCPMock`. It is built on `@modelcontextprotocol/sdk` — the
+ * This is the repo's own MCP mock. It is built on `@modelcontextprotocol/sdk` — the
  * same SDK the product's own client uses — rather than on a hand-rolled JSON-RPC dispatcher, so the
  * tools a test registers really cross a Streamable-HTTP MCP connection. `mcp.ts` is the one door
  * here that speaks MCP to somebody else's server; a stubbed `fetch` would prove only that we parse
