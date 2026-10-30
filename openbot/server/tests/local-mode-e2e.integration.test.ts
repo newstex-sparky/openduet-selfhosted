@@ -775,3 +775,50 @@ test("a run whose model is silent for longer than Bun's idle timeout still strea
     modelDelayMs = 0;
   }
 }, 60_000);
+
+test("a run refused by the thread lock answers 409, not an empty 200", async () => {
+  /*
+   * The runtime's SSE mode answers 200 before it calls the runner, so a run the lock refused used to
+   * come back as 200 with an empty body and the refusal only in the server log. Intelligence mode
+   * answers 409 {"error":"Thread lock denied"}, and so must this.
+   */
+  scriptModel([{ content: "The first run finished." }]);
+  modelDelayMs = 3_000;
+  const threadId = `${prefix}-busy-${randomUUID()}`;
+  try {
+    const first = runOverHttp(threadId, randomUUID(), "First.");
+    await waitFor("the first run to hold the thread lock", async () => {
+      const rows = (await database.$client`
+        select run_id from copilotkit_thread_locks
+         where thread_id = ${threadId} and expires_at > now()
+      `) as unknown as { run_id: string }[];
+      return rows.length > 0 ? rows : undefined;
+    });
+
+    const refused = await runOverHttp(threadId, randomUUID(), "Second.");
+    expect({
+      status: refused.status,
+      contentType: refused.contentType,
+      body: JSON.parse(refused.body),
+    }).toEqual({
+      status: 409,
+      contentType: expect.stringContaining("application/json"),
+      body: { error: "Thread lock denied" },
+    });
+
+    /* The holder was not disturbed, and the thread is free once it ends. */
+    const held = await first;
+    expect({ status: held.status, last: held.types.at(-1) }).toEqual({
+      status: 200,
+      last: "RUN_FINISHED",
+    });
+    modelDelayMs = 0;
+    const after = await runOverHttp(threadId, randomUUID(), "Third.");
+    expect({ status: after.status, last: after.types.at(-1) }).toEqual({
+      status: 200,
+      last: "RUN_FINISHED",
+    });
+  } finally {
+    modelDelayMs = 0;
+  }
+}, 60_000);

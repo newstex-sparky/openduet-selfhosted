@@ -23,8 +23,12 @@ import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolsMiddleware } from "@openbot/toolkit/headless-tools";
 import { sanitizeSeededHistory } from "@openbot/toolkit/history-sanitize";
+import { isLockConflict } from "@openbot/toolkit/lease";
 import { executeNativeApprovalTool } from "@openbot/toolkit/native-approval";
-import { historyOrEmpty } from "@openbot/toolkit/thread-history";
+import {
+  historyOrEmpty,
+  isMissingThread,
+} from "@openbot/toolkit/thread-history";
 import { defer, from, switchMap } from "rxjs";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -1991,6 +1995,62 @@ async function primeThread(
   );
 }
 
+/**
+ * Take a run's thread lock BEFORE the runtime starts streaming, so a refused run is a 409.
+ *
+ * In SSE mode the runtime answers `POST /agent/:id/run` with a 200 `text/event-stream` at once and
+ * only then calls the runner, so a runner that refuses because somebody else's run holds the thread
+ * can only close that stream: the caller got 200 with an empty body and no way to tell a refused run
+ * from a run that said nothing, while the 409 went to the server log alone. Intelligence mode takes
+ * the lock first and answers `409 {"error":"Thread lock denied"}` (the runtime's
+ * `handlers/intelligence/run`), so this does the same, through the same platform lock API every
+ * headless turn uses. The runner then re-acquires the lock under the same run id, which the platform
+ * allows, and releases it when the run ends.
+ *
+ * Answers the run it claimed, a Response to send instead of running, or nothing when this request is
+ * not a run (or has no usable thread/run id, which the runtime rejects on its own).
+ *
+ * A run the runtime then rejects (an unknown agent, a malformed body) leaves the thread row the lock
+ * needs, with no events in it. `listThreads` never shows a thread without events, so nobody sees it:
+ * the same as a headless turn that took the lock and never ran.
+ */
+async function claimRunLock(
+  platform: PostgresThreadPlatform,
+  request: Request,
+  userId: string,
+): Promise<{ threadId: string; runId: string } | Response | undefined> {
+  if (request.method !== "POST") return undefined;
+  const segments = new URL(request.url).pathname.split("/").filter(Boolean);
+  if (segments.at(-1) !== "run" || segments.at(-3) !== "agent")
+    return undefined;
+  const agentId = decodeURIComponent(segments.at(-2) ?? "");
+  const body = (await request
+    .clone()
+    .json()
+    .catch(() => undefined)) as
+    | { threadId?: unknown; runId?: unknown }
+    | undefined;
+  const { threadId, runId } = body ?? {};
+  if (typeof threadId !== "string" || typeof runId !== "string")
+    return undefined;
+  if (!threadId || !runId || !agentId) return undefined;
+  try {
+    await runAsLocalUser(userId, () =>
+      platform.ɵacquireThreadLock({ threadId, runId, userId, agentId }),
+    );
+  } catch (error) {
+    if (isLockConflict(error))
+      return Response.json({ error: "Thread lock denied" }, { status: 409 });
+    if (isMissingThread(error))
+      return Response.json(
+        { error: "Failed to initialize thread" },
+        { status: 404 },
+      );
+    throw error;
+  }
+  return { threadId, runId };
+}
+
 function mountLocalCopilotRuntime(input: {
   basePath: string;
   identifyUser: IdentifyUser;
@@ -2038,7 +2098,18 @@ function mountLocalCopilotRuntime(input: {
      * in-memory platform, so this costs nothing when that is the one mounted.
      */
     await primeThread(platform, request, userId);
-    return runAsLocalUser(userId, () => inner.fetch(request));
+    const claim = await claimRunLock(platform, request, userId);
+    if (claim instanceof Response) return claim;
+    const response = await runAsLocalUser(userId, () => inner.fetch(request));
+    /* The runtime refused the request before reaching the runner (bad body, unknown agent), so
+     * nothing will release the lock the claim took: release it here, or the thread stays busy for
+     * the lock's whole TTL. A streamed answer is the runner's, and the runner releases it. */
+    if (
+      claim &&
+      !response.headers.get("content-type")?.startsWith("text/event-stream")
+    )
+      await platform.ɵcleanupThreadLock(claim);
+    return response;
   };
   handler.all(basePath, (context) => gate(context.req.raw));
   handler.all(`${basePath}/*`, (context) => gate(context.req.raw));
