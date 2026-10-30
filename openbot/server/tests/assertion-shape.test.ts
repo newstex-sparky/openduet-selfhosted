@@ -793,7 +793,9 @@ const ALLOW: Allowed[] = [
   },
   {
     file: "server/tests/tool-selection.integration.test.ts",
-    line: 834,
+    // Moved from 834 by the in-repo-mock fix, which added the injected teardown fault to the
+    // fixture's `afterAll`; the offence is the same one and is re-keyed rather than re-found.
+    line: 843,
     shape: "b",
     finding: "NEW (round 2 did not find this)",
     why: "expect(run?.forwardedProps?.openbotRun).toBeUndefined();",

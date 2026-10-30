@@ -61,7 +61,10 @@ async function runRestorationProof(mode: ProofMode) {
     env: {
       ...childEnvironment(mode),
       ...(mode === "teardown-error"
-        ? { SRA009_STOP_FIXTURE_BEFORE_TEARDOWN: "1" }
+        ? {
+            SRA009_STOP_FIXTURE_BEFORE_TEARDOWN: "1",
+            SRA009_FAIL_TEARDOWN: "1",
+          }
         : {}),
     },
     stdout: "pipe",
@@ -199,10 +202,11 @@ describe("tool-selection fixture model environment restoration", () => {
       "tool-selection-test:early-stop-settled",
       "tool-selection-afterAll:stop-start",
       "tool-selection-afterAll:stop-settled",
-      "tool-selection-afterAll:stop-rejected",
+      "tool-selection-afterAll:teardown-failure-injected",
       "tool-selection-afterAll:env-restored",
     ]);
-    expect(proof.stderr).toContain("Server not started");
+    // The teardown failure is the injected one, surfaced only after the environment was restored.
+    expect(proof.stderr).toContain("SRA-009 synthetic teardown failure");
   });
 
   test("restores the model environment and stops started mocks before surfacing setup errors", async () => {
@@ -223,7 +227,10 @@ describe("tool-selection fixture model environment restoration", () => {
     expect(setupResultFrom(proof.stdout)).toEqual({
       mode: "setup-error",
       llmStopStatus: "fulfilled",
-      remoteStopStatus: "rejected",
+      // The AG-UI mock never started here, and the in-repo mocks stop safely whether or not they
+      // did. aimock rejected this stop with "Server not started"; that rejection is not behaviour any
+      // caller relies on, only an accident of the mock it replaced.
+      remoteStopStatus: "fulfilled",
       fixtureListenerStopped: true,
     });
     expect(lifecycleEventsFrom(proof.stdout)).toEqual([
@@ -237,7 +244,6 @@ describe("tool-selection fixture model environment restoration", () => {
       "tool-selection-beforeAll:setup-env-restored",
       "tool-selection-afterAll:stop-start",
       "tool-selection-afterAll:stop-settled",
-      "tool-selection-afterAll:stop-rejected",
       "tool-selection-afterAll:env-restored",
     ]);
     expect(proof.stderr).toContain(

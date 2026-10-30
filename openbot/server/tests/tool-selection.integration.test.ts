@@ -9,10 +9,9 @@ import {
 } from "bun:test";
 import type { RunAgentInput } from "@ag-ui/client";
 import { MastraAgent } from "@ag-ui/mastra";
-import { AGUIMock, buildAGUITextResponse } from "../testing/agui-mock";
-import { LLMock } from "../testing/llmock";
 import { CopilotRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { z } from "zod";
 import {
   buildAgents,
@@ -20,8 +19,9 @@ import {
   type RuntimeModel,
 } from "../src/copilot";
 import type { Selection } from "../src/plugins/selection";
-import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { createModelCompleter } from "../src/routing/model";
+import { AGUIMock, buildAGUITextResponse } from "../testing/agui-mock";
+import { LLMock } from "../testing/llmock";
 
 declare global {
   var __SRA009_AFTER_TOOL_SELECTION_RESTORE__:
@@ -206,6 +206,15 @@ afterAll(async () => {
     if (failed) {
       recordLifecycleEvent("tool-selection-afterAll:stop-rejected");
       teardownFailure = failed.reason;
+    }
+    // A teardown step that throws, asked for by the proof driver. The in-repo mocks stop safely when
+    // they were never started or are already stopped, so a second stop cannot stand in for a real
+    // teardown failure the way aimock's did.
+    if (!teardownFailure && process.env.SRA009_FAIL_TEARDOWN === "1") {
+      recordLifecycleEvent("tool-selection-afterAll:teardown-failure-injected");
+      teardownFailure = new Error(
+        "SRA-009 synthetic teardown failure after the fixture mocks were stopped",
+      );
     }
   } finally {
     restoreModelEnvironment();
