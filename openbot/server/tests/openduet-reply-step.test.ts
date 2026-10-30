@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { BaseEvent, Message } from "@ag-ui/client";
-import { LLMock } from "@copilotkit/aimock";
+import { LLMock } from "../testing/llmock";
 import { frameFirstDay } from "@openbot/shared/first-day";
 import { frameMorningBrief } from "@openbot/shared/morning-brief";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";

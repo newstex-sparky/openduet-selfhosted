@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { LLMock } from "@copilotkit/aimock";
+import { LLMock } from "../testing/llmock";
 import { z } from "zod";
 import {
   normalizeModelBaseUrls,

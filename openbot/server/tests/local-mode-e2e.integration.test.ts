@@ -22,7 +22,7 @@
  */
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { LLMock } from "@copilotkit/aimock";
+import { LLMock } from "../testing/llmock";
 import { eq } from "drizzle-orm";
 import { createAgentProfileStore } from "../src/agents/profile-store";
 import type { AgentActor } from "../src/agents/profile-types";

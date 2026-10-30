@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { LLMock } from "@copilotkit/aimock";
+import { LLMock } from "../testing/llmock";
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { buildAgents, type RuntimeModel } from "../src/copilot";
 import {

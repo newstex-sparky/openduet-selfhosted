@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
-import { LLMock } from "@copilotkit/aimock";
+import { LLMock } from "../testing/llmock";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
