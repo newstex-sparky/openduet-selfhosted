@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { CopilotKitProvider } from "@/lib/agui";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
 import "./a2ui.css";
-import { a2uiProviderOptions } from "./a2ui";
 import { ActiveBotProvider } from "./active-bot";
+import { activityRenderers } from "./activity-renderers";
 import { BotTools } from "./bot-tools";
 import { ComputerTools } from "./computer-tools";
 import { EscalationTool } from "./escalation-tool";
@@ -65,12 +65,13 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
 
   /* The surfaces below ask the capability query what this deployment can do — a computer, voice,
    * A2UI — and hide what it cannot. `generativeUi` decides two halves at once: the server turning on
-   * the middleware that emits a surface, and the browser registering the renderer that draws one.
+   * the middleware that emits a surface, and the browser registering the renderer that draws one, so
+   * the activity renderers are read from the same answer below. See activity-renderers.ts.
    */
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      {...a2uiProviderOptions(capabilities?.generativeUi)}
+      renderActivityMessages={activityRenderers(capabilities?.generativeUi)}
     >
       {/* Computer tools target the Bot declared by the mounted surface. */}
       <ActiveBotProvider>

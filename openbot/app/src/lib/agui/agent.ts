@@ -17,11 +17,11 @@
  * base class exactly as a run's is.
  */
 import {
-  HttpAgent,
   enforceOutgoingInput,
+  HttpAgent,
+  type RunAgentInput,
   runHttpRequest,
   transformHttpEventStream,
-  type RunAgentInput,
 } from "@ag-ui/client";
 
 export interface RuntimeAgentConfig {
@@ -113,6 +113,30 @@ export class RuntimeAgent extends HttpAgent {
       ...super.requestInit(input),
       credentials: "include",
     };
+  }
+
+  /**
+   * End the turn here, and at the runtime.
+   *
+   * `HttpAgent.abortRun` ends this tab's stream and nothing else. The runner keeps generating, and
+   * a Bot that was driving a computer keeps driving it, after the person pressed Stop — the answer
+   * they stopped arrives anyway on the next join. The vendor agent this class replaces posted the
+   * stop to the runtime at the same moment, so Stop is posted here too.
+   *
+   * NO RUN ID. The endpoint ends the thread's live run, and this agent holds one run at a time on
+   * one thread; naming the run would only be a second thing to keep in step with the stream. A stop
+   * that fails to reach the server is not reported: the turn is already over on screen, and a
+   * network error here would be a message about something the person cannot act on.
+   */
+  abortRun(): void {
+    super.abortRun();
+    const threadId = this.threadId;
+    if (threadId === undefined) return;
+    void this.fetch(stopUrl(this.runtimeUrl, this.runtimeAgentId, threadId), {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+    }).catch(() => undefined);
   }
 
   /**

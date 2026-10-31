@@ -179,7 +179,10 @@ export interface FrontendTool<T extends Record<string, unknown>> {
    */
   available?: boolean;
   agentId?: string;
-  handler?: (args: T, context: FrontendToolHandlerContext) => unknown | Promise<unknown>;
+  handler?: (
+    args: T,
+    context: FrontendToolHandlerContext,
+  ) => unknown | Promise<unknown>;
   /** The card for its calls, where a caller wants one registered with the tool. */
   render?: (props: ToolRenderProps<T>) => ReactNode;
 }
@@ -220,13 +223,15 @@ export type AttachmentUploadResult =
       metadata?: Record<string, unknown>;
     };
 
-export type AttachmentUploadErrorReason =
-  | "file-too-large"
-  | "invalid-type"
-  | "upload-failed";
-
+/**
+ * A file the composer would not take, or one that would not go up.
+ *
+ * `file` and `message` are the whole of it, because they are the whole of what a refusal is: the
+ * file to name and the sentence to read. A discriminator would be a fourth wording of the same
+ * fact — the sentence already says which way it failed — and every handler would have to be told
+ * about it to be written correctly.
+ */
 export interface AttachmentUploadError {
-  reason: AttachmentUploadErrorReason;
   file: File;
   /** The sentence a person reads. */
   message: string;

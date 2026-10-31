@@ -48,9 +48,9 @@ import { settleReactWork } from "./settle-react-work";
  * so bun's test runner reports the resulting unhandled rejection as a failure of whichever test
  * is running when it surfaces — see `composer-attachment-lifecycle.test.tsx`'s second test for
  * this repository's own note on the same wall. What is reachable, and what the fix actually
- * changes, is which SDK function the queue branch calls — `consumeAttachments()` (sweeps every
- * `ready` attachment) versus `removeAttachment()` per id (surgical) — so this spies on both,
- * wrapping the real hook rather than replacing it, and asserts on the calls directly.
+ * changes, is what the queue branch does with the strip — one `removeAttachment()` per id
+ * `onQueue` took, never a sweep of every `ready` attachment — so this spies on that function,
+ * wrapping the real hook rather than replacing it, and asserts on the ids it was called with.
  *
  * THE HARNESS IS THIS REPOSITORY'S. `GlobalRegistrator` in `beforeAll`/`afterAll` and `cleanup`
  * in `afterEach`, matching `composer-attachment-lifecycle.test.tsx` for the reason recorded
@@ -73,17 +73,15 @@ afterAll(async () => {
   GlobalRegistrator.unregister();
 });
 
-/** Every id `removeAttachment` was called with, and how many times `consumeAttachments` was. */
+/** Every id `removeAttachment` was called with. */
 let removeAttachmentCalls: string[];
-let consumeAttachmentsCallCount: number;
 
 /**
  * Every distinct function identity the spy has handed a rendering composer, so the test below can
- * say that it handed out exactly one of each. See the note on stability under the spy itself.
+ * say that it handed out exactly one. See the note on stability under the spy itself.
  */
 const handedOut = {
   removeAttachment: new Set<unknown>(),
-  consumeAttachments: new Set<unknown>(),
 };
 
 /**
@@ -122,15 +120,10 @@ beforeAll(() => {
         },
         [hook.removeAttachment],
       );
-      const consumeAttachments = useCallback(() => {
-        consumeAttachmentsCallCount += 1;
-        return hook.consumeAttachments();
-      }, [hook.consumeAttachments]);
 
       handedOut.removeAttachment.add(removeAttachment);
-      handedOut.consumeAttachments.add(consumeAttachments);
 
-      return { ...hook, removeAttachment, consumeAttachments };
+      return { ...hook, removeAttachment };
     },
   );
 });
@@ -160,9 +153,7 @@ let uploads: string[];
 
 beforeEach(() => {
   removeAttachmentCalls = [];
-  consumeAttachmentsCallCount = 0;
   handedOut.removeAttachment.clear();
-  handedOut.consumeAttachments.clear();
   deletes = [];
   uploads = [];
   global.fetch = (async (path: string, init: RequestInit) => {
@@ -268,11 +259,10 @@ test("queuing a correction mid-send removes only what it takes, never sweeps the
   // Taken off the strip because it was queued, same as any parked attachment.
   expect(queryByLabelText("Remove correction.txt")).toBeNull();
 
-  // THE REGRESSION, PINNED DIRECTLY. The old code called `consumeAttachments()`, which sweeps
-  // every `ready` attachment regardless of `sending` — including notes.txt, which this send is
-  // still riding. The fix calls `removeAttachment()` once per id `onQueue` actually took, and
-  // never the sweep at all.
-  expect(consumeAttachmentsCallCount).toBe(0);
+  // THE REGRESSION, PINNED DIRECTLY. A sweep of every `ready` attachment — which is what this
+  // branch used to have available, and what it used to call — takes notes.txt too, and this send
+  // is still riding it. The hook's contract has exactly seven names and no sweep among them; the
+  // queue branch removes the ids `onQueue` actually took, one call each.
   expect(removeAttachmentCalls).toEqual([queued[0].attachments[0].id]);
 
   land();
@@ -471,12 +461,12 @@ test("a full queue drains whole, with nothing bumped and nothing to release", as
   expect(uploads).toHaveLength(MAX_ATTACHMENTS_PER_MESSAGE);
 });
 
-test("the spy hands the composer one stable pair of callbacks, not a fresh pair per render", async () => {
-  // THE HARNESS MEASURING ITSELF, and worth the test. The SDK builds `removeAttachment` and
-  // `consumeAttachments` as `useCallback(…, [])` — stable for the life of the hook, deliberately —
-  // and `submitDraft` lists `removeAttachment` in its dependency array. A spy that mints a new
-  // wrapper on every render silently rebuilds that memo on every render too, so the thing under
-  // test would be reacting to the instrument rather than to the code.
+test("the spy hands the composer one stable callback, not a fresh one per render", async () => {
+  // THE HARNESS MEASURING ITSELF, and worth the test. The hook builds `removeAttachment` as
+  // `useCallback(…, [])` — stable for the life of the hook, deliberately — and `submitDraft` lists
+  // it in its dependency array. A spy that mints a new wrapper on every render silently rebuilds
+  // that memo on every render too, so the thing under test would be reacting to the instrument
+  // rather than to the code.
   const view = render(
     <Composer channelId="channel-1" compact onSubmit={() => {}} />,
   );
@@ -488,7 +478,6 @@ test("the spy hands the composer one stable pair of callbacks, not a fresh pair 
   await waitFor(() => expect(chips(view)).toEqual([]));
 
   expect(handedOut.removeAttachment.size).toBe(1);
-  expect(handedOut.consumeAttachments.size).toBe(1);
 });
 
 /**

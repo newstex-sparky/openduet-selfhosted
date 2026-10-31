@@ -118,6 +118,9 @@ const waitingSend = (toolCallId: string) => ({
 const noRenderers = {
   copilotkit: {
     renderToolCalls: [],
+    // Nothing is registered for a connector tool: `useRenderToolCall` asks the registry for a card
+    // and is told there is none, so the transcript's own line draws the call.
+    rendererFor: () => undefined,
     subscribe: () => ({ unsubscribe() {} }),
   },
   executingToolCallIds: new Set<string>(),

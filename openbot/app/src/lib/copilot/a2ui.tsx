@@ -78,15 +78,21 @@ function surfaceIdOf(
   if (typeof content.surfaceId === "string") return content.surfaceId;
   for (const operation of operations) {
     if ("createSurface" in operation) return operation.createSurface.surfaceId;
-    if ("updateComponents" in operation) return operation.updateComponents.surfaceId;
-    if ("updateDataModel" in operation) return operation.updateDataModel.surfaceId;
+    if ("updateComponents" in operation)
+      return operation.updateComponents.surfaceId;
+    if ("updateDataModel" in operation)
+      return operation.updateDataModel.surfaceId;
     if ("deleteSurface" in operation) return operation.deleteSurface.surfaceId;
   }
   return undefined;
 }
 
 /** Feeds one batch into the provider's processor, once per batch. */
-function Ingest({ operations }: { operations: readonly ServerToClientMessage[] }) {
+function Ingest({
+  operations,
+}: {
+  operations: readonly ServerToClientMessage[];
+}) {
   const { processMessages } = useA2UIActions();
   const done = useRef<readonly ServerToClientMessage[] | null>(null);
   useEffect(() => {
@@ -169,5 +175,7 @@ export function a2uiActivityRenderers(
  * draws, so this reads the one capability answer as well; see `DeploymentCapabilities.generativeUi`.
  */
 export function a2uiProviderOptions(enabled: boolean | undefined) {
-  return enabled ? { renderActivityMessages: a2uiActivityRenderers(enabled) } : {};
+  return enabled
+    ? { renderActivityMessages: a2uiActivityRenderers(enabled) }
+    : {};
 }

@@ -458,11 +458,13 @@ export function useRenderActivity<TContent>(renderer: {
       activityType,
       agentId,
       render: (props) =>
-        latest.current.render(props as unknown as {
-          activityType: string;
-          content: TContent;
-          message: ActivityMessage;
-        }),
+        latest.current.render(
+          props as unknown as {
+            activityType: string;
+            content: TContent;
+            message: ActivityMessage;
+          },
+        ),
     };
     return copilotkit.addHookActivityRenderer(registered);
   }, [copilotkit, activityType, agentId]);

@@ -7,37 +7,54 @@
  * speaks on `/agent/:id/run` and `/agent/:id/connect`.
  */
 export {
-  RuntimeAgent,
   connectUrl,
+  RuntimeAgent,
+  type RuntimeAgentConfig,
   runUrl,
   stopUrl,
-  type RuntimeAgentConfig,
 } from "./agent";
-
 export {
-  CopilotKit,
-  agentKey,
-  unansweredToolCalls,
-  type AgentLookup,
-  type CopilotKitConfig,
-  type CopilotKitSubscriber,
-  type CopilotKitSubscription,
-} from "./core";
-
+  matchesAccept,
+  type UseAttachmentsProps,
+  type UseAttachmentsReturn,
+  useAttachments,
+} from "./attachments";
+export { CopilotChat, type CopilotChatProps } from "./chat";
 export {
   CopilotChatConfigurationProvider,
+  type CopilotChatConfigurationValue,
   CopilotKitContext,
+  type CopilotKitContextValue,
   CopilotKitProvider,
+  type CopilotKitProviderProps,
   useCopilotChatConfiguration,
   useCopilotKit,
   useDefaultAgentId,
-  type CopilotChatConfigurationValue,
-  type CopilotKitContextValue,
-  type CopilotKitProviderProps,
 } from "./context";
-
 export {
+  type AgentLookup,
+  agentKey,
+  CopilotKit,
+  type CopilotKitConfig,
+  type CopilotKitSubscriber,
+  type CopilotKitSubscription,
+  unansweredToolCalls,
+} from "./core";
+export {
+  activityProgress,
+  generatedDocument,
+  generativeUIActivityRenderers,
+  OpenGenerativeUIActivityRenderer,
+  type OpenGenerativeUIActivityRendererProps,
+  type OpenGenerativeUIActivityType,
+  type OpenGenerativeUIContent,
+  type OpenGenerativeUIProgress,
+} from "./generative-ui";
+export {
+  type FrontendToolConfig,
   parseToolArguments,
+  type UseAgentProps,
+  type UseAgentResult,
   useAgent,
   useFrontendTool,
   useHumanInTheLoop,
@@ -45,40 +62,17 @@ export {
   useRenderActivityMessage,
   useRenderTool,
   useRenderToolCall,
-  type FrontendToolConfig,
-  type UseAgentProps,
-  type UseAgentResult,
 } from "./hooks";
 
 export {
-  matchesAccept,
-  useAttachments,
-  type UseAttachmentsProps,
-  type UseAttachmentsReturn,
-} from "./attachments";
-
-export { CopilotChat, type CopilotChatProps } from "./chat";
-
-export {
-  OpenGenerativeUIActivityRenderer,
-  generatedDocument,
-  type OpenGenerativeUIActivityRendererProps,
-  type OpenGenerativeUIActivityType,
-  type OpenGenerativeUIContent,
-} from "./generative-ui";
-
-export {
-  ToolCallStatus,
-  UseAgentUpdate,
   type AbstractAgent,
   type ActivityMessage,
+  type AgentSubscriber,
   type Attachment,
   type AttachmentModality,
-  type AttachmentUploadError,
-  type AttachmentUploadErrorReason,
-  type AttachmentUploadResult,
   type AttachmentsConfig,
-  type AgentSubscriber,
+  type AttachmentUploadError,
+  type AttachmentUploadResult,
   type FrontendTool,
   type FrontendToolHandlerContext,
   type HumanInTheLoopRenderProps,
@@ -92,5 +86,7 @@ export {
   type RunAgentInput,
   type Tool,
   type ToolCall,
+  ToolCallStatus,
   type ToolRenderProps,
+  UseAgentUpdate,
 } from "./types";

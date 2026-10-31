@@ -125,7 +125,9 @@ export class CopilotKit {
   constructor(config: CopilotKitConfig) {
     this.runtimeUrl = config.runtimeUrl;
     this.configuredRenderToolCalls = [...(config.renderToolCalls ?? [])];
-    this.configuredActivityRenderers = [...(config.renderActivityMessages ?? [])];
+    this.configuredActivityRenderers = [
+      ...(config.renderActivityMessages ?? []),
+    ];
   }
 
   /**
@@ -172,6 +174,25 @@ export class CopilotKit {
     };
     this.agents.set(key, created);
     if (!this.agents.has(base)) this.agents.set(base, created);
+    /*
+     * AND UNDER THE NAME THE BROWSER KNOWS IT BY.
+     *
+     * `ChannelChat` binds one instance as `agentId="channel:<id>"` with
+     * `runtimeAgentId="refresh-bot"`, so the registry key above is the runtime name. The rest of
+     * the app — an A2UI action, a route asking the channel what it holds — looks the same agent up
+     * by the name the channel gave it, and a lookup that misses creates a SECOND instance: empty,
+     * and answering runs on the browser-side id. Registering the browser-side name as an alias is
+     * what makes those lookups find the one agent the chat is running on.
+     */
+    if (!this.agents.has(lookup.agentId)) {
+      this.agents.set(lookup.agentId, created);
+    }
+    if (lookup.threadId !== undefined) {
+      const threadedAlias = `${lookup.agentId}#${lookup.threadId}`;
+      if (!this.agents.has(threadedAlias)) {
+        this.agents.set(threadedAlias, created);
+      }
+    }
     return created.agent;
   }
 
@@ -198,7 +219,10 @@ export class CopilotKit {
    * A person's tool is registered here too — it has to be, or the model is never offered it — but
    * it has no handler, and a call to it must leave the run waiting rather than be answered here.
    */
-  handlerFor(name: string, agentId: string | undefined): RegisteredTool | undefined {
+  handlerFor(
+    name: string,
+    agentId: string | undefined,
+  ): RegisteredTool | undefined {
     const registered =
       this.tools.get(toolKey(name, agentId)) ??
       this.tools.get(toolKey(name, undefined));
@@ -384,7 +408,9 @@ export class CopilotKit {
   }
 
   /** The context one agent's run carries: what was attached for it, and what was attached for all. */
-  private contextArgsFor(agent: AbstractAgent): { context?: RunAgentInput["context"] } {
+  private contextArgsFor(agent: AbstractAgent): {
+    context?: RunAgentInput["context"];
+  } {
     const agentId = agent.agentId;
     const context = [...this.contexts.values()]
       .filter(
@@ -435,13 +461,19 @@ export class CopilotKit {
     result: unknown,
   ): Promise<void> {
     const open = agent.pendingInterrupts;
-    const target = open.find((interrupt) => interrupt.toolCallId === toolCallId);
+    const target = open.find(
+      (interrupt) => interrupt.toolCallId === toolCallId,
+    );
     if (!target) {
       throw new Error("That request is no longer waiting for an answer.");
     }
     const resume = open.map((interrupt) =>
       interrupt.id === target.id
-        ? { interruptId: interrupt.id, status: "resolved" as const, payload: result }
+        ? {
+            interruptId: interrupt.id,
+            status: "resolved" as const,
+            payload: result,
+          }
         : { interruptId: interrupt.id, status: "cancelled" as const },
     );
     await agent.runAgent({ tools: this.toolsFor(agent), resume });
@@ -468,7 +500,8 @@ export class CopilotKit {
       // A person owes an answer: the run stays paused, and a card is on screen for it.
       if (agent.pendingInterrupts.length > 0) return;
       const answerable = unansweredToolCalls(agent.messages).filter(
-        (call) => this.handlerFor(call.function.name, agent.agentId) !== undefined,
+        (call) =>
+          this.handlerFor(call.function.name, agent.agentId) !== undefined,
       );
       if (answerable.length === 0) return;
 
@@ -544,10 +577,9 @@ function wireTool(tool: FrontendTool<Record<string, unknown>>): Tool {
  * otherwise be described by its output — a shape the wire can never carry.
  */
 function jsonSchemaOf(schema: ParametersSchema): Record<string, unknown> {
-  const { $schema, ...rest } = z.toJSONSchema(schema, { io: "input" }) as Record<
-    string,
-    unknown
-  > & { $schema?: string };
+  const { $schema, ...rest } = z.toJSONSchema(schema, {
+    io: "input",
+  }) as Record<string, unknown> & { $schema?: string };
   void $schema;
   return rest;
 }

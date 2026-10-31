@@ -8,13 +8,18 @@
  */
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { CopilotKit } from "./core";
-import type { ReactActivityMessageRenderer, ReactToolCallRenderer } from "./types";
+import type {
+  ReactActivityMessageRenderer,
+  ReactToolCallRenderer,
+} from "./types";
 
 export interface CopilotKitContextValue {
   /** The one registry this app runs on. */
@@ -70,7 +75,24 @@ export function CopilotKitProvider({
       }),
     [runtimeUrl],
   );
-  const value = useMemo(() => ({ copilotkit }), [copilotkit]);
+  /*
+   * A CARD REGISTERED LATER MUST REACH A CONSUMER THAT NEVER SUBSCRIBED.
+   *
+   * `useRenderToolCall` and `useRenderTool` watch the registry themselves, but plenty of surfaces
+   * read `copilotkit.renderToolCalls` in their render body and hold no subscription — the vendor
+   * provider re-rendered its subtree when a card arrived, and those surfaces were written against
+   * that. This subscription is the re-render: a registration changes the registry's revision, this
+   * provider renders again, and a card that mounted after a reply still draws. The value is read
+   * for nothing, so it is not assigned.
+   */
+  const subscribe = useCallback(
+    (onChange: () => void) =>
+      copilotkit.subscribe({ onRenderToolCallsChanged: () => onChange() })
+        .unsubscribe,
+    [copilotkit],
+  );
+  useSyncExternalStore(subscribe, () => copilotkit.renderRevision);
+  const value: CopilotKitContextValue = { copilotkit };
   return (
     <CopilotKitContext.Provider value={value}>
       {children}

@@ -1,7 +1,4 @@
-import {
-  OpenGenerativeUIActivityRenderer,
-  useFrontendTool,
-} from "@/lib/agui";
+import { OpenGenerativeUIActivityRenderer, useFrontendTool } from "@/lib/agui";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import * as z from "zod";

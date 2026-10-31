@@ -180,12 +180,11 @@ export const FILE_PICKER_ACCEPT = [
  * accept entry at all, and `namesNoFormat` also passes anything not shaped like a MIME type, which
  * is an open set. There is no string that means what the screen means.
  *
- * WHAT THIS COSTS, STATED PLAINLY: nothing, because the SDK's filter was never reachable except
+ * WHAT THIS COSTS, STATED PLAINLY: nothing, because the hook's filter was never reachable except
  * through us. `stageFiles` is the only caller of `processFiles` — the composer supplies its own
- * drop handler and its own `onChange`, so the hook's `handleDrop` and `handleFileUpload` are never
- * used — and the hook's own `document` paste listener is inert here, because it is scoped by a
- * `containerRef` this composer deliberately never hands it (see `containerRef` in `composer.tsx`).
- * So every file that reaches `processFiles` has already been through `screenPickedFiles`, which
+ * drop handler and its own `onChange`, the hook installs no paste listener, and its contract has
+ * no drop or file-upload handler to reach for. So every file that reaches `processFiles` has
+ * already been through `screenPickedFiles`, which
  * enforces kind, BOTH size ceilings and the per-message cap — all of which the SDK's filter does
  * not — and phrases its refusals for a person. The narrow list is kept where it is honest about
  * being a hint: `FILE_PICKER_ACCEPT`, above, on the file dialog.

@@ -1,10 +1,4 @@
 import {
-  type Attachment,
-  type AttachmentUploadError,
-  type AttachmentsConfig,
-  useAttachments,
-} from "@/lib/agui";
-import {
   IconArrowUp,
   IconPlayerStopFilled,
   IconPlus,
@@ -32,6 +26,11 @@ import {
 import { attachmentModality } from "@/components/channels/chat-messages";
 import { DuetIcon } from "@/components/duet/icons";
 import { IconWaveform } from "@/components/icons/waveform";
+import {
+  type Attachment,
+  type AttachmentUploadError,
+  useAttachments,
+} from "@/lib/agui";
 import {
   attachmentUrl,
   classifyAttachment,
@@ -191,11 +190,11 @@ export type ComposerProps = {
    *
    * WITH NO `channelId` THIS COMPOSER BEHAVES EXACTLY AS IT DID BEFORE ATTACHMENTS EXISTED, which
    * is what keeps `/channel/new`, the home screen and the onboarding poster working untouched. No
-   * config reaches `useAttachments`, so it installs no paste listener at all; the form takes no
-   * drag handlers, no file input is rendered, and the `+` button goes on saying it has nothing to
-   * offer. That is the right answer rather than a degraded one for a screen with nowhere to put an
-   * upload: the compose screen creates its channel on send, so a file staged there would belong to
-   * a channel that does not exist yet.
+   * config reaches `useAttachments`, so the hook reports itself disabled and holds an empty strip;
+   * the form takes no drag handlers, no file input is rendered, and the `+` button goes on saying
+   * it has nothing to offer. That is the right answer rather than a degraded one for a screen with
+   * nowhere to put an upload: the compose screen creates its channel on send, so a file staged
+   * there would belong to a channel that does not exist yet.
    */
   channelId?: string;
   /**
@@ -356,17 +355,16 @@ export function Composer({
   const submitInFlight = useRef(false);
   const promptAreaRef = useRef<PromptAreaHandle>(null);
   /**
-   * The composer's outer element, and the reason the hook's own `containerRef` is left on the
-   * floor.
+   * The composer's outer element, and the boundary this composer's own paste listener is scoped
+   * to.
    *
-   * `useAttachments` scopes its `document` paste listener with exactly this test — is the event's
-   * target inside the element holding my ref — so an unheld ref is a listener that returns on
-   * every paste. That is the point. This composer deliberately does its own paste handling (see
-   * the listener below for why), and while ours claimed every paste carrying a file the SDK's
-   * never got a look in. It does now, on the pastes we decline, and it does not decline them: a
-   * spreadsheet cell was staged TWICE, once by us and once by it, and a Word paste that we
-   * correctly let through as text had its picture attached anyway. Holding the ref ourselves is
-   * what makes this composer the only thing in the app that decides what a paste means.
+   * This composer deliberately does its own paste handling (see the listener below for why), and a
+   * `document`-level listener has to ask whether the event's target is inside the element holding
+   * this ref. `useAttachments` installs no listener of its own — its contract is seven names and a
+   * paste handler is not among them — so this file is the only thing in the app that decides what
+   * a paste means. That is the arrangement, not a gap: the vendor hook's own listener, on the
+   * pastes this one declines, staged a spreadsheet cell TWICE and attached the picture of a Word
+   * paste this composer had correctly let through as text.
    */
   const containerRef = useRef<HTMLDivElement>(null);
   /** A send has completed and the caret is owed back, as soon as the editor will take it. */
@@ -528,9 +526,8 @@ export function Composer({
 
   /**
    * Called unconditionally, with a config only when there is a channel to upload to. The hook
-   * reads no React context — it is state, refs and one `document` paste listener that it does not
-   * install while disabled — so an undefined config is a hook that does nothing, not a hook that
-   * throws.
+   * reads no React context and installs no listener — it is state, a ref and the seven callbacks
+   * below — so an undefined config is a hook that does nothing, not a hook that throws.
    */
   const {
     attachments,
@@ -565,8 +562,8 @@ export function Composer({
    * anything: one more press queued the identical attachment ids into a second message. That
    * duplicate is what this exists to close.
    *
-   * THE OTHER WAY TO CLOSE IT, AND WHY NOT IT. Calling `consumeAttachments()` optimistically
-   * alongside `setValue([])` is three lines and loses the strip whenever a send fails. This file
+   * THE OTHER WAY TO CLOSE IT, AND WHY NOT IT. Sweeping the whole strip optimistically alongside
+   * `setValue([])` is three lines and loses the strip whenever a send fails. This file
    * will not make that trade: a failed send already puts the words back, and files that vanished
    * from the composer at the same moment would be exactly the thing it never does quietly — the
    * whole `RejectedFiles` apparatus above exists because a file that disappears with nothing said
@@ -786,18 +783,18 @@ export function Composer({
   );
 
   /**
-   * THE THIRD DOOR, SHUT — AND SHUT AHEAD OF THE SDK'S OWN.
+   * THE THIRD DOOR, SHUT — BY US, AHEAD OF EVERYONE ELSE.
    *
-   * `useAttachments` installs a bubble-phase `document` paste listener that pre-filters the
-   * clipboard with the same exact `file.type === filter` comparison `withMediaTypeOnly` exists to
-   * survive, and then calls `processFiles` directly. A pasted `text/plain;charset=utf-8` file —
-   * which is what a browser reports for some clipboard entries — fails that comparison, and the
-   * listener then returns having uploaded nothing, said nothing and called no `onUploadFailed`.
-   * Silent. Paste also skipped the per-message cap and `MAX_FILE_BYTES`, which our screen enforces
-   * and the SDK's does not.
-   *
-   * So this one listens in the CAPTURE phase, which runs before the hook's, and `stopPropagation`
-   * on a paste we claim means the hook's listener never runs at all. What we claim goes through
+   * Paste used to be the vendor hook's: a bubble-phase `document` listener that pre-filtered the
+   * clipboard with an exact `file.type === filter` comparison and then returned without a word
+   * when nothing survived it. A pasted `text/plain;charset=utf-8` file — which is what a browser
+   * reports for some clipboard entries — failed that comparison, so the listener uploaded
+   * nothing, said nothing and called no `onUploadFailed`. Silent. Paste also skipped the
+   * per-message cap and `MAX_FILE_BYTES`, which our screen enforces and the hook's does not. The
+   * first-party hook installs no listener at all, so this composer is the only thing answering a
+   * paste — and the claim still has to be made in the CAPTURE phase, ahead of `PromptArea`'s own
+   * handling. `stopPropagation` on a paste we claim keeps any later listener from running twice.
+   * What we claim goes through
    * `stageFiles`, the same path the `+` button and the drop already take, so screening, the cap and
    * the wording of a refusal are identical whichever way the file arrived.
    *
@@ -850,18 +847,14 @@ export function Composer({
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       /*
-       * The hook's `dragOver` flag, put back down.
+       * THE DROP IS THIS COMPOSER'S, AND THE HOOK IS TOLD IT ENDED.
        *
-       * NOTHING DRAWS IT TODAY, AND THIS IS STILL NOT DEAD CODE. `useAttachments` keeps a
-       * `dragOver` boolean that its own chat components render a highlight from; this composer
-       * does not destructure it and no border or overlay anywhere in `app/src` changes while a
-       * file hovers. The comment that used to sit here said a missed drag-leave "would leave the
-       * composer looking like a file is still hovering over it", which was describing a highlight
-       * that does not exist — a reader chasing that sentence finds nothing.
-       *
-       * The call stays because the flag is the hook's, not ours: leaving it stuck at `true` after
-       * a drop would hand a trap to whoever wires the highlight up, and they would have no reason
-       * to suspect the drop path. It costs one function call per drop.
+       * `useAttachments` returns no drop handler and draws no hover state — its contract is seven
+       * names and neither is among them — so the file goes through `stageFiles`, which is the same
+       * door the picker and the paste take and the only one that screens. `handleDragLeave` is
+       * called anyway because it is the hook's own containment rule and it keeps the pair
+       * symmetric: whoever later pairs a hover into the contract must not find that the drop path
+       * never told it the drag was over.
        */
       handleDragLeave(event);
       void stageFiles(Array.from(event.dataTransfer.files));
@@ -1164,7 +1157,7 @@ export function Composer({
         dismissRejections();
         // Taken off the composer as the message is parked, so the strip empties with the words
         // rather than leaving the files looking like they are still to be sent. Only these —
-        // `consumeAttachments()` takes every `ready` attachment, including ones a send already
+        // A sweep of every `ready` attachment would also take ones a send already
         // in flight is riding, and that send's own `finally` still needs them to hand back if it
         // fails. `submitted.attachments` is `staged`, which already excludes those.
         //
@@ -1202,7 +1195,7 @@ export function Composer({
       try {
         await onSubmit(submitted);
         // Only once the send has become a message, and only the ones that rode on it —
-        // `consumeAttachments()` would also swallow anything attached while the run was in
+        // A sweep of the strip would also swallow anything attached while the run was in
         // flight, which belongs to the next message and has never been sent.
         //
         // Released first, for the reason the queue branch above gives: the message carries these
@@ -1498,9 +1491,9 @@ export function Composer({
    * and for one that arrives by hand.
    *
    * No `onDragLeave` on the refusing branch, and that is not an omission: `handleDragLeave` only
-   * puts the hook's `dragOver` flag back down, and the branch that never raises it has nothing to
-   * put down. (Nothing renders that flag today — see `handleDrop` above, which says why the call
-   * is kept anyway.)
+   * stops the event from reaching a container above this one, and this branch never lets a drag
+   * over in the first place — see `refuseDragOver`, which answers with `none` instead of
+   * `copy`.
    */
   const dropZone = canAttach
     ? {
@@ -1698,8 +1691,9 @@ export function Composer({
   }
 
   return (
-    // The same `containerRef`, on the wrapper this branch already had: the paste listener is scoped
-    // to whatever holds the ref, so a branch without it can be pasted into and nothing happens.
+    // The same `containerRef`, on the wrapper this branch already had: this composer's paste
+    // listener is scoped to whatever holds the ref, so a branch without it can be pasted into and
+    // nothing happens.
     <div
       className={cn("flex w-xl flex-col", className)}
       ref={containerRef}

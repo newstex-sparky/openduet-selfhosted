@@ -40,7 +40,13 @@ afterAll(async () => {
 });
 
 const noRenderers = {
-  copilotkit: { renderToolCalls: [], subscribe: () => ({ unsubscribe() {} }) },
+  copilotkit: {
+    renderToolCalls: [],
+    // Nothing is registered, which is the case under test: `useRenderToolCall` asks the registry
+    // for a card and is told there is none, and the transcript draws its own line instead.
+    rendererFor: () => undefined,
+    subscribe: () => ({ unsubscribe() {} }),
+  },
   executingToolCallIds: new Set<string>(),
 } as never;
 
