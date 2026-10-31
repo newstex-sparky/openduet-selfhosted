@@ -19,8 +19,8 @@ import { HEADLESS_COMPONENTS } from "../src/components/headless";
 /**
  * A headless turn, asserted without a gateway, without a database and without a model.
  *
- * This file exists because `run-turn.ts` RESTATES BY HAND five `ɵ`-prefixed request shapes that
- * `@copilotkit/runtime` does not export. Nothing else in the repository can catch a lock that is
+ * This file exists because `run-turn.ts` RESTATES BY HAND the platform's five request shapes
+ * instead of importing the platform classes. Nothing else in the repository can catch a lock that is
  * acquired and never released, a renew that keeps a different lock alive than the one the cleanup
  * releases, or a `persistedInputMessages` that quietly re-persists a whole transcript — and every one
  * of those is felt by a person rather than by a test: a leaked lock refuses their next browser message
@@ -169,7 +169,7 @@ function harness(options: {
       if (options.historyFails) throw options.historyFails();
       return { messages: options.history ?? [] };
     },
-    ɵacquireThreadLock: async (params: {
+    acquireThreadLock: async (params: {
       threadId: string;
       runId: string;
       userId: string;
@@ -182,7 +182,7 @@ function harness(options: {
       await options.acquire?.();
       return { threadId: params.threadId, runId: params.runId, joinToken: "t" };
     },
-    ɵrenewThreadLock: async (params: {
+    renewThreadLock: async (params: {
       threadId: string;
       runId: string;
       ttlSeconds: number;
@@ -191,7 +191,7 @@ function harness(options: {
       if (options.renew) return options.renew();
       return { ttlSeconds: params.ttlSeconds };
     },
-    ɵcleanupThreadLock: async (params: { threadId: string; runId: string }) => {
+    cleanupThreadLock: async (params: { threadId: string; runId: string }) => {
       order.push("cleanup");
       calls.cleaned.push(params);
     },
@@ -758,7 +758,7 @@ describe("cleanup only runs for a lock that was actually taken", () => {
   });
 
   test("a rejected acquire never cleans up, renews, or starts the heartbeat", async () => {
-    // `ɵcleanupThreadLock` is DELETE on the platform's lock endpoint. If cleanup ran when the
+    // `cleanupThreadLock` is DELETE on the platform's lock endpoint. If cleanup ran when the
     // acquire itself failed, it would delete whoever DOES hold the lock — the person's own browser
     // session, most likely. So this is not just "no cleanup call happened to be made", it is "no
     // cleanup call may ever be made when we never held anything to begin with".

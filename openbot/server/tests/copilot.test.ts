@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { LLMock } from "../testing/llmock";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@openbot/toolkit/copilotkit/engine/agent/index";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
 import { EMPTY, lastValueFrom } from "rxjs";

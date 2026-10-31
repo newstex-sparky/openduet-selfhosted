@@ -10,7 +10,7 @@
  *     the same object every headless turn (`toolkit/run-turn.ts`) drives;
  *   - the thread record and its history (`getOrCreateThread`, `getThread`, `getThreadMessages`),
  *     shaped like the SaaS platform's answers so the existing call sites read it unchanged;
- *   - the per-thread run lock (`ɵacquireThreadLock`, `ɵrenewThreadLock`, `ɵcleanupThreadLock`), with
+ *   - the per-thread run lock (`acquireThreadLock`, `renewThreadLock`, `cleanupThreadLock`), with
  *     Intelligence's error contract: a conflict is a `PlatformRequestError` with status 409, a thread
  *     that is not there (or not yours) is one with status 404. `isLockConflict` and
  *     `historyOrEmpty` therefore behave exactly as they do against the platform.
@@ -204,13 +204,16 @@ export function createLocalThreadPlatform(
   }
 
   /**
-   * The runner. Structurally `AgentRunner` from `@copilotkit/runtime/v2` (the runtime duck-types it;
-   * nothing checks `instanceof`), declared without importing the runtime so the toolkit's tests do
-   * not have to load it.
+   * The runner. Structurally the engine's runner port, declared without importing the engine so the
+   * toolkit's tests do not have to load it.
    */
   const runner = {
-    /** Turns on the runtime's `GET /threads` family in SSE mode; every answer is scoped below. */
-    ɵsupportsLocalThreadEndpoints: true as const,
+    /**
+     * Inert since the engine became first-party: `./engine/routes.ts` routes the `GET /threads`
+     * family without reading a flag. Kept because it is part of the runner's shape; every answer
+     * from this runner is scoped below.
+     */
+    supportsLocalThreadEndpoints: true as const,
 
     run(request: {
       threadId: string;
@@ -449,7 +452,7 @@ export function createLocalThreadPlatform(
       return { messages: row.messages.map(toPlatformMessage) };
     },
 
-    async ɵacquireThreadLock(params: {
+    async acquireThreadLock(params: {
       threadId: string;
       runId: string;
       userId: string;
@@ -472,7 +475,7 @@ export function createLocalThreadPlatform(
       return { threadId: params.threadId, runId: params.runId, joinToken: "" };
     },
 
-    async ɵrenewThreadLock(params: {
+    async renewThreadLock(params: {
       threadId: string;
       runId: string;
       ttlSeconds: number;
@@ -483,7 +486,7 @@ export function createLocalThreadPlatform(
       return { threadId: params.threadId, runId: params.runId };
     },
 
-    async ɵcleanupThreadLock(params: {
+    async cleanupThreadLock(params: {
       threadId: string;
       runId: string;
     }): Promise<void> {

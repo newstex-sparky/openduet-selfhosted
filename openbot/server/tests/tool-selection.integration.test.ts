@@ -7,11 +7,11 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import type { RunAgentInput } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { MastraAgent } from "@ag-ui/mastra";
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
+import { Observable } from "rxjs";
 import { z } from "zod";
 import {
   buildAgents,
@@ -660,8 +660,35 @@ describe("a remote Mastra Bot", () => {
           selection(),
           mastraFetch,
         );
-        const runtime = new CopilotRuntime({ agents });
-        const handler = createCopilotHonoHandler({ runtime, basePath: "/api" });
+        /*
+         * The engine the server mounts, over an in-memory runner. These cases are about what
+         * `buildAgents` puts on the wire to a remote Bot, so the runner only has to drive the agent
+         * the route resolved and hand back its events.
+         */
+        const handler = createEngineHandler({
+          basePath: "/api",
+          engine: {
+            agents: agents as Record<string, AbstractAgent>,
+            runner: {
+              run: ({ agent, input }) =>
+                new Observable<BaseEvent>((subscriber) => {
+                  void agent
+                    .runAgent(input, {
+                      onEvent: ({ event }) => subscriber.next(event as BaseEvent),
+                    })
+                    .then(
+                      () => subscriber.complete(),
+                      (error: unknown) => subscriber.error(error),
+                    );
+                }),
+              connect: () =>
+                new Observable<BaseEvent>((subscriber) =>
+                  subscriber.complete(),
+                ),
+              stop: async () => true,
+            },
+          },
+        });
         const response = await handler.fetch(
           new Request("http://localhost/api/agent/risk-mastra/run", {
             method: "POST",

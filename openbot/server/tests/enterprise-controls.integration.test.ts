@@ -417,7 +417,7 @@ function headlessTurn(agentId: string) {
   const intelligence = {
     getOrCreateThread: async () => ({ thread: { id: "t" }, created: false }),
     getThreadMessages: async () => ({ messages: [] }),
-    ɵacquireThreadLock: async (params: {
+    acquireThreadLock: async (params: {
       threadId: string;
       runId: string;
     }) => ({
@@ -425,8 +425,8 @@ function headlessTurn(agentId: string) {
       runId: params.runId,
       joinToken: "j",
     }),
-    ɵrenewThreadLock: async () => ({ ttlSeconds: 20 }),
-    ɵcleanupThreadLock: async () => undefined,
+    renewThreadLock: async () => ({ ttlSeconds: 20 }),
+    cleanupThreadLock: async () => undefined,
   };
   const runner = {
     run: (request: { agent: AbstractAgent }) => ({

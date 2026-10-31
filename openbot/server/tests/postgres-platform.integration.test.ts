@@ -224,21 +224,21 @@ describe("the Postgres thread platform", () => {
     };
 
     expect(
-      await first.ɵacquireThreadLock({ ...lock, runId: "held" }),
+      await first.acquireThreadLock({ ...lock, runId: "held" }),
     ).toMatchObject({ threadId: "locked-thread", runId: "held" });
 
     const conflict = await second
-      .ɵacquireThreadLock({ ...lock, runId: "other" })
+      .acquireThreadLock({ ...lock, runId: "other" })
       .catch((error: unknown) => error);
     expect(isLockConflict(conflict)).toBe(true);
     expect((conflict as { status?: number }).status).toBe(409);
 
-    await first.ɵcleanupThreadLock({
+    await first.cleanupThreadLock({
       threadId: "locked-thread",
       runId: "held",
     });
     expect(
-      await second.ɵacquireThreadLock({ ...lock, runId: "other" }),
+      await second.acquireThreadLock({ ...lock, runId: "other" }),
     ).toMatchObject({ runId: "other" });
   }, 120_000);
 

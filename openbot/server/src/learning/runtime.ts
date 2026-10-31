@@ -1,38 +1,42 @@
 import type { Tool } from "@ag-ui/client";
-import {
-  formatSkillCatalog,
-  loadSkill,
-  readSkillFile,
-  SkillRegistry,
-} from "@copilotkit/runtime/internal/learned-skills";
-import { z } from "zod";
 import type {
   LearningDeliveryStatus,
   LearningSettings,
   LearningTarget,
 } from "@openbot/shared/learning";
-import type { LearningSettingsStore } from "./settings";
+import {
+  formatSkillCatalog,
+  type LearnedSkillsSnapshotSource,
+  loadSkill,
+  readSkillFile,
+  SkillRegistry,
+} from "@openbot/toolkit/copilotkit/engine/learned-skills";
+import { z } from "zod";
 import type { InspectorSnapshot } from "./auto-assign";
+import type { LearningSettingsStore } from "./settings";
 
 /**
- * The client this runtime needs: whatever the SDK's SkillRegistry reads, plus the Inspector read the
- * Admin page asks through it.
+ * The client this runtime needs: the one learned-skills read the registry makes,
+ * the Thread ownership check, and the Inspector read the Admin page asks through
+ * it.
  *
- * Structural, because this fork has no vendor client type to name. `SkillRegistry` owns its own
- * client contract, so the rest is taken from the constructor rather than restated.
+ * Named here rather than taken from a constructor, because this fork owns the
+ * contract now: `SkillRegistry` was the vendor's class and its options type was
+ * the vendor's client. What remains is the shape OpenBot actually calls.
  */
 type InspectorInput = { agentId?: string; runtimeContainerId?: string };
-export type LearnedSkillsClient = NonNullable<
-  NonNullable<ConstructorParameters<typeof SkillRegistry>[0]>["client"]
-> & {
+export type LearnedSkillsClient = LearnedSkillsSnapshotSource & {
+  getThread(input: { threadId: string; userId: string }): Promise<unknown>;
   getInspectorLearning(input: InspectorInput): Promise<InspectorSnapshot>;
 };
+
 export type LearnedSkillsInspection = {
   getInspectorLearning(input: InspectorInput): Promise<InspectorSnapshot>;
 };
 
-// This published internal export is pinned to runtime 1.73.1. Keep its use here: the SDK owns
-// archive verification, refresh, revocation and stale-cache policy for every OpenBot framework.
+// Delivery itself is first-party now (see `engine/learned-skills`): this repository
+// owns archive verification, refresh, revocation and stale-cache policy for every
+// OpenBot framework.
 export type LearnedSkillInvocation = {
   readonly catalog: string;
   readonly tools: readonly Tool[];

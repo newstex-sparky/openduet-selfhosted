@@ -1,5 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test";
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { describe, expect, test } from "bun:test";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import { createStallGuard } from "../src/channels/stall-guard";
 import { loadConfig, runtimeCapabilities } from "../src/config";
@@ -103,71 +102,61 @@ function mountLocal(identifyUser: () => Promise<{ id: string; name: string }>) {
 }
 
 describe("the runtime in local mode", () => {
-  test("is the SSE runtime, reaches no Intelligence client, and refuses a signed-out run", async () => {
-    // Every method on the Intelligence client, watched: none may be called while mounting or serving.
-    const methods = Object.getOwnPropertyNames(
-      CopilotKitIntelligence.prototype,
-    ).filter(
-      (name) =>
-        name !== "constructor" &&
-        typeof (
-          CopilotKitIntelligence.prototype as unknown as Record<string, unknown>
-        )[name] === "function",
+  test("is the SSE engine, reaches no vendor package, and refuses a signed-out run", async () => {
+    const runtime = mountLocal(async () => {
+      throw new Error("nobody is signed in");
+    });
+
+    const info = await runtime.handler.fetch(
+      new Request("http://openduet.test/api/copilotkit/info"),
     );
-    const spies = methods.map((name) =>
-      spyOn(
-        CopilotKitIntelligence.prototype as unknown as Record<
-          string,
-          (...args: unknown[]) => unknown
-        >,
-        name,
-      ),
-    );
-    try {
-      const runtime = mountLocal(async () => {
-        throw new Error("nobody is signed in");
-      });
+    expect(info.status).toBe(200);
+    expect(((await info.json()) as { mode?: string }).mode).toBe("sse");
 
-      const info = await runtime.handler.fetch(
-        new Request("http://openduet.test/api/copilotkit/info"),
+    for (const path of [
+      "/api/copilotkit/threads?agentId=openduet",
+      "/api/copilotkit/agent/openduet/run",
+      "/api/copilotkit/agent/openduet/connect",
+    ]) {
+      const refused = await runtime.handler.fetch(
+        new Request(`http://openduet.test${path}`, {
+          method:
+            path.endsWith("run") || path.endsWith("connect") ? "POST" : "GET",
+          headers: { "content-type": "application/json" },
+          ...(path.endsWith("run") || path.endsWith("connect")
+            ? {
+                body: JSON.stringify({
+                  threadId: "t",
+                  runId: "r",
+                  messages: [],
+                }),
+              }
+            : {}),
+        }),
       );
-      expect(info.status).toBe(200);
-      expect(((await info.json()) as { mode?: string }).mode).toBe("sse");
-
-      for (const path of [
-        "/api/copilotkit/threads?agentId=openduet",
-        "/api/copilotkit/agent/openduet/run",
-        "/api/copilotkit/agent/openduet/connect",
-      ]) {
-        const refused = await runtime.handler.fetch(
-          new Request(`http://openduet.test${path}`, {
-            method:
-              path.endsWith("run") || path.endsWith("connect") ? "POST" : "GET",
-            headers: { "content-type": "application/json" },
-            ...(path.endsWith("run") || path.endsWith("connect")
-              ? {
-                  body: JSON.stringify({
-                    threadId: "t",
-                    runId: "r",
-                    messages: [],
-                  }),
-                }
-              : {}),
-          }),
-        );
-        expect(refused.status).toBe(401);
-      }
-
-      expect(runtime.learning).toBeUndefined();
-      expect(runtime.handoffRunner()).toBe(
-        localThreadPlatform(localConfig()).runner,
-      );
-      expect(() => runtime.runnerConnection()).toThrow(/Local mode/);
-
-      for (const spy of spies) expect(spy).not.toHaveBeenCalled();
-    } finally {
-      for (const spy of spies) spy.mockRestore();
+      expect(refused.status).toBe(401);
     }
+
+    expect(runtime.learning).toBeUndefined();
+    expect(runtime.handoffRunner()).toBe(
+      localThreadPlatform(localConfig()).runner,
+    );
+    expect(() => runtime.runnerConnection()).toThrow(/Local mode/);
+    /*
+     * The client the old spy watched is not merely unreached, it is not declared: the server's own
+     * manifest names no CopilotKit package at all, so nothing here can construct one.
+     */
+    const manifest = (await Bun.file(
+      new URL("../../package.json", import.meta.url),
+    ).json()) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const copilotPackages = Object.keys({
+      ...manifest.dependencies,
+      ...manifest.devDependencies,
+    }).filter((name) => name.startsWith("@copilotkit/"));
+    expect(copilotPackages).toEqual([]);
   });
 
   test("lists a signed-in person's own threads through the runtime's thread endpoints", async () => {
