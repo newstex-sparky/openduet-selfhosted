@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BaseEvent, Message } from "@ag-ui/client";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import type { BuiltInAgentClassicConfig } from "@openbot/toolkit/copilotkit/engine/agent/index";
 import { BuiltInAgentWithSaneHistory } from "@openbot/toolkit/copilotkit/agents";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import {
@@ -137,9 +137,9 @@ function harness(options: { approval?: boolean } = {}) {
     intelligence: {
       getOrCreateThread: async () => ({}),
       getThreadMessages: async () => ({ messages: history }),
-      ɵacquireThreadLock: async ({ threadId, runId }) => ({ threadId, runId }),
-      ɵrenewThreadLock: async () => ({}),
-      ɵcleanupThreadLock: async () => {},
+      acquireThreadLock: async ({ threadId, runId }) => ({ threadId, runId }),
+      renewThreadLock: async () => ({}),
+      cleanupThreadLock: async () => {},
     },
     buildAgentFor: async () => buildAgent(),
     runner: {

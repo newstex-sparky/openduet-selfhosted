@@ -16,10 +16,38 @@ import {
 import type { Database } from "../db/client";
 import { memorySources, personalMemories } from "../db/schema/memory";
 import { lockDefaults, recordOptOut, sourceServerId } from "./defaults";
-import type {
-  IntelligenceMemory,
-  IntelligenceMemoryRecord,
-} from "./intelligence";
+
+/**
+ * A memory as an external store would hold it.
+ *
+ * This fork keeps memory in these tables only — there is no CopilotKit Intelligence to mirror to —
+ * but the rows carry the columns a mirror used (`intelligenceMemoryId`, `intelligenceDigest`), and a
+ * row written by an earlier deployment can still name one. The store reads a record of this shape
+ * when it reconciles those columns, and nothing here calls a remote service.
+ */
+export type IntelligenceMemoryRecord = {
+  id: string;
+  content: string;
+  score?: number;
+};
+
+/** The mirroring side of memory. Never constructed in this fork; see the note above. */
+export type IntelligenceMemory = {
+  available(): Promise<boolean>;
+  list(userId: string): Promise<IntelligenceMemoryRecord[] | undefined>;
+  recall(
+    userId: string,
+    query: string,
+    limit: number,
+  ): Promise<IntelligenceMemoryRecord[] | undefined>;
+  create(userId: string, content: string): Promise<string | undefined>;
+  supersede(
+    userId: string,
+    id: string,
+    content: string,
+  ): Promise<string | undefined | "gone">;
+  remove(userId: string, id: string): Promise<boolean>;
+};
 import {
   type FormedMemoryInput,
   formedMemorySchema,

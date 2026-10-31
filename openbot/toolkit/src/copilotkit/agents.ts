@@ -5,11 +5,6 @@ import {
   type RunAgentInput,
 } from "@ag-ui/client";
 import {
-  BuiltInAgent,
-  type BuiltInAgentConfiguration,
-  CopilotKitIntelligence,
-} from "@copilotkit/runtime/v2";
-import {
   defer,
   finalize,
   from,
@@ -20,7 +15,7 @@ import {
 } from "rxjs";
 import { sanitizeSeededHistory } from "../history-sanitize";
 import { nativeApprovalRun } from "../native-approval";
-import { historyOrEmpty } from "../thread-history";
+import { BuiltInAgent, type BuiltInAgentConfiguration } from "./engine/agent";
 
 /**
  * The CopilotKit agents OpenBot runs its Bots as: a built-in Bot that will not send a broken
@@ -326,27 +321,5 @@ export class UnavailableAgent extends AbstractAgent {
   // and the person is owed the reason rather than a transport error.
   run(): never {
     throw new Error(this.reason);
-  }
-}
-
-/**
- * The platform client, with one answer corrected.
- *
- * A subclass rather than a wrapper. The runtime is handed this object and calls many methods on it,
- * and the base class keeps its state in `#private` fields. Extending keeps every other method on
- * the instance that owns those fields. The authentication observer separately binds methods to
- * that original instance, so it preserves this override and its private-field receiver.
- *
- * `getThreadMessages` is the only override. `handleGetThreadMessages` in the runtime calls it and
- * returns `Response.json` of whatever comes back, so an empty history here is the `{ messages: [] }`
- * the browser expects and a 200 instead of a 500.
- */
-export class IntelligenceKnowingANewThread extends CopilotKitIntelligence {
-  override getThreadMessages(
-    params: Parameters<CopilotKitIntelligence["getThreadMessages"]>[0],
-  ) {
-    return historyOrEmpty(() => super.getThreadMessages(params), {
-      messages: [],
-    });
   }
 }

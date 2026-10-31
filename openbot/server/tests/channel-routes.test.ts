@@ -706,6 +706,10 @@ describe("asking for the morning brief", () => {
 });
 
 describe("the first day's date", () => {
+  const DAY_MS = 24 * 60 * 60_000;
+  /** A `YYYY-MM-DD` some whole days from the server's UTC date. */
+  const dayFromToday = (days: number) =>
+    new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
   function post(store: ChannelStore, body: unknown) {
     return appFor(store).request("http://openbot.test/first-day", {
       method: "POST",
@@ -722,12 +726,17 @@ describe("the first day's date", () => {
         return { channel: channel(), claimed: true };
       },
     });
+    /*
+     * The server's own today rather than a literal: a fixed date drifts out of the one-day window
+     * this route accepts, and the test then fails on the calendar rather than on the claim.
+     */
+    const today = dayFromToday(0);
     const response = await post(store, {
       agentId: "agent-1",
-      date: "2026-10-26",
+      date: today,
     });
     expect(response.status).toBe(200);
-    expect(calls).toEqual([[actor, "agent-1", undefined, "2026-10-26"]]);
+    expect(calls).toEqual([[actor, "agent-1", undefined, today]]);
   });
 
   /*

@@ -7,12 +7,11 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import type { RunAgentInput } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { MastraAgent } from "@ag-ui/mastra";
-import { buildAGUITextResponse, LLMock } from "@copilotkit/aimock";
-import { AGUIMock } from "@copilotkit/aimock/agui";
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
+import type { GrantedTool } from "@openbot/toolkit/granted-tool";
+import { Observable } from "rxjs";
 import { z } from "zod";
 import {
   buildAgents,
@@ -20,8 +19,9 @@ import {
   type RuntimeModel,
 } from "../src/copilot";
 import type { Selection } from "../src/plugins/selection";
-import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { createModelCompleter } from "../src/routing/model";
+import { AGUIMock, buildAGUITextResponse } from "../testing/agui-mock";
+import { LLMock } from "../testing/llmock";
 
 declare global {
   var __SRA009_AFTER_TOOL_SELECTION_RESTORE__:
@@ -41,8 +41,8 @@ declare global {
  * The unit tests next door prove `selectTools` narrows correctly. They cannot prove the narrowing
  * arrives: the tools are attached at agent construction, the runtime clones the agent before every
  * run, and both of those sit between the decision and the request. So this drives the real
- * `buildAgents`, through a real clone, against `@copilotkit/aimock` — ours, the org's deterministic
- * backend — and reads the tool list out of the request the mock actually received. If the agent were
+ * `buildAgents`, through a real clone, against the repo's own scriptable model mock — and reads the
+ * tool list out of the request the mock actually received. If the agent were
  * built with the whole catalogue, or the clone lost the wrapper, or pass one never happened, the
  * decision would still be right and every one of these would fail.
  *
@@ -206,6 +206,15 @@ afterAll(async () => {
     if (failed) {
       recordLifecycleEvent("tool-selection-afterAll:stop-rejected");
       teardownFailure = failed.reason;
+    }
+    // A teardown step that throws, asked for by the proof driver. The in-repo mocks stop safely when
+    // they were never started or are already stopped, so a second stop cannot stand in for a real
+    // teardown failure the way aimock's did.
+    if (!teardownFailure && process.env.SRA009_FAIL_TEARDOWN === "1") {
+      recordLifecycleEvent("tool-selection-afterAll:teardown-failure-injected");
+      teardownFailure = new Error(
+        "SRA-009 synthetic teardown failure after the fixture mocks were stopped",
+      );
     }
   } finally {
     restoreModelEnvironment();
@@ -651,8 +660,35 @@ describe("a remote Mastra Bot", () => {
           selection(),
           mastraFetch,
         );
-        const runtime = new CopilotRuntime({ agents });
-        const handler = createCopilotHonoHandler({ runtime, basePath: "/api" });
+        /*
+         * The engine the server mounts, over an in-memory runner. These cases are about what
+         * `buildAgents` puts on the wire to a remote Bot, so the runner only has to drive the agent
+         * the route resolved and hand back its events.
+         */
+        const handler = createEngineHandler({
+          basePath: "/api",
+          engine: {
+            agents: agents as Record<string, AbstractAgent>,
+            runner: {
+              run: ({ agent, input }) =>
+                new Observable<BaseEvent>((subscriber) => {
+                  void agent
+                    .runAgent(input, {
+                      onEvent: ({ event }) => subscriber.next(event as BaseEvent),
+                    })
+                    .then(
+                      () => subscriber.complete(),
+                      (error: unknown) => subscriber.error(error),
+                    );
+                }),
+              connect: () =>
+                new Observable<BaseEvent>((subscriber) =>
+                  subscriber.complete(),
+                ),
+              stop: async () => true,
+            },
+          },
+        });
         const response = await handler.fetch(
           new Request("http://localhost/api/agent/risk-mastra/run", {
             method: "POST",

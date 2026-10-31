@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  createIntelligenceThreadLock,
+  createThreadLock,
   type ThreadLockClient,
 } from "../src/copilotkit/thread-lock";
 
@@ -39,19 +39,19 @@ function harness(
       calls.push({ method: "getOrCreateThread", input });
       return {};
     },
-    ɵacquireThreadLock: async (input: Record<string, unknown>) => {
+    acquireThreadLock: async (input: Record<string, unknown>) => {
       calls.push({ method: "acquire", input });
       if (options.acquire) return options.acquire();
       return { runId: "platform-run", joinToken: "browser-only" };
     },
-    ɵrenewThreadLock: async (input: Record<string, unknown>) => {
+    renewThreadLock: async (input: Record<string, unknown>) => {
       calls.push({ method: "renew", input });
     },
-    ɵcleanupThreadLock: async (input: Record<string, unknown>) => {
+    cleanupThreadLock: async (input: Record<string, unknown>) => {
       calls.push({ method: "cleanup", input });
     },
   } as unknown as ThreadLockClient;
-  const lock = createIntelligenceThreadLock({
+  const lock = createThreadLock({
     client,
     ...(options.container
       ? {

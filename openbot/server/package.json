@@ -22,7 +22,6 @@
     "@better-auth/scim": "1.7.1",
     "@better-auth/sso": "^1.7.1",
     "@composio/core": "^0.18.1",
-    "@copilotkit/runtime": "1.77.0",
     "@mastra/client-js": "^1.43.0",
     "@mastra/core": "^1.64.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -47,7 +46,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@copilotkit/aimock": "1.43.0",
     "drizzle-kit": "^0.31.10"
   }
 }

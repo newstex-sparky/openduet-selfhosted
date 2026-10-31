@@ -1,16 +1,16 @@
 import type { ThreadReader } from "./thread-routes";
 
 /**
- * Build a {@link ThreadReader} from Intelligence's own thread lookup.
+ * Build a {@link ThreadReader} from the platform's own thread lookup.
  *
  * `getThread` is typed as narrowly as this file needs it — a method that takes a thread and a
- * person and either resolves or throws — rather than as the concrete `CopilotKitIntelligence`
- * client. That keeps this file from importing a vendor class just to describe one call on it, and
- * means a test can hand it a stub with no client to construct.
+ * person and either resolves or throws — rather than as the concrete platform client type. That
+ * keeps this file from importing a vendor class just to describe one call on it, and means a test
+ * can hand it a stub with no client to construct.
  *
  * The status check is duck-typed on `error?.status === 404` rather than an `instanceof` check
- * against the client's own error class, because that class is not part of `@copilotkit/runtime/v2`'s
- * public surface: importing it would mean reaching past the package's exports into its internals,
+ * against the client's own error class, because that class is not part of the CopilotKit runtime
+ * package's `v2` public surface: importing it would mean reaching past the package's exports into its internals,
  * which is exactly the kind of dependency a version bump breaks without warning. The shape of a 404
  * is a much smaller promise for the vendor to keep than the identity of an internal class.
  *

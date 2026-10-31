@@ -1,7 +1,10 @@
 /**
- * What the runtime can do. There is exactly one answer because CopilotKit Intelligence is required
- * for durable threads and memory. Configuration the product cannot function without belongs at the
- * boot boundary.
+ * What the runtime can do. One answer: this fork is local-only. The runtime runs in SSE mode on a
+ * runner of our own, and threads, history, the event log and the per-thread run lock live in this
+ * deployment's Postgres (`@openbot/toolkit/copilotkit/postgres-platform`, migration 0068). DURABLE:
+ * a restart keeps every conversation, and a second replica sees the same ones. Memory uses OpenBot's
+ * own tables. Configuration the product cannot function without belongs at the boot boundary; see
+ * runtimeCapabilities.
  */
 import {
   isLearningContainerId,
@@ -28,23 +31,13 @@ import { type VoiceConfig, voiceConfig } from "./voice/config";
 import { type WebBotAuth, webBotAuthFromEnv } from "./web-bot-auth";
 
 export type RuntimeCapabilities = {
-  mode: "intelligence";
+  /**
+   * The only mode this fork has. Threads, history, the event log and the per-thread run lock live in
+   * this deployment's Postgres; there is no second mode to choose between, so nothing branches on
+   * this value — it is reported on `/api/capabilities` and nowhere else.
+   */
+  mode: "local";
   durableHistory: true;
-  intelligence: IntelligenceSettings;
-};
-
-/**
- * The Intelligence contract. Three values are required; see runtimeCapabilities.
- *
- * `licenseToken` is optional. Managed Intelligence derives entitlement from the project key, and
- * `@copilotkit/runtime` declares `licenseToken` optional with a `COPILOTKIT_LICENSE_TOKEN` fallback
- * of its own. A deployment that still holds one keeps passing it; nothing here requires it.
- */
-export type IntelligenceSettings = {
-  apiUrl: string;
-  gatewayWsUrl: string;
-  apiKey: string;
-  licenseToken?: string;
 };
 
 export type DockerComputerConfig = {
@@ -976,45 +969,17 @@ function oktaAuth(
 }
 
 /**
- * Resolve the Intelligence contract, or refuse to start.
+ * What this deployment's runtime can do: local mode, always.
  *
- * The three addressing values are required together. A partial set is the more dangerous shape than
- * none at all: it means somebody intended to configure Intelligence and got it wrong, so failing on
- * the partial set alone (as this did) let a completely unconfigured deployment through as if that
- * were a choice.
- *
- * COPILOTKIT_LICENSE_TOKEN IS NO LONGER ONE OF THEM. Managed Intelligence issues a single project
- * key and derives entitlement from it, and requiring a second credential here sent people hunting
- * for a token the platform had stopped handing out. It is still read and still forwarded when a
- * deployment sets one, which is what a self-hosted Intelligence with its own licence needs.
+ * There used to be two answers here, CopilotKit Intelligence or an opt-in local mode, and the
+ * variable that chose between them. This fork is local-only by product decision, so the choice, the
+ * variable and the Intelligence settings it read are gone: a deployment boots into local mode or it
+ * does not boot. `INTELLIGENCE_*` variables are ignored rather than refused, because a leftover
+ * `.env` from a managed deployment is not a deployment asking for the other mode — there is no
+ * other mode to ask for.
  */
-function runtimeCapabilities(environment: Environment): RuntimeCapabilities {
-  const settings = {
-    apiUrl: url(environment, "INTELLIGENCE_API_URL"),
-    gatewayWsUrl: url(environment, "INTELLIGENCE_GATEWAY_WS_URL"),
-    apiKey: optional(environment, "INTELLIGENCE_API_KEY"),
-    licenseToken: optional(environment, "COPILOTKIT_LICENSE_TOKEN"),
-  };
-
-  const missing = Object.entries({
-    INTELLIGENCE_API_URL: settings.apiUrl,
-    INTELLIGENCE_GATEWAY_WS_URL: settings.gatewayWsUrl,
-    INTELLIGENCE_API_KEY: settings.apiKey,
-  })
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-
-  if (missing.length > 0) {
-    throw new Error(
-      `CopilotKit Intelligence is required and is not configured. Missing: ${missing.join(", ")}`,
-    );
-  }
-
-  return {
-    mode: "intelligence",
-    durableHistory: true,
-    intelligence: settings as IntelligenceSettings,
-  };
+export function runtimeCapabilities(): RuntimeCapabilities {
+  return { mode: "local", durableHistory: true };
 }
 
 /**
@@ -1409,7 +1374,7 @@ export function loadConfig(
     )?.replace(/\/+$/, ""),
     tenantPackageDirectory:
       optional(environment, "TENANT_PACKAGE_DIR") ?? "../examples/openduet",
-    runtime: runtimeCapabilities(environment),
+    runtime: runtimeCapabilities(),
     learning: learningDefault(environment),
     learningAutoAssign: learningAutoAssignEnabled(environment),
     ...learningSetupCredential(environment),

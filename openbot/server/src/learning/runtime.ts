@@ -1,21 +1,42 @@
 import type { Tool } from "@ag-ui/client";
-import {
-  formatSkillCatalog,
-  loadSkill,
-  readSkillFile,
-  SkillRegistry,
-} from "@copilotkit/runtime/internal/learned-skills";
-import type { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { z } from "zod";
 import type {
   LearningDeliveryStatus,
   LearningSettings,
   LearningTarget,
 } from "@openbot/shared/learning";
+import {
+  formatSkillCatalog,
+  type LearnedSkillsSnapshotSource,
+  loadSkill,
+  readSkillFile,
+  SkillRegistry,
+} from "@openbot/toolkit/copilotkit/engine/learned-skills";
+import { z } from "zod";
+import type { InspectorSnapshot } from "./auto-assign";
 import type { LearningSettingsStore } from "./settings";
 
-// This published internal export is pinned to runtime 1.73.1. Keep its use here: the SDK owns
-// archive verification, refresh, revocation and stale-cache policy for every OpenBot framework.
+/**
+ * The client this runtime needs: the one learned-skills read the registry makes,
+ * the Thread ownership check, and the Inspector read the Admin page asks through
+ * it.
+ *
+ * Named here rather than taken from a constructor, because this fork owns the
+ * contract now: `SkillRegistry` was the vendor's class and its options type was
+ * the vendor's client. What remains is the shape OpenBot actually calls.
+ */
+type InspectorInput = { agentId?: string; runtimeContainerId?: string };
+export type LearnedSkillsClient = LearnedSkillsSnapshotSource & {
+  getThread(input: { threadId: string; userId: string }): Promise<unknown>;
+  getInspectorLearning(input: InspectorInput): Promise<InspectorSnapshot>;
+};
+
+export type LearnedSkillsInspection = {
+  getInspectorLearning(input: InspectorInput): Promise<InspectorSnapshot>;
+};
+
+// Delivery itself is first-party now (see `engine/learned-skills`): this repository
+// owns archive verification, refresh, revocation and stale-cache policy for every
+// OpenBot framework.
 export type LearnedSkillInvocation = {
   readonly catalog: string;
   readonly tools: readonly Tool[];
@@ -90,7 +111,7 @@ export type LearningThread = {
 
 export function createLearningRuntime(options: {
   store: LearningSettingsStore;
-  client: CopilotKitIntelligence;
+  client: LearnedSkillsClient;
   freshnessWindowMs?: number;
 }) {
   const { store, client } = options;
@@ -197,7 +218,7 @@ export function createLearningRuntime(options: {
       };
     },
     inspect: (
-      input: Parameters<CopilotKitIntelligence["getInspectorLearning"]>[0],
+      input: Parameters<LearnedSkillsInspection["getInspectorLearning"]>[0],
     ) => client.getInspectorLearning(input),
   };
 }

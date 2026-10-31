@@ -1,4 +1,3 @@
-import type { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import type { ThreadLock } from "../ports";
 
 /**
@@ -13,14 +12,39 @@ import type { ThreadLock } from "../ports";
  */
 export const THREAD_LOCK_TTL_SECONDS = 120;
 
-/** The four platform calls the lock makes, and nothing else of the client. */
-export type ThreadLockClient = Pick<
-  CopilotKitIntelligence,
-  | "getOrCreateThread"
-  | "ɵacquireThreadLock"
-  | "ɵrenewThreadLock"
-  | "ɵcleanupThreadLock"
->;
+/**
+ * The four platform calls the lock makes, and nothing else of the client.
+ *
+ * Structural rather than `Pick<…, …>` of any concrete class so that both platforms satisfy it: the
+ * in-process one (`./local-platform.ts`) and the Postgres one (`./postgres-platform.ts`) answer the
+ * same four calls with the same error contract (409 is "not now"). Nothing here names the vendor
+ * type, so a platform that drifts fails the server's typecheck at the call site in `copilot.ts`.
+ */
+export type ThreadLockClient = {
+  getOrCreateThread(params: {
+    threadId: string;
+    userId: string;
+    agentId: string;
+    learningContainerId?: string;
+  }): Promise<unknown>;
+  acquireThreadLock(params: {
+    threadId: string;
+    runId: string;
+    userId: string;
+    agentId: string;
+    ttlSeconds?: number;
+    learningContainerId?: string;
+  }): Promise<{ runId: string }>;
+  renewThreadLock(params: {
+    threadId: string;
+    runId: string;
+    ttlSeconds: number;
+  }): Promise<unknown>;
+  cleanupThreadLock(params: {
+    threadId: string;
+    runId: string;
+  }): Promise<void>;
+};
 
 /**
  * The conversation's run lock, as the platform issues it.
@@ -33,7 +57,7 @@ export type ThreadLockClient = Pick<
  * A conversation somebody else is already running in refuses rather than queues, which is right:
  * the caller waits and tries again rather than two Bots writing over each other.
  */
-export function createIntelligenceThreadLock(options: {
+export function createThreadLock(options: {
   client: ThreadLockClient;
   learning?: {
     containerForThread: (input: {
@@ -57,7 +81,7 @@ export function createIntelligenceThreadLock(options: {
           ...input,
           ...(learningContainerId ? { learningContainerId } : {}),
         });
-        const held = await client.ɵacquireThreadLock({
+        const held = await client.acquireThreadLock({
           ...input,
           ...(learningContainerId ? { learningContainerId } : {}),
         });
@@ -82,8 +106,8 @@ export function createIntelligenceThreadLock(options: {
          *
          * A conversation somebody is already running in answers 409, and that is ordinary: the hop
          * waits and is tried again. Anything else is not — a platform that cannot be reached, a
-         * token that stopped working, or one of the underscored APIs below being renamed by a
-         * routine version bump. Returned as `null` those all read as contention: every hop retries
+         * token that stopped working, or one of the methods below renamed without a matching change
+         * here. Returned as `null` those all read as contention: every hop retries
          * to exhaustion, every person is told their question was never answered, and the only
          * evidence is a warning line that looks like a busy conversation.
          *
@@ -99,7 +123,7 @@ export function createIntelligenceThreadLock(options: {
       }
     },
     renew: async (input) => {
-      await client.ɵrenewThreadLock({
+      await client.renewThreadLock({
         ...input,
         ttlSeconds: THREAD_LOCK_TTL_SECONDS,
       });
@@ -114,7 +138,7 @@ export function createIntelligenceThreadLock(options: {
           busy: false,
         });
       } catch {}
-      await client.ɵcleanupThreadLock(input);
+      await client.cleanupThreadLock(input);
     },
   };
 }

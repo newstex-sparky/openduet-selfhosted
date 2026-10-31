@@ -1,14 +1,22 @@
+import type { CopilotKitProviderProps } from "@copilotkit/react-core/v2";
 import {
   basicCatalog,
   Catalog,
   type ReactComponentImplementation,
-} from "@copilotkit/a2ui-renderer";
-import type { CopilotKitProviderProps } from "@copilotkit/react-core/v2";
+} from "./a2ui/index";
+
+export type {
+  A2UIClientEventMessage,
+  ReactComponentImplementation,
+  ServerToClientMessage,
+} from "./a2ui/index";
+export { A2UIProvider, A2UIRenderer, useA2UIActions } from "./a2ui/index";
 
 /**
- * Keep the SDK's schemas, data bindings and action handlers. The wrapper only supplies a stable
- * styling hook: the 1.70.1 basic catalog uses inline styles and does not consume the theme prop.
- * These are declarative primitives, not the separately granted OpenBot gallery/custom components.
+ * The public surface stays the same as when the SDK drew it: a Catalog built from the A2UI basic
+ * catalog, each component wrapped so the app has one stable styling hook. The schemas, data
+ * bindings and action handling are untouched — the wrapper only supplies the hook, because styling
+ * a generated interface from the outside needs a marker the CSS can match.
  */
 function branded(
   component: ReactComponentImplementation,

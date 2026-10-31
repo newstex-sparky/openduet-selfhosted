@@ -1,16 +1,17 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
-import {
-  type A2UIClientEventMessage,
-  A2UIProvider,
-  A2UIRenderer,
-  type ServerToClientMessage,
-  useA2UIActions,
-} from "@copilotkit/a2ui-renderer";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
-import { a2uiProviderOptions, OPENBOT_A2UI_CATALOG } from "@/lib/copilot/a2ui";
+import {
+  type A2UIClientEventMessage,
+  A2UIProvider,
+  A2UIRenderer,
+  a2uiProviderOptions,
+  OPENBOT_A2UI_CATALOG,
+  type ServerToClientMessage,
+  useA2UIActions,
+} from "@/lib/copilot/a2ui";
 
 beforeAll(() => GlobalRegistrator.register());
 afterEach(cleanup);

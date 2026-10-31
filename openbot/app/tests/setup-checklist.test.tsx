@@ -116,16 +116,10 @@ const READY_ROW = (
   ...row,
 });
 
-/** What an admin is sent: Intelligence ready, the model key missing, Gmail connectable, Slack unset. */
+/** What an admin is sent: the model key missing, Gmail connectable, Slack unset. */
 const ADMIN: Checklist = {
   audience: "admin",
   rows: [
-    READY_ROW({
-      id: "intelligence",
-      title: "CopilotKit Intelligence",
-      required: true,
-      detail: "Keeps your conversations and what OpenDuet remembers.",
-    }),
     READY_ROW({
       id: "model",
       title: "AI model",
@@ -211,7 +205,6 @@ test("Ready and Needs setup rows come from the server's answer", async () => {
   const view = draw();
 
   await view.findByRole("list", { name: "Setup" });
-  expect(rowOf(view, "intelligence").getByText("Ready")).not.toBeNull();
   expect(rowOf(view, "model").getByText("Needs setup")).not.toBeNull();
   expect(rowOf(view, "model").getByText("Required")).not.toBeNull();
   expect(

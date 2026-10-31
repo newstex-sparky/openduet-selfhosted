@@ -1,27 +1,33 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { type AbstractAgent, HttpAgent } from "@ag-ui/client";
-import type { BuiltInAgentConfiguration } from "@copilotkit/runtime/v2";
-import {
-  type CopilotKitIntelligence,
-  CopilotRuntime,
-} from "@copilotkit/runtime/v2";
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
 import {
   BuiltInAgentWithSaneHistory,
   CloningRemoteAgent,
-  IntelligenceKnowingANewThread,
   RunBuiltAgent,
   UnavailableAgent,
 } from "@openbot/toolkit/copilotkit/agents";
-import { createIntelligenceThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
+import type { BuiltInAgentConfiguration } from "@openbot/toolkit/copilotkit/engine/agent/index";
+import type {
+  Engine as ProtocolEngine,
+  EngineRunner as ProtocolEngineRunner,
+} from "@openbot/toolkit/copilotkit/engine/engine";
+import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
+import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
+import { createThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolsMiddleware } from "@openbot/toolkit/headless-tools";
 import { sanitizeSeededHistory } from "@openbot/toolkit/history-sanitize";
+import { isLockConflict } from "@openbot/toolkit/lease";
 import { executeNativeApprovalTool } from "@openbot/toolkit/native-approval";
-import { historyOrEmpty } from "@openbot/toolkit/thread-history";
+import {
+  historyOrEmpty,
+  isMissingThread,
+} from "@openbot/toolkit/thread-history";
+import { Hono } from "hono";
 import { defer, from, switchMap } from "rxjs";
 import { z } from "zod";
 import {
@@ -43,18 +49,17 @@ import {
 } from "./channels/attachment-parts";
 import type { AgentFetch, StallGuard } from "./channels/stall-guard";
 import type { DeploymentConfig } from "./config";
+import { AG_UI_HEARTBEAT_MS } from "./delivery/opentag";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
-import { observeIntelligenceAuthentication } from "./intelligence-client";
 import { RemoteLearnedSkillsMiddleware } from "./learning/remote";
 import {
   type AcquireLearnedSkills,
-  createLearningRuntime,
   LEARNED_SKILL_TOOL_NAMES,
   type LearnedSkillInvocation,
   type LearningRuntime,
 } from "./learning/runtime";
-import type { LearningSettingsStore } from "./learning/settings";
+import { localThreadPlatform } from "./local-mode";
 import {
   type LoadPersonalMemory,
   PersonalMemoryMiddleware,
@@ -74,21 +79,20 @@ import {
   selectTools,
 } from "./plugins/selection";
 import { grantedToolGuidance } from "./plugins/tools";
-import { runtimeTelemetryProperties } from "./telemetry";
 import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
 
 /**
- * The CopilotKit runtime, always in Intelligence mode.
+ * The CopilotKit runtime, in SSE mode on this process's own thread platform.
  *
  * Package-declared built-in Bots run as CopilotKit `BuiltInAgent` instances. External Bots are
  * reached over AG-UI as `HttpAgent` instances, so anything that speaks the protocol remains a Bot
  * with no framework adapter here: LangGraph, Pydantic-AI, CrewAI, Mastra, ADK, or a hand-written
  * server.
  *
- * There is no SSE branch. Intelligence is a requirement of the product, not a tier: it owns
- * durable threads, memory and learning, and a deployment without it silently forgets every
- * conversation. config.ts refuses to boot without the full contract, so by the time this runs the
- * settings are present and this file has one mode.
+ * Threads, memory and learning used to live in CopilotKit Intelligence, and this function used to
+ * mount that instead. This fork is local-only by product decision: `mountLocalCopilotRuntime` (bottom
+ * of this file) runs the same runtime in SSE mode on the process's Postgres thread platform, so a
+ * restart keeps every conversation. See `RuntimeCapabilities`.
  */
 
 /** Resolve the signed-in person for a request. Threads and memory are scoped to whoever this returns. */
@@ -1736,11 +1740,9 @@ export function mountCopilotRuntime(
       runId: string;
       busy: boolean;
     }) => void | Promise<void>;
-    learningSettings?: LearningSettingsStore;
   } = {},
 ) {
-  const { intelligence } = config.runtime;
-  const { basePath = "/api/copilotkit", onRunBusy, learningSettings } = options;
+  const { basePath = "/api/copilotkit", onRunBusy } = options;
 
   /**
    * The same Bot a person's run would get, built without a request.
@@ -1776,57 +1778,27 @@ export function mountCopilotRuntime(
   };
 
   /*
-   * One client, used by the runtime and by anything reading a thread beside it, so a hop reads the
-   * history a person's run would read rather than a second view of it that could disagree.
+   * The process's one thread platform: threads, history, run lock and runner.
+   *
+   * Built once and handed to BOTH the engine and the gate below. The gate primes this platform's
+   * read mirror, takes its run lock and releases it, so a second instance would be a second mirror
+   * and a second view of the same conversation.
    */
-  const intelligenceClient: CopilotKitIntelligence =
-    observeIntelligenceAuthentication(
-      new IntelligenceKnowingANewThread({
-        apiUrl: intelligence.apiUrl,
-        wsUrl: intelligence.gatewayWsUrl,
-        apiKey: intelligence.apiKey,
-        getLearningContainerId: async ({
-          agentId,
-          input,
-          user,
-        }): Promise<string | undefined> => {
-          if (!user)
-            throw new Error(
-              "Learning Thread assignment requires a verified user.",
-            );
-          return learning?.containerForThread({
-            agentId,
-            threadId: input.threadId,
-            userId: user.id,
-          });
-        },
-      }),
-    );
+  const platform = localThreadPlatform(config);
 
-  const learning: LearningRuntime | undefined = learningSettings
-    ? createLearningRuntime({
-        store: learningSettings,
-        client: intelligenceClient,
-      })
-    : undefined;
-
-  const runtime = new CopilotRuntime({
-    // `mode` is inferred from the presence of `intelligence`; passing it is a type error.
-    //
-    // identifyUser is NOT optional in practice. Threads and memory are scoped to the user it
-    // returns, so omitting it puts every person in the deployment in the same thread space and one
-    // person's conversations become another's.
-    identifyUser,
-    // The subclass, not the base: a thread nobody has run yet reads as empty rather than as a 500.
-    // See IntelligenceKnowingANewThread.
-    intelligence: intelligenceClient,
-    licenseToken: intelligence.licenseToken,
-    // Carried on the events the runtime already sends, so OpenDuet's traffic is separable from any
-    // other deployment's. Adds no events of its own. See telemetry.ts.
-    telemetryProperties: {
-      ...runtimeTelemetryProperties(config.accessibility),
-      ...desktopTelemetryProperties(),
-    },
+  /*
+   * What this deployment tells the protocol engine: the Bots, the generative-UI switch, and how
+   * often a quiet event stream writes an SSE comment.
+   *
+   * The keep-alive is the one that bit live. `Bun.serve` closes a connection that has sent nothing
+   * for ten seconds (BUN_IDLE_TIMEOUT_MS in delivery/opentag.ts), and the engine's own default is
+   * 15. So a run whose model said nothing for more than 10s had its `/agent/:id/run` stream cut
+   * after RUN_STARTED: the run still finished and was stored, but the browser never saw the reply.
+   * The keep-alive is an SSE comment, which AG-UI parsers drop, so this adds bytes on a quiet wire
+   * and no events. The same beat OpenTag's AG-UI stream uses, for the same reason.
+   */
+  const engine: ProtocolEngine = {
+    sseKeepAliveIntervalSeconds: AG_UI_HEARTBEAT_MS / 1000,
     /*
      * What lets a Bot answer with an interface it wrote itself.
      *
@@ -1837,67 +1809,210 @@ export function mountCopilotRuntime(
      * that paints: the tool's own renderer shows the waiting message and then returns nothing. So a
      * deployment with the browser half and not this one has Bots generating whole interfaces that
      * never appear, which is the shape this capability arrived in.
-     *
-     * `true` rather than a list of Bots. The list narrows only the event transform, and the tool
-     * stays offered to every Bot regardless, so naming some Bots here would leave the others able to
-     * call it and draw nothing. Whether the capability exists at all is the switch this deployment
-     * has; see DeploymentConfig.generativeUi.
      */
-    ...(config.generativeUi ? { openGenerativeUI: true } : {}),
+    openGenerativeUi: config.generativeUi,
     // A browser catalog enables the public A2UI middleware/tool. Explicitly disable it on the
     // server too, so stale clients cannot reactivate a deployment's generative UI opt-out.
     a2ui: { enabled: config.generativeUi },
-    // `identifyUser` is the Intelligence projection of the same person `identifyActor` returns:
-    // one resolver decides both whose threads these are and whose coworkers exist.
+    // A factory rather than a fixed map, so a Bot registered while the server is running is
+    // reachable on the next request.
     agents: createRequestAgents(identifyActor, resolver) as never,
+    runner: localThreadPlatform(config)
+      .runner as unknown as ProtocolEngineRunner,
+  };
+
+  return mountLocalCopilotRuntime({
+    engine,
+    platform,
+    basePath,
+    identifyUser,
+    onRunBusy,
+    agentFor,
   });
+}
+
+/**
+ * The runtime in SSE mode, on an in-process runner, with no vendor platform anywhere.
+ *
+ * `new CopilotRuntime({ runner })` with no `intelligence` is the runtime's documented SSE mode
+ * (`CopilotSseRuntimeOptions`). The runner is the process's thread platform
+ * (`local-mode.ts`), which is also what every headless turn, the thread lock and the history readers
+ * use, so a hop and a routine see the conversation a person's run wrote.
+ *
+ * THE ONE THING SSE MODE DOES NOT DO FOR US IS SAY WHO IS ASKING. The runtime never calls
+ * `identifyUser` on a thread operation, so without the gate below an unauthenticated request could run
+ * a Bot. The gate answers 401 for every route but `/info` (which the runtime serves to anyone, so a
+ * deployment check can read it), and runs the rest as the person `identifyUser` returns, which is how
+ * the runner scopes threads to their owner.
+ */
+/**
+ * Fill the platform's read mirror for whatever thread this request is about.
+ *
+ * See the note at the call site: the runtime's thread endpoints are synchronous, so what they read
+ * has to have been loaded already. `/threads` and `/threads/clear` refresh the list; `/threads/:id/…`
+ * loads that one thread. Anything else (a run, a stop, an info call) needs neither and pays nothing.
+ */
+async function primeThread(
+  platform: PostgresThreadPlatform,
+  request: Request,
+  userId: string,
+): Promise<void> {
+  const segments = new URL(request.url).pathname.split("/").filter(Boolean);
+  const at = segments.lastIndexOf("threads");
+  if (at === -1) return;
+  const id = segments[at + 1];
+  await runAsLocalUser(userId, () =>
+    id === undefined || id === "clear" || id === "subscribe"
+      ? platform.refresh()
+      : platform.prime(decodeURIComponent(id)),
+  );
+}
+
+/**
+ * Take a run's thread lock BEFORE the runtime starts streaming, so a refused run is a 409.
+ *
+ * In SSE mode the runtime answers `POST /agent/:id/run` with a 200 `text/event-stream` at once and
+ * only then calls the runner, so a runner that refuses because somebody else's run holds the thread
+ * can only close that stream: the caller got 200 with an empty body and no way to tell a refused run
+ * from a run that said nothing, while the 409 went to the server log alone. Intelligence mode takes
+ * the lock first and answers `409 {"error":"Thread lock denied"}` (the runtime's
+ * `handlers/intelligence/run`), so this does the same, through the same platform lock API every
+ * headless turn uses. The runner then re-acquires the lock under the same run id, which the platform
+ * allows, and releases it when the run ends.
+ *
+ * Answers the run it claimed, a Response to send instead of running, or nothing when this request is
+ * not a run (or has no usable thread/run id, which the runtime rejects on its own).
+ *
+ * A run the runtime then rejects (an unknown agent, a malformed body) leaves the thread row the lock
+ * needs, with no events in it. `listThreads` never shows a thread without events, so nobody sees it:
+ * the same as a headless turn that took the lock and never ran.
+ */
+async function claimRunLock(
+  platform: PostgresThreadPlatform,
+  request: Request,
+  userId: string,
+): Promise<{ threadId: string; runId: string } | Response | undefined> {
+  if (request.method !== "POST") return undefined;
+  const segments = new URL(request.url).pathname.split("/").filter(Boolean);
+  if (segments.at(-1) !== "run" || segments.at(-3) !== "agent")
+    return undefined;
+  const agentId = decodeURIComponent(segments.at(-2) ?? "");
+  const body = (await request
+    .clone()
+    .json()
+    .catch(() => undefined)) as
+    | { threadId?: unknown; runId?: unknown }
+    | undefined;
+  const { threadId, runId } = body ?? {};
+  if (typeof threadId !== "string" || typeof runId !== "string")
+    return undefined;
+  if (!threadId || !runId || !agentId) return undefined;
+  try {
+    await runAsLocalUser(userId, () =>
+      platform.acquireThreadLock({ threadId, runId, userId, agentId }),
+    );
+  } catch (error) {
+    if (isLockConflict(error))
+      return Response.json({ error: "Thread lock denied" }, { status: 409 });
+    if (isMissingThread(error))
+      return Response.json(
+        { error: "Failed to initialize thread" },
+        { status: 404 },
+      );
+    throw error;
+  }
+  return { threadId, runId };
+}
+
+function mountLocalCopilotRuntime(input: {
+  basePath: string;
+  identifyUser: IdentifyUser;
+  onRunBusy?: (input: {
+    threadId: string;
+    runId: string;
+    busy: boolean;
+  }) => void | Promise<void>;
+  agentFor: (input: {
+    actor: AgentActor;
+    botId: string;
+    initiator?: AuditInitiator;
+  }) => Promise<AbstractAgent | null>;
+  engine: ProtocolEngine;
+  platform: PostgresThreadPlatform;
+}) {
+  const { basePath, identifyUser, onRunBusy, agentFor, engine, platform } =
+    input;
+  const inner = createEngineHandler({ engine, basePath });
+
+  const handler = new Hono();
+  const gate = async (request: Request): Promise<Response> => {
+    const last = new URL(request.url).pathname
+      .split("/")
+      .filter(Boolean)
+      .at(-1);
+    if (last === "info") return inner.fetch(request);
+    let userId: string;
+    try {
+      userId = (await identifyUser(request)).id;
+    } catch {
+      return Response.json(
+        { error: "A CopilotKit run requires a signed-in user." },
+        { status: 401 },
+      );
+    }
+    /*
+     * THE THREAD'S ROWS, LOADED BEFORE THE RUNTIME ASKS FOR THEM.
+     *
+     * The runtime's `/threads` family reads synchronously (`listThreads`, `getThreadMessages`,
+     * `getThreadEvents`, `getThreadState`), so the platform answers them from a read mirror instead
+     * of from Postgres. This is what fills that mirror for the thread in the path — without it a
+     * reload after a restart would be answered from a mirror that has never seen the conversation,
+     * which is the exact failure this whole change exists to remove. Both hooks are no-ops on the
+     * in-memory platform, so this costs nothing when that is the one mounted.
+     */
+    await primeThread(platform, request, userId);
+    const claim = await claimRunLock(platform, request, userId);
+    if (claim instanceof Response) return claim;
+    const response = await runAsLocalUser(userId, () => inner.fetch(request));
+    /* The runtime refused the request before reaching the runner (bad body, unknown agent), so
+     * nothing will release the lock the claim took: release it here, or the thread stays busy for
+     * the lock's whole TTL. A streamed answer is the runner's, and the runner releases it. */
+    if (
+      claim &&
+      !response.headers.get("content-type")?.startsWith("text/event-stream")
+    )
+      await platform.cleanupThreadLock(claim);
+    return response;
+  };
+  handler.all(basePath, (context) => gate(context.req.raw));
+  handler.all(`${basePath}/*`, (context) => gate(context.req.raw));
 
   return {
-    handler: createCopilotHonoHandler({ runtime, basePath }),
-    learning,
-    /**
-     * How to reach the platform's runner, exactly as the runtime reaches it.
-     *
-     * TAKEN FROM THE CLIENT, NOT FROM CONFIGURATION, and this is the whole of a bug that only a real
-     * gateway could show. Built from `gatewayWsUrl` and the deployment's API key, every join was
-     * refused with `active_lock_mismatch`: a thread's active run is a lock the platform issues, and
-     * the token that holds it is not the API key. The runtime asks the client for both, so anything
-     * else driving a run has to ask the same client the same way.
-     */
-    runnerConnection: () => ({
-      url: intelligenceClient.ɵgetRunnerWsUrl(),
-      authToken: intelligenceClient.ɵgetRunnerAuthToken(),
-    }),
-    threadLock: createIntelligenceThreadLock({
-      client: intelligenceClient,
-      learning,
+    handler,
+    // Automatic Learning is an Intelligence feature. Absent here, which every caller already allows.
+    learning: undefined as LearningRuntime | undefined,
+    runnerConnection: (): never => {
+      throw new Error(
+        "Local mode has no Intelligence runner socket; use handoffRunner().",
+      );
+    },
+    handoffRunner: (): unknown => platform.runner,
+    threadLock: createThreadLock({
+      client: platform,
       onRunBusy,
     }),
     agentFor,
-    /**
-     * A thread's messages, as the platform holds them.
-     *
-     * The same client the runtime uses, so a hop reads the history a person's run would read rather
-     * than a second view of it that could disagree.
-     */
-    history: async (input: { threadId: string; actorId: string }) => {
-      /*
-       * The platform's own message type rather than AG-UI's, inferred rather than named: the two are
-       * compatible where it matters and naming the wrong one here would mean converting a history
-       * that does not need converting.
-       */
-      type Read = Awaited<
-        ReturnType<CopilotKitIntelligence["getThreadMessages"]>
-      >;
-      const read = await historyOrEmpty<Read>(
+    /** A thread's messages, as this process holds them; the same rows a person's run wrote. */
+    history: async (read: { threadId: string; actorId: string }) => {
+      const answer = await historyOrEmpty(
         () =>
-          intelligenceClient.getThreadMessages({
-            threadId: input.threadId,
-            userId: input.actorId,
+          platform.getThreadMessages({
+            threadId: read.threadId,
+            userId: read.actorId,
           }),
-        { messages: [] } as Read,
+        { messages: [] },
       );
-      return read.messages;
+      return answer.messages;
     },
   };
 }

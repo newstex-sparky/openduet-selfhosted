@@ -10,9 +10,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ag-ui/a2ui-middleware": "0.0.10",
     "@ag-ui/client": "1.0.1",
-    "@copilotkit/runtime": "1.77.0",
+    "@ag-ui/core": "1.0.1",
+    "@ag-ui/encoder": "1.0.1",
+    "@ai-sdk/anthropic": "^3.0.49",
+    "@ai-sdk/google": "^3.0.33",
+    "@ai-sdk/google-vertex": "^3.0.97",
+    "@ai-sdk/openai": "^3.0.36",
+    "@cfworker/json-schema": "^4.1.1",
     "@openbot/shared": "workspace:*",
+    "ai": "^6.0.104",
+    "clarinet": "0.12.6",
     "rxjs": "7.8.1",
     "zod": "^4.4.3"
   },

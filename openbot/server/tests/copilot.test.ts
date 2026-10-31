@@ -3,8 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
-import { LLMock } from "@copilotkit/aimock";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { LLMock } from "../testing/llmock";
+import { BuiltInAgent } from "@openbot/toolkit/copilotkit/engine/agent/index";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
 import { EMPTY, lastValueFrom } from "rxjs";
@@ -143,7 +143,7 @@ describe("deployment model selection", () => {
     environment: Record<string, string | undefined>,
   ) {
     const config = loadConfig({ ...testEnvironment(), ...environment });
-    expect(config.runtime.mode).toBe("intelligence");
+    expect(config.runtime.mode).toBe("local");
     const tenantPackage = await loadTenantPackage(packagePath);
     const model = runtimeModelForEnvironment(tenantPackage.model, environment);
     const recorder = new LLMock();

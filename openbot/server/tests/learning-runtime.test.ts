@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-  CopilotKitIntelligence,
-  LearnedSkillsError,
-} from "@copilotkit/runtime/v2";
+import { LearnedSkillsError } from "@openbot/toolkit/copilotkit/engine/learned-skills";
 import {
   createLearningRuntime,
   clearLearningRevisionFallback,
+  type LearnedSkillsClient,
   selectLearningTarget,
 } from "../src/learning/runtime";
 import type { LearningSettingsStore } from "../src/learning/settings";
@@ -33,14 +31,23 @@ function fixture() {
       return bindings.get(key) ?? null;
     },
   };
-  const client = new CopilotKitIntelligence({ apiKey: "synthetic-never-sent" });
+  /*
+   * The client is a hand-written object: the vendor class is gone and the learning runtime only
+   * ever makes three reads of it, which is exactly what `LearnedSkillsClient` names.
+   */
   let exists = false;
-  client.getThread = async ({ threadId }) => {
-    if (exists) return { id: threadId, name: null };
-    const error = new Error("Missing synthetic Thread");
-    error.name = "PlatformRequestError";
-    Object.assign(error, { status: 404 });
-    throw error;
+  const client: LearnedSkillsClient = {
+    getLearnedSkillsSnapshot: async () => skillSnapshot(),
+    getThread: async ({ threadId }) => {
+      if (exists) return { id: threadId, name: null };
+      const error = new Error("Missing synthetic Thread");
+      error.name = "PlatformRequestError";
+      Object.assign(error, { status: 404 });
+      throw error;
+    },
+    getInspectorLearning: async () => {
+      throw new Error("A learning runtime never reads the Inspector");
+    },
   };
   return {
     store,
