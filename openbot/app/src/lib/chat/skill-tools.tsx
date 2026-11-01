@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { ProposedSkillCard } from "@/components/skills/proposed-skill";
 import { currentUserQueryOptions } from "@/lib/auth/queries";
-import { useDeclaredBotId } from "@/lib/copilot/active-bot";
+import { useDeclaredBotId } from "@/lib/chat/active-bot";
 import { saveSkillMutationOptions } from "@/lib/plugins/mutations";
 import {
   agentPluginsQueryOptions,

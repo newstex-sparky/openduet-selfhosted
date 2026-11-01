@@ -14,9 +14,9 @@ import {
   agentListQueryOptions,
 } from "@/lib/agents/queries";
 import { tryClient } from "@/lib/client";
-import { useActiveBot } from "@/lib/copilot/active-bot";
-import { useBotThread } from "@/lib/copilot/bot-thread";
-import { useStoppedTurn } from "@/lib/copilot/stopped-turn";
+import { useActiveBot } from "@/lib/chat/active-bot";
+import { useBotThread } from "@/lib/chat/bot-thread";
+import { useStoppedTurn } from "@/lib/chat/stopped-turn";
 import { searchTextEntry } from "@/lib/search-text";
 
 export const Route = createFileRoute("/_authed/_app/bot")({

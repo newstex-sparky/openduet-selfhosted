@@ -35,7 +35,7 @@ export function useCopilotKit(): CopilotKitContextValue {
   const value = useContext(CopilotKitContext);
   if (!value) {
     throw new Error(
-      "useCopilotKit needs a CopilotKitProvider above it. See app/src/lib/copilot/provider.tsx.",
+      "useCopilotKit needs a CopilotKitProvider above it. See app/src/lib/chat/provider.tsx.",
     );
   }
   return value;

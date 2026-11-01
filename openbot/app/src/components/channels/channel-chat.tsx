@@ -65,13 +65,13 @@ import {
   withoutMessages,
   withoutUnansweredCalls,
 } from "@/lib/channels/run-lifecycle";
-import { useActiveBot } from "@/lib/copilot/active-bot";
-import { observeApprovalAgent } from "@/lib/copilot/approval-context";
-import { ConversationProvider } from "@/lib/copilot/conversation";
-import { afterMs } from "@/lib/copilot/join-thread";
-import { repairUnansweredToolCalls } from "@/lib/copilot/repair-history";
-import { stoppedReason } from "@/lib/copilot/stopped-turn";
-import { readThreadMessages } from "@/lib/copilot/thread-messages";
+import { useActiveBot } from "@/lib/chat/active-bot";
+import { observeApprovalAgent } from "@/lib/chat/approval-context";
+import { ConversationProvider } from "@/lib/chat/conversation";
+import { afterMs } from "@/lib/chat/join-thread";
+import { repairUnansweredToolCalls } from "@/lib/chat/repair-history";
+import { stoppedReason } from "@/lib/chat/stopped-turn";
+import { readThreadMessages } from "@/lib/chat/thread-messages";
 import { useSkillCommands } from "@/lib/plugins/skill-commands";
 import {
   askChannelAgent,
@@ -93,7 +93,7 @@ import { newId } from "../../lib/new-id";
 /**
  * How long a stalled thread join is worth waiting for before it is ended.
  *
- * Ended, not outrun. See `lib/copilot/join-thread.ts` for what a connect left in flight does to the
+ * Ended, not outrun. See `lib/chat/join-thread.ts` for what a connect left in flight does to the
  * next message sent.
  */
 const JOIN_DEADLINE_MS = 1500;

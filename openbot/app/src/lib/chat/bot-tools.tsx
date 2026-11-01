@@ -20,7 +20,7 @@ import {
   proposedBotSchema,
 } from "@/lib/agents/proposal";
 import { agentListQueryOptions } from "@/lib/agents/queries";
-import { useDeclaredBotId } from "@/lib/copilot/active-bot";
+import { useDeclaredBotId } from "@/lib/chat/active-bot";
 import { grantPlugin, invalidatePlugins } from "@/lib/plugins/mutations";
 import { agentPluginsQueryOptions } from "@/lib/plugins/queries";
 import { queryClient } from "@/query-client";

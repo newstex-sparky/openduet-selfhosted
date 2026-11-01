@@ -1,5 +1,5 @@
 import { tryClient } from "@/lib/client";
-import { joinWithin } from "@/lib/copilot/join-thread";
+import { joinWithin } from "@/lib/chat/join-thread";
 import { newId } from "@/lib/new-id";
 
 /**

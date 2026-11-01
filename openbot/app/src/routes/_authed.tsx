@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { currentUserQueryOptions, needsOnboarding } from "../lib/auth/queries";
-import { CopilotProvider } from "../lib/copilot/provider";
+import { CopilotProvider } from "../lib/chat/provider";
 import { AppHotkeys } from "../lib/hotkeys/app-hotkeys";
 
 export const Route = createFileRoute("/_authed")({

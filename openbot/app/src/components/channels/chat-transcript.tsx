@@ -60,7 +60,7 @@ import { readMorningBrief } from "@/lib/channels/morning-brief";
 import { readResponsibilityTurn } from "@/lib/channels/responsibility-turn";
 import { readFiring } from "@/lib/channels/routine-firing";
 import { readTaskBrief } from "@/lib/channels/task-brief";
-import { ReplyChips } from "@/lib/copilot/reply-chips-tool";
+import { ReplyChips } from "@/lib/chat/reply-chips-tool";
 import { markdownComponents } from "@/lib/markdown";
 import { EASE_OUT, ENTRANCE_SECONDS } from "@/lib/motion";
 import { personToolLabel, readToolName } from "@/lib/plugins/tool-name";

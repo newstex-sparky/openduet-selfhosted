@@ -9,12 +9,12 @@ import {
   decideComponent,
   type GrantedComponent,
 } from "@/lib/components/queries";
-import { useActiveBotId, useDeclaredBotId } from "@/lib/copilot/active-bot";
+import { useActiveBotId, useDeclaredBotId } from "@/lib/chat/active-bot";
 import {
   GALLERY_COMPONENTS,
   type GalleryComponent,
   galleryManifest,
-} from "@/lib/copilot/gallery-registry";
+} from "@/lib/chat/gallery-registry";
 import { NOT_SHOWN, NOT_SHOWN_TAIL } from "@openbot/shared/component-markers";
 
 /**

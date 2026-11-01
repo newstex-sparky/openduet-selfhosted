@@ -1,7 +1,7 @@
 import { useRenderTool } from "@/lib/agui";
 import { z } from "zod";
 import { ToolLine } from "@/components/channels/tool-line";
-import { HANDED_OVER } from "@/lib/copilot/markers";
+import { HANDED_OVER } from "@/lib/chat/markers";
 import { saidItWentAhead } from "@/lib/plugins/tool-result";
 
 /**

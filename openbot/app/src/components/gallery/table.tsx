@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { z } from "zod";
-import type { GalleryComponent } from "@/lib/copilot/gallery-registry";
+import type { GalleryComponent } from "@/lib/chat/gallery-registry";
 import { Badge, GalleryFrame } from "./frame";
 
 export const DataTableProps = z

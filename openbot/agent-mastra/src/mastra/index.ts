@@ -4,7 +4,7 @@
  * Mastra brings its own HTTP server, so unlike the Python harnesses this one is not a FastAPI app
  * with a route bolted on: it is a plain Mastra server, and that is the whole point. Mastra already
  * serves its agents over its own API, and OpenBot dials that API through `@ag-ui/mastra`, the bridge
- * Mastra and AG-UI maintain between them. See `remoteTransport` in server/src/copilot.ts.
+ * Mastra and AG-UI maintain between them. See `remoteTransport` in server/src/engine.ts.
  *
  * SO THERE IS NO AG-UI ROUTE HERE, deliberately. An earlier version mounted `registerCopilotKit`
  * from `@ag-ui/mastra/copilotkit`, which serves the CopilotKit Runtime protocol rather than AG-UI:

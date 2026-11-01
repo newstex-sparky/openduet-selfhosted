@@ -9,7 +9,7 @@ import {
   decideComponent,
   type GrantedComponent,
 } from "@/lib/components/queries";
-import { useActiveBotId, useDeclaredBotId } from "@/lib/copilot/active-bot";
+import { useActiveBotId, useDeclaredBotId } from "@/lib/chat/active-bot";
 import {
   type PublishedSandboxed,
   publishedSandboxedQueryOptions,
