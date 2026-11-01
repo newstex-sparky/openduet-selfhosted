@@ -82,14 +82,14 @@ import { grantedToolGuidance } from "./plugins/tools";
 import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
 
 /**
- * The CopilotKit runtime, in SSE mode on this process's own thread platform.
+ * The AG-UI runtime, in SSE mode on this process's own thread platform.
  *
- * Package-declared built-in Bots run as CopilotKit `BuiltInAgent` instances. External Bots are
+ * Package-declared built-in Bots run as `BuiltInAgent` instances. External Bots are
  * reached over AG-UI as `HttpAgent` instances, so anything that speaks the protocol remains a Bot
  * with no framework adapter here: LangGraph, Pydantic-AI, CrewAI, Mastra, ADK, or a hand-written
  * server.
  *
- * Threads, memory and learning used to live in CopilotKit Intelligence, and this function used to
+ * Threads, memory and learning used to live in a hosted service, and this function used to
  * mount that instead. This fork is local-only by product decision: `mountLocalAgentRuntime` (bottom
  * of this file) runs the same runtime in SSE mode on the process's Postgres thread platform, so a
  * restart keeps every conversation. See `RuntimeCapabilities`.
@@ -1722,7 +1722,7 @@ export function createRequestAgents(
 }
 
 /**
- * Mount the CopilotKit endpoint onto the host Hono app.
+ * Mount the AG-UI runtime endpoint onto the host Hono app.
  *
  * `agents` is a factory rather than a fixed map so a Bot registered while the server is running is
  * reachable on the next request. Resolving once at boot would mean every new Bot needed a restart,
@@ -1956,7 +1956,7 @@ function mountLocalAgentRuntime(input: {
       userId = (await identifyUser(request)).id;
     } catch {
       return Response.json(
-        { error: "A CopilotKit run requires a signed-in user." },
+        { error: "A run requires a signed-in user." },
         { status: 401 },
       );
     }

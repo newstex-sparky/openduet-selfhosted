@@ -20,19 +20,18 @@ bash scripts/start.sh
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`                | PostgreSQL connection string.                                                                         |
 | `KEY_ENCRYPTION_KEY`          | Base64-encoded 32-byte key for encrypted stored credentials. Generate with `openssl rand -base64 32`. |
-| `INTELLIGENCE_API_URL`        | CopilotKit Intelligence API URL.                                                                      |
-| `INTELLIGENCE_GATEWAY_WS_URL` | CopilotKit Intelligence realtime gateway URL.                                                         |
-| `INTELLIGENCE_API_KEY`        | Runtime key for the Intelligence project.                                                             |
 
-All five above stop server startup if missing. The three `INTELLIGENCE_` values are additionally
-checked as a set, so a partial set is refused as a misconfiguration rather than treated as
-unconfigured.
+Both above stop server startup if missing.
 
-`COPILOTKIT_LICENSE_TOKEN` is optional: managed Intelligence issues no licence token, and a
-self-hosted Intelligence that has one sets this and has it forwarded to the runtime. That
-Intelligence needs the same licence on its own deployment as well, or it refuses memory and the
-other licensed features while conversations carry on. OpenBot asks Intelligence once at boot and
-logs `intelligence-entitlement-not-ready`, naming the fix, when the answer is not ready.
+`INTELLIGENCE_*` and `COPILOTKIT_*` variables are ignored. This fork runs in local mode only: it
+boots with no hosted service, keeps threads, messages, the event log and the run lock in the
+`DATABASE_URL` database, and refuses to start without one. See [local-mode.md](local-mode.md).
+
+The one exception is the optional Automatic Learning provisioning helper
+(`scripts/setup-learning.ts`, and the chart's setup Job). That helper reads `INTELLIGENCE_API_URL`,
+`INTELLIGENCE_API_KEY` and, on a local evaluation install, `INTELLIGENCE_SERVICE_TOKEN` with
+`INTELLIGENCE_PROJECT_ID`. It is a separate script, not the server's boot path, and the server
+itself never reads those variables.
 
 `MANAGED_AGENT_AG_UI_URL` names the Bot in the box: the default endpoint for coworkers created in
 the product. It needs `MANAGED_AGENT_TOKEN` beside it, or the server refuses to start. Unset, the
@@ -79,19 +78,13 @@ Set `OPENBOT_GENERATIVE_UI=false` or `0` to disable both. `true`, `1`, an empty 
 value leave the capability on. The server configures both runtime renderers and reports the same
 setting through `/api/capabilities` to the browser.
 
-**`OPENBOT_SELF_HOST_BANNER`** shows a slim bar at the top of the signed-in app offering
-CopilotKit's help self-hosting OpenBot, linking to `https://copilotkit.ai/talk-to-an-engineer` with
-`ref=openbot_app`. Closing it is saved to that person's preferences, so it stays closed on every
+**`OPENBOT_SELF_HOST_BANNER`** shows a slim bar at the top of the signed-in app offering help
+self-hosting OpenBot. Closing it is saved to that person's preferences, so it stays closed on every
 device they sign in from. Set `false` or `0` to hide it for everybody, which suits a fork running
 OpenBot for its own organization. Any other value, or none, leaves it on.
 
-Left on, it still never shows on a deployment that pays for Intelligence. The server reads the
-deployment's Intelligence entitlement and hides the bar when it is active on a paid plan (`pro`,
-`team`, `team_self_hosted` or `enterprise`) or comes from an AWS Marketplace licence. A free or
-developer plan, an inactive entitlement, and one that cannot be read all show it. The answer is
-kept for ten minutes, so a plan bought today hides the bar within ten minutes, and a page waits at
-most a second for the first answer after the server starts. In Helm, set the variable through
-`config.extraEnv`.
+The switch is the whole of the decision: there is no entitlement read behind it. In Helm, set the
+variable through `config.extraEnv`.
 
 The component catalogue has separate per-Bot grants. Its sortable data table (`showTable`),
 interactive form (`askForm`), and other compiled or playground-authored components remain governed

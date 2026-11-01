@@ -40,7 +40,7 @@ async function body(context: Ctx): Promise<Record<string, unknown>> {
 const COPILOT_BASE = "/api/engine";
 
 /**
- * A run or connect of a Bot through the CopilotKit runtime, matched the way the runtime matches it.
+ * A run or connect of a Bot through the runtime, matched the way the runtime matches it.
  *
  * The runtime does not anchor its routes: its router (`fetch-router` `matchSegments`) takes any path
  * under its base whose LAST segments are `agent/<id>/run`, `agent/<id>/connect` or `agent/<id>/suggest`

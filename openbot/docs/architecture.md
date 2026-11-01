@@ -1,6 +1,6 @@
 # Architecture
 
-OpenBot combines a React app, a Hono API server, PostgreSQL, CopilotKit Intelligence, AG-UI Bot endpoints, and governed browser computers.
+OpenBot combines a React app, a Hono API server, PostgreSQL, an in-repo AG-UI runtime, AG-UI Bot endpoints, and governed browser computers.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
@@ -14,14 +14,13 @@ Regenerate it with `bun run diagram` after changing anything it shows.
 | Component                | Port                       | Responsibility                                                                                                                              |
 | ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `app`                    | 3010                       | React/Vite interface for channels, Bot chat, live screen, settings, and admin pages.                                                        |
-| `server`                 | 3001                       | API, CopilotKit runtime, auth, roles, tenant package, coworkers, channels, policy, audit, credentials, plugins, components, and connectors. |
+| `server`                 | 3001                       | API, in-repo AG-UI runtime, auth, roles, tenant package, coworkers, channels, policy, audit, credentials, plugins, components, and connectors. |
 | `agent-computer`         | 4100                       | Chromium, `/workspace`, browser profile, screenshots, snapshots, and file tools.                                                            |
 | `agent-bot`              | 4200                       | Proof-of-concept AG-UI Bot.                                                                                                                     |
 | `agent-langgraph`        | 4201                       | LangGraph AG-UI Bot.                                                                                                                        |
 | `agent-harness`          | 4202                       | The Bot framework harness chosen during setup, one of the `agent-<framework>` images, behind the `harness` compose profile.                 |
 | `supervisor`             | 4500 host / 4300 container | Creates, stops, resets, and lists per-Bot computer containers.                                                                              |
-| PostgreSQL with pgvector | 5432                       | Product data, audit rows, credentials, policy, grants, channels, and components.                                           |
-| CopilotKit Intelligence  | external                   | Durable threads, memory, and realtime gateway.                                                                                              |
+| PostgreSQL with pgvector | 5432                       | Product data, audit rows, credentials, policy, grants, channels, components, and the durable thread store: threads, messages, event log, run lock. |
 
 `scripts/start.sh` starts PostgreSQL, `agent-computer`, `agent-langgraph`, `agent-bot` (skipped when `BOT_PROVIDER=anthropic`, since that sample only takes OpenAI keys) and the supervisor (unless `OPENBOT_ONE_COMPUTER_EACH=false`) through Docker Compose, and runs `migrate`. It then starts `server`, the routines worker (`bun worker/src/index.ts`, the local stand-in for the routines CronJob) and `app` on the host.
 
@@ -31,10 +30,10 @@ The compose file also defines optional SPIRE services. `start.sh` does not start
 
 1. The app opens a channel or direct Bot session.
 2. The server resolves the signed-in actor and selected coworker.
-3. CopilotKit runtime sends the turn to the configured AG-UI endpoint.
+3. The runtime sends the turn to the configured AG-UI endpoint.
 4. The surface registers available frontend tools: browser tools, MCP tools, and components granted to that Bot.
 5. Acting browser/file/MCP calls return to the server for authorization and audit.
-6. The server streams results back to the app and Intelligence thread.
+6. The server streams results back to the app and the thread store.
 
 ## Browser action governance
 
@@ -166,9 +165,9 @@ A coworker is a durable Bot profile:
 - `agent_profiles` stores name, title, role, owner, visibility, and deletion state.
 - `agent_preferences` stores per-user roster state.
 
-A channel is a conversation with one coworker and a CopilotKit Intelligence thread mapping. Starting a new channel creates a new thread.
+A channel is a conversation with one coworker and a thread in this deployment's own database. Starting a new channel creates a new thread.
 
-A group conversation holds several Bots. An Intelligence thread admits exactly one agent, so each Bot gets a thread of its own in the group (`group_bot_threads`), and what the people in it read is a shared transcript (`group_messages`) with every reply attributed to its speaker. A Bot that names a peer as `@Name` hands the conversation to it under the same grant, caps and audit rows as any other hop.
+A group conversation holds several Bots. A thread admits exactly one agent, so each Bot gets a thread of its own in the group (`group_bot_threads`), and what the people in it read is a shared transcript (`group_messages`) with every reply attributed to its speaker. A Bot that names a peer as `@Name` hands the conversation to it under the same grant, caps and audit rows as any other hop.
 
 Who may reach one is decided by membership: every channel route resolves the caller in
 `channel_memberships` and refuses without a row. `channels.allowed_groups` is declared in the
@@ -337,28 +336,22 @@ This narrows the offer. It is not a boundary, and it never substitutes for one. 
 
 ## Personal memory
 
-A person's memory is kept in CopilotKit Intelligence when the deployment is entitled to Intelligence
-memory (`features.memory` in its runtime entitlement), and in OpenBot's own tables when it is not.
+A person's memory is kept in OpenBot's own Postgres tables. The upstream product also mirrored it to
+a hosted store when the deployment was entitled to one; this fork has no such store, so the tables
+are the whole of it.
 
-- **Intelligence holds the content and does the recall.** Every memory the person has accepted is
-  mirrored there: one they wrote, a Bot-formed or imported one once they confirm it. Editing a memory
-  supersedes its Intelligence copy; pausing or forgetting it retires it, because Intelligence has no
-  field for "paused". Recall for a search is ranked by Intelligence.
-- **OpenBot keeps what Intelligence has no field for.** Intelligence stores only content, kind and
-  scope, so the OpenBot row stays the record of where a memory came from, its review state, which Bot
-  formed it and which source imported it. Those decide which Bot may see a memory, and they are applied
-  to everything Intelligence returns before a Bot sees it: a Bot-formed memory still reaches only the
-  Bot that formed it, while it holds the source app.
-- **Only the person's own memories.** Every call names the person and asks for `user` scope with no
-  project access, and project-scoped results are dropped, so one person's Bot never sees another
-  person's memory.
-- **Memories formed elsewhere.** A memory Intelligence holds for the person that no OpenBot row
-  describes (another app on the same project, or Intelligence itself) appears in their Memory page as
-  "Kept in Intelligence" and is recalled as their own. It can be edited or forgotten there, not paused.
-- **Without Intelligence memory** (not entitled, a lapsed licence, an outage), OpenBot reads and writes
-  its tables exactly as before and nothing fails. Writes made meanwhile are mirrored by the memory sweep
-  once Intelligence memory is available again; the first passes after a deployment becomes entitled are
-  the backfill of everything it already holds.
+- **The tables hold the content and do the recall.** Every memory the person has accepted is a row:
+  one they wrote, a Bot-formed or imported one once they confirm it. Editing a memory updates its row;
+  pausing or forgetting it retires the row.
+- **The row carries the provenance.** It records where a memory came from, its review state, which Bot
+  formed it and which source imported it. Those decide which Bot may see a memory: a Bot-formed memory
+  still reaches only the Bot that formed it, while it holds the source app.
+- **Only the person's own memories.** Every call names the person and scopes the query to them, so one
+  person's Bot never sees another person's memory.
+- **The hosted mirror is gone.** The upstream product mirrored memory content to a hosted store and
+  read it back from there. This fork constructs no such client: `createMemoryStore` is called without
+  one, and every read and write lands in Postgres. `intelligenceMemoryId` and `intelligenceDigest`
+  remain as columns so an upgraded database keeps its shape; new rows leave them null.
 
 ## Tenant package and knowledge
 

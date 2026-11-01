@@ -2,16 +2,22 @@
 
 ## Setup
 
-Install Docker, [Bun](https://bun.sh) 1.3+, `lsof`, `openssl`, and `curl`. The
-Intelligence provisioning below also needs `npx` (Node); `scripts/start.sh` uses `openssl` to mint
-the generated secrets on a first run.
+Install Docker, [Bun](https://bun.sh) 1.3+, `lsof`, `openssl`, and `curl`. The optional Automatic
+Learning provisioning below also needs `npx` (Node); `scripts/start.sh` uses `openssl` to mint the
+generated secrets on a first run.
 
 ```sh
 cp .env.example .env
 bun install
 ```
 
-Provision CopilotKit Intelligence after `.env` exists:
+The server then needs nothing but `DATABASE_URL`, `KEY_ENCRYPTION_KEY` and a model key. It runs in
+local mode only: threads, history and the run lock live in that database, and no hosted service is
+contacted. Add `OPENAI_API_KEY`, or the provider you configured, and start the stack.
+
+Automatic Learning's container provisioning is separate and optional. It is the only part of this
+checkout that talks to a hosted service, it is never on the server's boot path, and leaving it
+unconfigured changes nothing else:
 
 ```sh
 npx --yes copilotkit@latest login

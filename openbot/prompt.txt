@@ -29,9 +29,10 @@ Use this when they are deploying a container.
 One port. The app is on 3001 as well, so open http://localhost:3001, not 3010. `latest` is the most
 recent release; a version tag such as `:v0.0.15` pins one.
 
-The env file still needs INTELLIGENCE_API_KEY, a model credential, a real KEY_ENCRYPTION_KEY, and
-either an identity provider or OPENBOT_SINGLE_USER=true. Start from `.env.example` in this
-repository, or write the handful by hand. `EMBEDDED_POSTGRES=on` runs PostgreSQL inside the
+The env file still needs a model credential, a real KEY_ENCRYPTION_KEY, and either an identity
+provider or OPENBOT_SINGLE_USER=true. Start from `.env.example` in this repository, or write the
+handful by hand. No hosted service and no licence are involved: the server keeps threads, messages,
+the event log and the run lock in Postgres, so it needs nothing but a database and a model key. `EMBEDDED_POSTGRES=on` runs PostgreSQL inside the
 container, creates the database and the `vector` extension the first time, and applies migrations on
 every start. With your own DATABASE_URL, leave EMBEDDED_POSTGRES off and enable the `vector`
 extension in that database.
@@ -53,14 +54,13 @@ Requirements for the clone path:
 - Docker CLI plus Docker Compose, or a compatible `docker` command/socket. `scripts/start.sh`
   calls `docker compose` for PostgreSQL and shipped Bots; Podman works only when it is exposed
   through that Docker-compatible command path.
-- Node/npx, only for the CopilotKit CLI.
-- A CopilotKit account. Free is enough.
 - A model credential. The current source tree supports OpenAI or Anthropic for the example built-in
   Bots and the LangGraph framework Bot. Use the provider-specific key and model variables below.
   Google is supported by the LangGraph framework Bot, not by the example built-in package model.
 
-Fresh managed OpenAI clone setup needs a CopilotKit sign-in and an OPENAI_API_KEY model credential.
-The setup helper writes the project runtime key and Learning container assignment.
+Clone setup needs one thing they must supply: a model credential, as OPENAI_API_KEY (or the
+Anthropic triple below). Nothing else has to be signed up for, and `scripts/start.sh` fills the
+secrets it owns.
 
 `scripts/start.sh` fills the local secrets it owns: COMPUTER_TOKEN and WORKER_SHARED_SECRET have dev
 defaults, and MANAGED_AGENT_TOKEN plus AGENT_TOOL_TOKEN are generated and written back into `.env`.
@@ -72,48 +72,17 @@ The clone commands are:
   cp .env.example .env
   bun install
 
-  npx --yes copilotkit@latest login           # opens a browser
-  npx --yes copilotkit@latest project select  # selects the managed project
-  bun scripts/setup-learning.ts             # provisions its key and openbot Learning container
+There is no sign-in, no project key and no licence to arrange. That is the whole setup. The server
+runs in local mode: it keeps threads, messages, the event log and the run lock in the database, and
+contacts nothing outside the deployment except the model endpoint.
 
-The helper preserves custom targets and refuses to replace an existing INTELLIGENCE_API_KEY.
-For fresh self-hosted setup, set INTELLIGENCE_API_URL to its HTTPS API origin (or HTTP on
-localhost) and run only
-bun scripts/setup-learning.ts after bun install; skip the managed npx commands. Chrome or Edge
-must be installed. Sign in through the isolated browser window and choose an accessible project;
-the helper creates or reuses openbot and writes that project's new runtime key and assignment.
-Existing key-only setups use authenticated Intelligence administration to create a container and
-assign it in OpenBot Admin. Automatic Learning defaults on;
-collection and delivery require an assigned container. OpenBot starts and chats without one. Administrators
-can assign a default container, override or exclude individual Bots, or pause Learning at
-Admin → Automatic Learning. Open Intelligence to review and publish proposed skills. Containers
-belong to the same project; changing a mapping applies to new threads and does not move or backfill
-old evidence. Operators may seed a default with CPK_INTELLIGENCE_LEARNING_CONTAINER_ID on the API server;
-CPK_INTELLIGENCE_SKILLS_REVISION optionally pins a published revision. Saved Admin settings take
-precedence, including off. Keep the project key server-side and use the existing Intelligence UI
-for management (a runtime project key cannot authorize those writes). See docs/automatic-learning.md.
+Automatic Learning's container provisioning is the one optional path that talks to a hosted
+service. It is a separate helper (`bun scripts/setup-learning.ts`), never part of the server's boot,
+and leaving it unconfigured changes nothing else: chat, memory, routines, approvals and channels all
+work. Do not bring it up unless they ask for Automatic Learning by name. See
+docs/automatic-learning.md.
 
-To run Intelligence on their own Mac instead of the managed service, point them at
-https://docs.copilotkit.ai/intelligence/self-hosting-local. It is a preview for macOS with Docker
-Desktop, not a production installation, and the free Developer plan qualifies. They run, from the
-OpenBot root where `.env` is:
-
-  npx copilotkit@latest login
-  npx copilotkit@latest local setup
-  npx copilotkit@latest local connect --approve-connection
-
-`local connect` writes INTELLIGENCE_API_URL, INTELLIGENCE_GATEWAY_WS_URL and
-CPK_INTELLIGENCE_API_KEY to `.env`. OpenBot reads the first two as they are but takes its project
-key only from INTELLIGENCE_API_KEY, so copy the `cpk-...` value of CPK_INTELLIGENCE_API_KEY into
-INTELLIGENCE_API_KEY before `bash scripts/start.sh`. The local licence lasts 30 days;
-`npx copilotkit@latest local renew` renews it as often as needed while the account is in good
-standing. Skip the managed `project select` and setup-learning commands on this path.
-
-There is no licence step for managed Intelligence. `copilotkit license` still exists for self-hosted Intelligence, and
-COPILOTKIT_LICENSE_TOKEN is honoured when set, but managed Intelligence needs only the cpk- key.
-
-For manual key-only setup, put the `cpk-...` key in `.env` as INTELLIGENCE_API_KEY. For the default
-OpenAI path, put the model key in OPENAI_API_KEY. For Anthropic, set all three lines together:
+For the default OpenAI path, put the model key in OPENAI_API_KEY. For Anthropic, set all three lines together:
 
   ANTHROPIC_API_KEY=...
   BOT_PROVIDER=anthropic
@@ -137,17 +106,17 @@ computer. Pass `--keep-computers` only when they deliberately want browser sessi
 Nothing is deleted either way: the database, files and browser profiles are volumes.
 
 WHAT YOU MUST NOT DO FOR THEM
-- Do not run `copilotkit login`; it signs in as them. Tell them to run it.
 - Do not put their API keys into any file you did not just tell them about, and do not echo
   values back.
-- Do not change INTELLIGENCE_API_URL or INTELLIGENCE_GATEWAY_WS_URL unless they run Intelligence
-  themselves (self-hosted, or locally through `copilotkit local connect`).
+- Do not add INTELLIGENCE_* or COPILOTKIT_* variables. The server ignores them, and adding them
+  suggests a hosted dependency that this deployment does not have.
 
 FAILURES YOU WILL ACTUALLY SEE
 The server refuses to start rather than running half-configured. The message names the variable.
 
-- "CopilotKit Intelligence is required and is not configured. Missing: ..."
-  Almost always INTELLIGENCE_API_KEY was skipped.
+- "DATABASE_URL is required" or a connection error
+  The database is the whole of the thread store. Point DATABASE_URL at it, or set
+  EMBEDDED_POSTGRES=on in the container.
 
 - "No identity provider is configured. Set GOOGLE_OAUTH_* ... or set OPENBOT_SINGLE_USER=true"
   `.env.example` already sets OPENBOT_SINGLE_USER=true. On a laptop, put it back. On a shared URL,
@@ -168,7 +137,7 @@ The server refuses to start rather than running half-configured. The message nam
 HOW TO KNOW IT WORKED
 
 For a clone, `curl -s 127.0.0.1:3001/api/capabilities` should return JSON with
-`"mode":"intelligence"`. Then use the app, not just curl: ask a Bot to open a public site in its
+`"mode":"local"`. Then use the app, not just curl: ask a Bot to open a public site in its
 browser, report something visible on the page, and show a small chart. A plain text/math answer is
 not enough for the main path because it does not prove browser tools or component rendering.
 

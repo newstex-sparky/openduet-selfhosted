@@ -239,11 +239,11 @@ export function createApp(
   credentialService?: CredentialAdminService,
   packageStatusReader?: PackageStatusReader,
   /**
-   * The CopilotKit endpoint, already built by the caller.
+   * The runtime endpoint, already built by the caller.
    *
    * Passed in rather than constructed here so this module never imports the runtime. The runtime
    * pulls in `eventsource`, which Bun cannot `require()` from a test, so importing it at module
-   * scope broke every server test that touches createApp even though none of them use CopilotKit.
+   * scope broke every server test that touches createApp even though none of them use it.
    */
   engineHandler?: HonoApp,
   /** The single governed computer module: policy, audit trail, transport, and provider lifecycle. */
@@ -1393,7 +1393,7 @@ export function createApp(
       return context.json({ accepted: true }, 202);
     });
   }
-  // The CopilotKit runtime, behind the same session guard as every other API route. Mounted last so
+  // The AG-UI runtime, behind the same session guard as every other API route. Mounted last so
   // its own routing under /api/engine cannot shadow an OpenBot route declared above.
   if (engineHandler) {
     // Mounted at the ROOT with the handler carrying its own basePath. Mounting it at

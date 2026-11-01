@@ -13,11 +13,11 @@ import {
 } from "drizzle-orm/pg-core";
 
 /**
- * The durable thread store for local mode: what CopilotKit Intelligence would otherwise hold for
+ * The durable thread store for local mode: what a hosted thread service would otherwise hold for
  * this deployment.
  *
  * WHY THESE TABLES EXIST AT ALL. Local mode (`RuntimeCapabilities` in `config.ts`, `mode: "local"`)
- * runs the CopilotKit runtime in SSE mode on a runner of our own. Intelligence is not there, so
+ * runs the AG-UI runtime in SSE mode on a runner of our own. No hosted service is there, so
  * nothing else owns a conversation: the threads, the messages the agent held after each run, the
  * event log a reloaded page replays, and the one-run-at-a-time lock are all this deployment's
  * problem. Phase 1 kept them in process memory and lost every conversation on restart

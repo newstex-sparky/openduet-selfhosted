@@ -6,7 +6,7 @@
  *
  * This script used to carry a second child that booted the installed vendor runtime and checked the
  * instance event it emitted on the same native identity. That child is deleted with the package: the
- * engine this fork mounts captures no telemetry at all (see `toolkit/src/copilotkit/engine/engine.ts`),
+ * engine this fork mounts captures no telemetry at all (see `toolkit/src/platform/engine/engine.ts`),
  * so there is no runtime event left to validate. The native emitter, which this fork does own, is
  * validated here exactly as before.
  */
