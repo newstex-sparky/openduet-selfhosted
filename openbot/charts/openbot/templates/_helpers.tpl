@@ -385,21 +385,7 @@ and in whatever holds the release, which is not where `KEY_ENCRYPTION_KEY` belon
   value: {{ $maxDepth | quote }}
 - name: BOT_HANDOFF_MAX_PER_RUN
   value: {{ $maxPerRun | quote }}
-{{- $learning := .Values.config.learning | default dict }}
-{{- with $learning.containerId }}
-- name: CPK_INTELLIGENCE_LEARNING_CONTAINER_ID
-  value: {{ . | quote }}
-{{- end }}
-{{- with $learning.revision }}
-- name: CPK_INTELLIGENCE_SKILLS_REVISION
-  value: {{ . | quote }}
-{{- end }}
-{{- /* Absent, as it is under `--reuse-values`, means on: only an explicit false is written. */}}
-{{- if eq (toString $learning.autoAssign) "false" }}
-- name: OPENBOT_LEARNING_AUTO_ASSIGN
-  value: "false"
-{{- end }}
-{{- /* Absent, as under `--reuse-values`, means on, like autoAssign: only an explicit false is written. */}}
+{{- /* Absent, as under `--reuse-values`, means on: only an explicit false is written. */}}
 {{- $memory := .Values.config.memory | default dict }}
 {{- if eq (toString $memory.sourceDefaults) "false" }}
 - name: OPENBOT_MEMORY_SOURCE_DEFAULTS
@@ -408,28 +394,6 @@ and in whatever holds the release, which is not where `KEY_ENCRYPTION_KEY` belon
 {{- if eq (toString $memory.researchDefaults) "false" }}
 - name: OPENBOT_PROACTIVE_DEFAULTS
   value: "false"
-{{- end }}
-- name: INTELLIGENCE_API_URL
-  value: {{ .Values.config.intelligence.apiUrl | quote }}
-- name: INTELLIGENCE_GATEWAY_WS_URL
-  value: {{ .Values.config.intelligence.gatewayWsUrl | quote }}
-- name: INTELLIGENCE_API_KEY
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "openbot.secretName" . }}
-      key: intelligence-api-key
-{{- /* From a store or an existingSecret too: emitted for the literal alone, a synced token reached
-     the Secret and never the pod, and a self-hosted Intelligence ran unlicensed. */}}
-{{- $license := include "openbot.secretKeySource" (dict "root" . "key" "license-token" "literal" .Values.secrets.licenseToken) }}
-{{- if $license }}
-- name: COPILOTKIT_LICENSE_TOKEN
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "openbot.secretName" . }}
-      key: license-token
-      {{- if eq $license "unknown" }}
-      optional: true
-      {{- end }}
 {{- end }}
 {{- with .Values.config.managedAgent.url }}
 - name: MANAGED_AGENT_AG_UI_URL
@@ -799,31 +763,5 @@ than anything that names the cause.
 */}}
 {{- define "openbot.automountToken" -}}
 {{- or .Values.serviceAccount.automountServiceAccountToken (eq .Values.computers.mode "sandbox") -}}
-{{- end -}}
-
-{{- /*
-  The operator's credential for creating the openbot Learning container (values: config.learning.setup).
-
-  Read through `default dict` at every level, because `setup` is a key this chart did not have before
-  and `helm upgrade --reuse-values` hands back the previous release's values without it.
-*/}}
-{{- define "openbot.learningSetup" -}}
-{{- $learning := .Values.config.learning | default dict -}}
-{{- toYaml ($learning.setup | default dict) -}}
-{{- end -}}
-
-{{- /* INTELLIGENCE_SERVICE_TOKEN and INTELLIGENCE_PROJECT_ID, when the operator named a token Secret. */}}
-{{- define "openbot.learningServiceTokenEnv" -}}
-{{- $setup := include "openbot.learningSetup" . | fromYaml -}}
-{{- $token := $setup.serviceTokenSecret | default dict -}}
-{{- if $token.name }}
-- name: INTELLIGENCE_SERVICE_TOKEN
-  valueFrom:
-    secretKeyRef:
-      name: {{ $token.name | quote }}
-      key: {{ $token.key | default "token" | quote }}
-- name: INTELLIGENCE_PROJECT_ID
-  value: {{ $setup.projectId | toString | quote }}
-{{- end }}
 {{- end -}}
 

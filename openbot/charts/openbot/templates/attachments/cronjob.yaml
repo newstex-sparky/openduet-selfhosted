@@ -158,17 +158,16 @@ spec:
                 NOT `openbot.commonEnv`, WHICH IS THE API SERVER'S ENVIRONMENT.
 
                 This pod deletes rows from one table. Through the shared helper it also carried the
-                licence token, the model API key, the computer token, the managed-Bot token and the
-                worker's shared secret — five credentials for a workload that opens a database
-                connection and closes it, in the pod with the least reason of any to hold them.
+                model API key, the computer token, the managed-Bot token and the worker's shared
+                secret — four credentials for a workload that opens a database connection and closes
+                it, in the pod with the least reason of any to hold them.
 
                 AND THEN, FOR A WHILE, IT CARRIED FIVE OTHERS. What replaced the helper was not the
                 sweep's needs but `loadConfig`'s boot contract: the script built the whole
                 `DeploymentConfig` before deleting anything, and that refuses to return without the
-                encryption key, the three Intelligence addressing values and a complete identity
-                provider — so this block held `KEY_ENCRYPTION_KEY`, the Intelligence API key, an
-                OAuth client secret and the session-signing secret purely to keep a `DELETE` from
-                dying at start-up. The narrow fix was named here and has now landed one directory
+                encryption key and a complete identity provider — so this block held
+                `KEY_ENCRYPTION_KEY`, an OAuth client secret and the session-signing secret purely to
+                keep a `DELETE` from dying at start-up. The narrow fix was named here and has now landed one directory
                 away: `server/scripts/cull-staged-attachments.ts` reads `DATABASE_URL` itself, the
                 way `scripts/migrate.ts` always has. What is below is what the sweep uses.
 
