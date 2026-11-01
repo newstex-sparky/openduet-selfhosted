@@ -370,7 +370,7 @@ test("installation completes before either sign-in is available", async () => {
   expect(view.getByRole("heading", { name: "Connect your AI" })).toBeTruthy();
 });
 
-test("CopilotKit Back preserves the selected AI and connection settings", async () => {
+test("Back from the start screen preserves the selected AI connection", async () => {
   setupRootConfiguration("/tmp/back-preserves-setup", async () =>
     emptyConfiguration(),
   );
@@ -381,16 +381,6 @@ test("CopilotKit Back preserves the selected AI and connection settings", async 
   await userEvent.click(await view.findByRole("radio", { name: /OpenAI/ }));
   await userEvent.type(view.getByLabelText("OpenAI API key"), "model-test-key");
   await userEvent.click(view.getByRole("button", { name: "Continue" }));
-  await userEvent.click(
-    view.getByText("Point at your own Intelligence server"),
-  );
-  await userEvent.type(view.getByLabelText("Project key"), "project-test-key");
-  const api = view.getByLabelText("API URL");
-  await user.clear(api);
-  await user.type(api, "https://intelligence.example/api");
-  const gateway = view.getByLabelText("Gateway WebSocket URL");
-  await user.clear(gateway);
-  await user.type(gateway, "wss://intelligence.example/ws");
   await userEvent.click(view.getByRole("button", { name: "Back" }));
   expect(view.getByRole("heading", { name: "Connect your AI" })).toBeTruthy();
   expect(view.getByRole("radio", { name: /OpenAI/ })).toHaveProperty(
@@ -402,24 +392,7 @@ test("CopilotKit Back preserves the selected AI and connection settings", async 
     "model-test-key",
   );
   await userEvent.click(view.getByRole("button", { name: "Continue" }));
-  expect(
-    view.getByRole("heading", { name: "Connect to CopilotKit" }),
-  ).toBeTruthy();
-  await userEvent.click(
-    view.getByText("Point at your own Intelligence server"),
-  );
-  expect(view.getByLabelText("Project key")).toHaveProperty(
-    "value",
-    "project-test-key",
-  );
-  expect(view.getByLabelText("API URL")).toHaveProperty(
-    "value",
-    "https://intelligence.example/api",
-  );
-  expect(view.getByLabelText("Gateway WebSocket URL")).toHaveProperty(
-    "value",
-    "wss://intelligence.example/ws",
-  );
+  expect(view.getByRole("heading", { name: "Start OpenBot" })).toBeTruthy();
   expect(view.getByRole("button", { name: "Start OpenBot" })).toHaveProperty(
     "disabled",
     false,
@@ -631,7 +604,7 @@ test.each([false, true])(
       view.getByRole("heading", { name: "Starting OpenBot" }),
     ).toBeTruthy();
     expect(
-      view.queryByRole("heading", { name: "Connect to CopilotKit" }),
+      view.queryByRole("heading", { name: "Start OpenBot" }),
     ).toBeNull();
     expect(view.queryByRole("button", { name: "Set up OpenBot" })).toBeNull();
     await act(async () => launch.resolve());
@@ -640,9 +613,6 @@ test.each([false, true])(
     );
     expect(getStartStackPayload()).toEqual({
       root,
-      apiKey: "",
-      apiUrl: "https://own.example/api",
-      gatewayWsUrl: "wss://own.example/ws",
       harness: { id: "mastra" },
       model: { provider: "openai", login: "api-key", saved: true },
     });
@@ -735,37 +705,29 @@ test("completed local installation resumes at sign-in when it has never launched
   );
 });
 
-test.each(["model", "intelligence"])(
-  "a runtime %s authentication notification focuses refresh without adopting the running app",
-  async (connection) => {
-    useInterruptedShutdownSetup();
-    const previous = invokeHandler;
-    invokeHandler = async (command, args) => {
-      if (command === "last_failure")
-        return { said: "Connection was refused.", connection };
-      if (command === "already_running") return true;
-      return previous(command, args);
-    };
-    const view = await renderApp();
-    expect(
-      view.getByRole("heading", {
-        name:
-          connection === "model"
-            ? "Refresh your AI connection"
-            : "Refresh your CopilotKit connection",
-      }),
-    ).toBeTruthy();
-    expect(
-      invokeCalls.some((call) =>
-        ["start_stack", "show_openbot", "already_running"].includes(
-          call.command,
-        ),
+test("a runtime model authentication notification focuses refresh without adopting the running app", async () => {
+  useInterruptedShutdownSetup();
+  const previous = invokeHandler;
+  invokeHandler = async (command, args) => {
+    if (command === "last_failure")
+      return { said: "Connection was refused.", connection: "model" };
+    if (command === "already_running") return true;
+    return previous(command, args);
+  };
+  const view = await renderApp();
+  expect(
+    view.getByRole("heading", { name: "Refresh your AI connection" }),
+  ).toBeTruthy();
+  expect(
+    invokeCalls.some((call) =>
+      ["start_stack", "show_openbot", "already_running"].includes(
+        call.command,
       ),
-    ).toBe(false);
-    expect(installationCalls()).toHaveLength(0);
-    expect(view.queryByRole("button", { name: "Set up OpenBot" })).toBeNull();
-  },
-);
+    ),
+  ).toBe(false);
+  expect(installationCalls()).toHaveLength(0);
+  expect(view.queryByRole("button", { name: "Set up OpenBot" })).toBeNull();
+});
 
 test.each(["reopen", "runtime"])(
   "organization sign-in on %s retains the installation and opens its app after verification",
@@ -839,82 +801,49 @@ test.each(["reopen", "runtime"])(
   },
 );
 
-test.each(["model", "intelligence"])(
-  "an unavailable saved %s connection opens only its refresh screen and returns to the existing app",
-  async (connection) => {
-    const root = "/tmp/installed-refresh";
-    setupRootConfiguration(root, async () => ({
-      ...savedOpenAiConfiguration(),
-      saved: { ...savedOpenAiConfiguration().saved, model: "open-ai-api-key" },
-      launch: { harness: { id: "mastra" } },
-    }));
-    const previous = invokeHandler;
-    let starts = 0;
-    invokeHandler = async (command, args) => {
-      if (command === "start_stack" && starts++ === 0)
-        throw {
-          said:
-            connection === "model"
-              ? "That saved OpenAI API key is no longer available."
-              : "That saved CopilotKit connection is no longer available. Sign in again or enter a project key.",
-          connection,
-        };
-      if (command === "show_openbot") return null;
-      if (command === "begin_intelligence_sign_in")
-        return "https://signin.example/fixture";
-      if (command === "finish_intelligence_sign_in")
-        return [{ id: "fixture", name: "Existing project" }];
-      if (command === "intelligence_key_for")
-        return "refreshed-intelligence-key";
-      return previous(command, args);
-    };
-    const view = await renderApp();
-    expect(
-      view.getByRole("heading", {
-        name:
-          connection === "model"
-            ? "Refresh your AI connection"
-            : "Refresh your CopilotKit connection",
-      }),
-    ).toBeTruthy();
-    expect(view.getByRole("alert").textContent).toContain(
-      "no longer available",
-    );
-    expect(view.queryByText(/Step \d of 4/)).toBeNull();
-    expect(view.queryByRole("button", { name: "Set up OpenBot" })).toBeNull();
-    if (connection === "model") {
-      await userEvent.type(
-        view.getByLabelText("OpenAI API key"),
-        "refreshed-provider-key",
-      );
-      await userEvent.click(view.getByRole("button", { name: "Continue" }));
-    } else {
-      await userEvent.click(
-        view.getByRole("button", { name: "Sign in to CopilotKit again" }),
-      );
-      await userEvent.click(
-        await view.findByRole("button", { name: "Existing project" }),
-      );
-      await userEvent.click(
-        view.getByRole("button", { name: "Start OpenBot" }),
-      );
-    }
-    const startsMade = invokeCalls.filter(
-      (call) => call.command === "start_stack",
-    );
-    expect(startsMade).toHaveLength(2);
-    expect(startsMade[1].args).toMatchObject({
-      root,
-      harness: { id: "mastra" },
-      ...(connection === "model"
-        ? { model: { apiKey: "refreshed-provider-key" } }
-        : { apiKey: "refreshed-intelligence-key" }),
-    });
-    expect(invokeCalls).toContainEqual({ command: "show_openbot" });
-    expect(installationCalls()).toHaveLength(0);
-    expect(view.queryByRole("button", { name: "Ask" })).toBeNull();
-  },
-);
+test("an unavailable saved model connection opens only its refresh screen and returns to the existing app", async () => {
+  const root = "/tmp/installed-refresh";
+  setupRootConfiguration(root, async () => ({
+    ...savedOpenAiConfiguration(),
+    saved: { ...savedOpenAiConfiguration().saved, model: "open-ai-api-key" },
+    launch: { harness: { id: "mastra" } },
+  }));
+  const previous = invokeHandler;
+  let starts = 0;
+  invokeHandler = async (command, args) => {
+    if (command === "start_stack" && starts++ === 0)
+      throw {
+        said: "That saved OpenAI API key is no longer available.",
+        connection: "model",
+      };
+    if (command === "show_openbot") return null;
+    return previous(command, args);
+  };
+  const view = await renderApp();
+  expect(
+    view.getByRole("heading", { name: "Refresh your AI connection" }),
+  ).toBeTruthy();
+  expect(view.getByRole("alert").textContent).toContain("no longer available");
+  expect(view.queryByText(/Step \d of 4/)).toBeNull();
+  expect(view.queryByRole("button", { name: "Set up OpenBot" })).toBeNull();
+  await userEvent.type(
+    view.getByLabelText("OpenAI API key"),
+    "refreshed-provider-key",
+  );
+  await userEvent.click(view.getByRole("button", { name: "Continue" }));
+  const startsMade = invokeCalls.filter(
+    (call) => call.command === "start_stack",
+  );
+  expect(startsMade).toHaveLength(2);
+  expect(startsMade[1].args).toMatchObject({
+    root,
+    harness: { id: "mastra" },
+    model: { apiKey: "refreshed-provider-key" },
+  });
+  expect(invokeCalls).toContainEqual({ command: "show_openbot" });
+  expect(installationCalls()).toHaveLength(0);
+  expect(view.queryByRole("button", { name: "Ask" })).toBeNull();
+});
 
 test("reopening a retained root waits for its saved setup without flashing the wizard", async () => {
   const root = "/tmp/reopen-pending-configuration";
@@ -998,7 +927,7 @@ test("an interrupted shutdown restores saved setup for explicit recovery", async
   expect(view.queryByRole("button", { name: "Ask" }) !== null).toBe(false);
 });
 
-test.each(["model", "root", "Intelligence"])(
+test.each(["model", "root"])(
   "changing the saved %s during recovery only repeats Ask for a different installation",
   async (changed) => {
     useInterruptedShutdownSetup();
@@ -1010,7 +939,7 @@ test.each(["model", "root", "Intelligence"])(
       );
       await user.type(view.getByLabelText("OpenAI API key"), "new-model-key");
       await user.click(view.getByRole("button", { name: "Continue" }));
-    } else if (changed === "root") {
+    } else {
       await user.click(
         view.getByRole("button", { name: "Change installation" }),
       );
@@ -1019,25 +948,13 @@ test.each(["model", "root", "Intelligence"])(
       await user.type(input, "/tmp/changed-recovery-root");
       await completeInstallation(view);
       await user.click(view.getByRole("button", { name: "Continue" }));
-    } else {
-      await user.click(
-        view.getByRole("button", { name: "Change CopilotKit connection" }),
-      );
-      await user.click(view.getByText("Point at your own Intelligence server"));
-      const input = view.getByLabelText("API URL");
-      await user.clear(input);
-      await user.type(input, "https://different.example/api");
-    }
-
-    if (changed !== "model")
       await user.click(view.getByRole("button", { name: "Start OpenBot" }));
+    }
 
     expect(getStartStackPayload()).toMatchObject(
       changed === "root"
         ? { root: "/tmp/changed-recovery-root" }
-        : changed === "model"
-          ? { model: { apiKey: "new-model-key" } }
-          : { apiUrl: "https://different.example/api" },
+        : { model: { apiKey: "new-model-key" } },
     );
     expect(invokeCalls.some((call) => call.command === "show_openbot")).toBe(
       changed !== "root",
@@ -1209,7 +1126,6 @@ function savedOpenAiConfiguration() {
   return {
     values: {},
     saved: {
-      intelligenceApiKey: true,
       modelApiKeys: { openai: true, anthropic: false },
       modelSessions: { openai: false, anthropic: false },
     },
@@ -1220,7 +1136,6 @@ function emptyConfiguration() {
   return {
     values: {},
     saved: {
-      intelligenceApiKey: false,
       modelApiKeys: { openai: false, anthropic: false },
       modelSessions: { openai: false, anthropic: false },
     },
@@ -1492,9 +1407,6 @@ test("disabled Virtual Machine Platform displays its feature-specific fix and bl
 });
 
 type ExistingConfigurationValues = {
-  INTELLIGENCE_API_KEY?: string;
-  INTELLIGENCE_API_URL?: string;
-  INTELLIGENCE_GATEWAY_WS_URL?: string;
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   OPENAI_BASE_URL?: string;
@@ -1518,7 +1430,6 @@ function useCompatibleEndpointSetup(
       return {
         values: existingValues,
         saved: {
-          intelligenceApiKey: true,
           modelApiKeys: { openai: true, anthropic: false },
           modelSessions: { openai: false, anthropic: false },
         },
@@ -1627,7 +1538,6 @@ function useSavedCompatibleEndpointSetup(
           BOT_MODEL: model,
         },
         saved: {
-          intelligenceApiKey: true,
           model: savedModel,
           modelApiKeys: { compatible: keyed },
           modelSessions: {},
@@ -1668,9 +1578,6 @@ test.each([true, false])(
     ).toHaveLength(1);
     expect(getStartStackPayload()).toEqual({
       root: "/tmp/openbot-app-test",
-      apiKey: "",
-      apiUrl: "https://api.intelligence.copilotkit.ai",
-      gatewayWsUrl: "wss://realtime.intelligence.copilotkit.ai",
       harness: { id: "langgraph" },
       model: {
         provider: "openai-compatible",
@@ -1749,7 +1656,6 @@ test("Change the model after an Ask failure stops the stack and reaches the prov
           OPENAI_API_KEY: "sk-test",
         },
         saved: {
-          intelligenceApiKey: true,
           modelApiKeys: { openai: true, anthropic: false },
           modelSessions: { openai: false, anthropic: false },
         },
@@ -1823,220 +1729,6 @@ test("Change the model after an Ask failure stops the stack and reaches the prov
   expect(view.getByRole("heading", { name: "Connect your AI" })).toBeTruthy();
   expect(view.getByRole("radio", { name: /OpenAI/ })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Stop OpenBot" })).toBeNull();
-});
-
-test("empty Intelligence projects keep sign-in retryable while Start waits for a project key", async () => {
-  let projectLists = 0;
-  invokeHandler = async (command) => {
-    if (command === "prepare_installation") return null;
-    if (command === "detect_engine") {
-      return {
-        engine: "docker",
-        responding: true,
-        engine_socket: null,
-        detail: "Docker is answering.",
-      };
-    }
-    if (command === "default_root") return "/tmp/openbot-app-test";
-    if (command === "already_configured") {
-      return {
-        values: {
-          OPENAI_API_KEY: "sk-test",
-        },
-        saved: {
-          intelligenceApiKey: false,
-          modelApiKeys: { openai: true, anthropic: false },
-          modelSessions: { openai: false, anthropic: false },
-        },
-      };
-    }
-    if (command === "already_running") return false;
-    if (command === "windows_blocker") return null;
-    if (command === "last_failure") return null;
-    if (command === "harnesses") {
-      return [
-        {
-          id: "langgraph",
-          name: "LangGraph",
-          summary: "Default Bot",
-          image: null,
-          health_path: null,
-          credential: "any-provider",
-          maintainer: "first-party",
-          mark: null,
-          port: 8000,
-        },
-      ];
-    }
-    if (command === "providers") {
-      return [
-        {
-          id: "openai",
-          name: "OpenAI",
-          summary: "Use OpenAI.",
-          logins: ["api-key"],
-          mark: null,
-          caution: null,
-        },
-      ];
-    }
-    if (command === "begin_intelligence_sign_in") {
-      return "https://copilotkit.test/sign-in";
-    }
-    if (command === "finish_intelligence_sign_in") {
-      projectLists += 1;
-      if (projectLists === 1) return [];
-      return [{ id: "project-1", name: "Project One" }];
-    }
-    throw new Error(`unexpected command ${command}`);
-  };
-
-  const view = await renderApp();
-
-  await userEvent.click(
-    await view.findByRole("button", { name: "Set up OpenBot" }),
-  );
-  await userEvent.click(await view.findByRole("button", { name: "Continue" }));
-  await completeInstallation(view);
-  await userEvent.click(await view.findByRole("radio", { name: /OpenAI/ }));
-  await userEvent.click(view.getByRole("button", { name: "Continue" }));
-  await userEvent.click(
-    await view.findByRole("button", { name: "Sign in to CopilotKit" }),
-  );
-
-  expect(
-    await view.findByText("That account has no projects yet.", {
-      exact: false,
-    }),
-  ).toBeTruthy();
-  expect(view.getByRole("button", { name: "Start OpenBot" })).toHaveProperty(
-    "disabled",
-    true,
-  );
-
-  await userEvent.click(view.getByRole("button", { name: "Sign in again" }));
-
-  expect(await view.findByRole("button", { name: "Project One" })).toBeTruthy();
-
-  await userEvent.click(
-    view.getByText("Point at your own Intelligence server"),
-  );
-  await userEvent.type(view.getByLabelText("Project key"), "ck-test");
-  await waitFor(() =>
-    expect(view.getByRole("button", { name: "Start OpenBot" })).toHaveProperty(
-      "disabled",
-      false,
-    ),
-  );
-});
-
-async function enterProjectSelection() {
-  setupRootConfiguration("/tmp/create-project", async () =>
-    emptyConfiguration(),
-  );
-  const previous = invokeHandler;
-  invokeHandler = async (command, args) => {
-    if (command === "begin_intelligence_sign_in")
-      return "https://copilotkit.test/sign-in";
-    if (command === "finish_intelligence_sign_in") return [];
-    if (command === "intelligence_key_for") return "created-project-key";
-    return previous(command, args);
-  };
-  const view = await renderApp();
-  await enterInstallation(view);
-  await completeInstallation(view);
-  await userEvent.click(await view.findByRole("radio", { name: /OpenAI/ }));
-  await userEvent.type(view.getByLabelText("OpenAI API key"), "model-test-key");
-  await userEvent.click(view.getByRole("button", { name: "Continue" }));
-  await userEvent.click(
-    view.getByRole("button", { name: "Sign in to CopilotKit" }),
-  );
-  return view;
-}
-
-test("creating a named project connects it only after the user submits", async () => {
-  const view = await enterProjectSelection();
-  const creation = deferred<{ id: string; name: string }>();
-  const previous = invokeHandler;
-  invokeHandler = async (command, args) =>
-    command === "create_intelligence_project"
-      ? creation.promise
-      : previous(command, args);
-  expect(
-    invokeCalls.some((call) => call.command === "create_intelligence_project"),
-  ).toBe(false);
-  const create = view.getByRole("button", { name: "Create project" });
-  expect(create).toHaveProperty("disabled", true);
-  await userEvent.type(
-    view.getByLabelText("New project name"),
-    "  OpenBot workspace  ",
-  );
-  await userEvent.click(create);
-  expect(invokeCalls).toContainEqual({
-    command: "create_intelligence_project",
-    args: { name: "OpenBot workspace" },
-  });
-  expect(
-    view.getByRole("button", { name: "Creating project…" }),
-  ).toHaveProperty("disabled", true);
-  expect(view.getByLabelText("New project name")).toHaveProperty(
-    "disabled",
-    true,
-  );
-  await act(async () =>
-    creation.resolve({ id: "new-project", name: "OpenBot workspace" }),
-  );
-  expect(view.getByText("Connected to CopilotKit.")).toBeTruthy();
-  expect(invokeCalls).toContainEqual({
-    command: "intelligence_key_for",
-    args: { project: "new-project" },
-  });
-  expect(view.getByRole("button", { name: "Start OpenBot" })).toHaveProperty(
-    "disabled",
-    false,
-  );
-});
-
-test("project creation failure preserves the name and retries without losing a created project", async () => {
-  const view = await enterProjectSelection();
-  const previous = invokeHandler;
-  let creations = 0;
-  let provisions = 0;
-  invokeHandler = async (command, args) => {
-    if (command === "create_intelligence_project") {
-      if (++creations === 1)
-        throw { said: "The project could not be created." };
-      return { id: "new-project", name: "OpenBot workspace" };
-    }
-    if (command === "intelligence_key_for" && ++provisions === 1)
-      throw { said: "The project key could not be created." };
-    return previous(command, args);
-  };
-  await userEvent.type(
-    view.getByLabelText("New project name"),
-    "OpenBot workspace",
-  );
-  await userEvent.click(view.getByRole("button", { name: "Create project" }));
-  expect(view.getByRole("alert").textContent).toContain(
-    "The project could not be created.",
-  );
-  expect(view.getByLabelText("New project name")).toHaveProperty(
-    "value",
-    "OpenBot workspace",
-  );
-  expect(view.getByRole("button", { name: "Create project" })).toHaveProperty(
-    "disabled",
-    false,
-  );
-  await userEvent.click(view.getByRole("button", { name: "Create project" }));
-  expect(view.getByRole("alert").textContent).toContain(
-    "The project key could not be created.",
-  );
-  await userEvent.click(
-    view.getByRole("button", { name: "OpenBot workspace" }),
-  );
-  expect(view.getByText("Connected to CopilotKit.")).toBeTruthy();
-  expect(creations).toBe(2);
 });
 
 test("mount navigates to OpenBot only when the selected root is already owned and running", async () => {
@@ -2121,7 +1813,6 @@ test("saved startup credentials enable Start without raw protected secrets on mo
       return {
         values: {},
         saved: {
-          intelligenceApiKey: true,
           modelApiKeys: { openai: true, anthropic: false },
           modelSessions: { openai: false, anthropic: false },
         },
@@ -2427,23 +2118,16 @@ test.each([
     await act(async () =>
       pending.response.resolve({
         ...savedOpenAiConfiguration(),
-        values: {
-          INTELLIGENCE_API_KEY: "ck-synthetic-stale",
-          INTELLIGENCE_API_URL: "https://stale.example/api",
-          INTELLIGENCE_GATEWAY_WS_URL: "wss://stale.example/ws",
-        },
+        values: {},
       }),
     );
     expectBlockedSetup();
 
     if (savedModel) {
-      // A different root's Intelligence connection cannot restore the model cleared by an edit.
+      // A different root cannot restore the model cleared by an edit.
       await act(async () => rootField.blur());
       await act(async () =>
-        requests[requests.length - 1].response.resolve({
-          ...emptyConfiguration(),
-          saved: { ...emptyConfiguration().saved, intelligenceApiKey: true },
-        }),
+        requests[requests.length - 1].response.resolve(emptyConfiguration()),
       );
       await completeInstallation(view);
       await user.click(await view.findByRole("radio", { name: /OpenAI/ }));
@@ -2461,15 +2145,11 @@ test.each([
       await act(async () => rootField.blur());
     }
     expect(requests[requests.length - 1].root).toBe(currentRoot);
-    await act(async () =>
-      requests[requests.length - 1].response.resolve({
-        ...savedOpenAiConfiguration(),
-        values: {
-          INTELLIGENCE_API_URL: "https://current.example/api",
-          INTELLIGENCE_GATEWAY_WS_URL: "wss://current.example/ws",
-        },
-      }),
-    );
+      await act(async () =>
+        requests[requests.length - 1].response.resolve(
+          savedOpenAiConfiguration(),
+        ),
+      );
     if (savedModel) {
       await user.click(
         view.getByRole("button", { name: "Continue to sign in" }),
@@ -2479,21 +2159,6 @@ test.each([
     } else {
       await chooseModelAfterRootEdit(view, "sk-synthetic-current-model");
     }
-    expect(
-      view.getByText(
-        "A saved CopilotKit connection will be checked when you start.",
-      ),
-    ).toBeTruthy();
-    await user.click(view.getByText("Point at your own Intelligence server"));
-    expect(view.getByLabelText("Project key")).toHaveProperty("value", "");
-    expect(view.getByLabelText("API URL")).toHaveProperty(
-      "value",
-      "https://current.example/api",
-    );
-    expect(view.getByLabelText("Gateway WebSocket URL")).toHaveProperty(
-      "value",
-      "wss://current.example/ws",
-    );
     const currentStart = view.getByRole("button", { name: "Start OpenBot" });
     expect(currentStart).toHaveProperty("disabled", false);
     await user.click(currentStart);
@@ -2502,9 +2167,6 @@ test.each([
     ).toHaveLength(1);
     expect(getStartStackPayload()).toEqual({
       root: currentRoot,
-      apiKey: "",
-      apiUrl: "https://current.example/api",
-      gatewayWsUrl: "wss://current.example/ws",
       harness: { id: "langgraph" },
       model: savedModel
         ? { provider: "openai", login: "api-key", saved: true }
@@ -2533,7 +2195,6 @@ function useBringYourOwnHarnessSetup() {
       return {
         values: {},
         saved: {
-          intelligenceApiKey: true,
           modelApiKeys: { openai: false, anthropic: false },
           modelSessions: { openai: false, anthropic: false },
         },
@@ -2669,9 +2330,6 @@ test.each([
     ).toHaveLength(1);
     expect(payload).toEqual({
       root: "/tmp/openbot-app-test",
-      apiKey: "",
-      apiUrl: "https://api.intelligence.copilotkit.ai",
-      gatewayWsUrl: "wss://realtime.intelligence.copilotkit.ai",
       harness: { id: "byo-url", agentUrl: expectedAgentUrl },
       model: {
         provider: "openai-compatible",
@@ -2816,7 +2474,6 @@ for (const provider of [
         ...emptyConfiguration(),
         saved: {
           ...emptyConfiguration().saved,
-          intelligenceApiKey: true,
           modelSessions: { [provider.id]: session === "saved" },
         },
       }));
@@ -2914,7 +2571,6 @@ for (const provider of [
         return {
           values: {},
           saved: {
-            intelligenceApiKey: true,
             modelApiKeys: { openai: false, anthropic: false },
             modelSessions: {
               openai: provider.id === "openai",
@@ -2999,9 +2655,7 @@ for (const provider of [
     expect(
       invokeCalls.find((call) => call.command === "start_stack")?.args,
     ).toMatchObject({
-      root: "/tmp/openbot-app-test",
-      apiKey: "",
-      model: {
+      root: "/tmp/openbot-app-test",      model: {
         provider: provider.id,
         login: "plan",
         saved: true,
@@ -3016,7 +2670,7 @@ for (const provider of [
   { id: "anthropic", name: "Anthropic", plan: "Claude" },
 ]) {
   for (const login of ["plan", "api-key"] as const) {
-    test(`unknown legacy ${provider.name} ${login} and Intelligence reuse stays passive until Start`, async () => {
+    test(`unknown legacy ${provider.name} ${login} stays passive until Start`, async () => {
       setupRootConfiguration("/tmp/synthetic-legacy-root", async () => ({
         values: {},
         saved: {},
@@ -3064,18 +2718,7 @@ for (const provider of [
         }),
       );
       await userEvent.click(view.getByRole("button", { name: "Continue" }));
-      expect(
-        view.getByRole("button", { name: "Start OpenBot" }),
-      ).toHaveProperty("disabled", true);
-      await userEvent.click(
-        view.getByRole("button", { name: "Use a saved connection" }),
-      );
-      expect(view.queryByText("Connected to CopilotKit.")).toBeNull();
-      // Returning to the provider screen retains deliberate reuse without signing in automatically.
-      await userEvent.click(view.getByRole("button", { name: "Back" }));
-      await userEvent.click(
-        await view.findByRole("button", { name: "Continue" }),
-      );
+      // Nothing is signed in for and nothing starts until Start is pressed.
       expect(
         invokeCalls.some((call) =>
           /sign_in|start_stack|ask_the_bot/.test(call.command),
@@ -3086,22 +2729,16 @@ for (const provider of [
       );
       await view.findByText("Synthetic saved credential is unavailable.");
       expect(getStartStackPayload()).toMatchObject({
-        apiKey: "",
         model: { provider: provider.id, login, saved: true },
       });
       expect(getStartStackPayload().model).not.toHaveProperty("token");
       expect(getStartStackPayload().model).not.toHaveProperty("apiKey");
-      expect(
-        view.getByRole("button", { name: "Sign in to CopilotKit again" }),
-      ).toBeTruthy();
     });
   }
 }
 
 test("Start credential failures do not expose a restore action", async () => {
-  useCompatibleEndpointSetup({
-    INTELLIGENCE_API_KEY: "synthetic-intelligence",
-  });
+  useCompatibleEndpointSetup({});
   const previous = invokeHandler;
   invokeHandler = async (command, args) => {
     if (command === "start_stack")
@@ -3111,7 +2748,7 @@ test("Start credential failures do not expose a restore action", async () => {
         [["reco", "very"].join("")]: {
           ticket: "synthetic-one-use",
           operation: "read",
-          setting: "INTELLIGENCE_API_KEY",
+          setting: "OPENAI_API_KEY",
           label: "Restore access to saved setup",
           explanation:
             "This Mac is protecting a credential from your saved OpenBot setup. Restoring access may ask macOS to confirm this app. Your saved data stays in place.",
@@ -3167,118 +2804,4 @@ test("the Enter that finishes a composed character does not ask the Bot", async 
   expect(invokeCalls.filter((call) => call.command === "ask_the_bot")).toEqual(
     [],
   );
-});
-
-async function enterSelfHostedIntelligence() {
-  const view = await enterProjectSelection();
-  await userEvent.click(
-    view.getByText("Point at your own Intelligence server"),
-  );
-  const user = userEvent.setup({ document: window.document });
-  await user.clear(view.getByLabelText("API URL"));
-  await user.type(
-    view.getByLabelText("API URL"),
-    "https://intelligence.example.test",
-  );
-  return view;
-}
-
-test("self-hosted Intelligence sign-in selects a project and receives its provisioned key", async () => {
-  const view = await enterSelfHostedIntelligence();
-  const previous = invokeHandler;
-  invokeHandler = async (command, args) => {
-    if (command === "begin_self_hosted_intelligence_sign_in")
-      return [{ id: "42", name: "Self-hosted team" }];
-    if (command === "finish_self_hosted_intelligence_sign_in")
-      return "self-hosted-project-key";
-    return previous(command, args);
-  };
-  await userEvent.click(
-    view.getByRole("button", { name: "Sign in to Intelligence" }),
-  );
-  expect(invokeCalls).toContainEqual({
-    command: "begin_self_hosted_intelligence_sign_in",
-    args: {
-      root: "/tmp/create-project",
-      apiUrl: "https://intelligence.example.test",
-    },
-  });
-  expect(view.queryByRole("button", { name: "Create project" })).toBeNull();
-  await userEvent.click(
-    await view.findByRole("button", { name: "Self-hosted team" }),
-  );
-  expect(invokeCalls).toContainEqual({
-    command: "finish_self_hosted_intelligence_sign_in",
-    args: { root: "/tmp/create-project", project: "42" },
-  });
-  expect(await view.findByText("Connected to Intelligence.")).toBeTruthy();
-  expect(view.getByLabelText("Project key")).toHaveProperty(
-    "value",
-    "self-hosted-project-key",
-  );
-  expect(view.getByRole("button", { name: "Start OpenBot" })).toHaveProperty(
-    "disabled",
-    false,
-  );
-});
-
-test("cancelling self-hosted login ignores a late project response and keeps manual setup available", async () => {
-  const view = await enterSelfHostedIntelligence();
-  const projects = deferred<{ id: string; name: string }[]>();
-  const previous = invokeHandler;
-  invokeHandler = async (command, args) => {
-    if (command === "begin_self_hosted_intelligence_sign_in")
-      return projects.promise;
-    if (command === "cancel_self_hosted_intelligence_sign_in") return;
-    return previous(command, args);
-  };
-  await userEvent.click(
-    view.getByRole("button", { name: "Sign in to Intelligence" }),
-  );
-  expect(view.getByRole("status").textContent).toContain(
-    "Intelligence browser window",
-  );
-  expect(view.getByLabelText("API URL")).toHaveProperty("disabled", true);
-  await userEvent.click(
-    view.getByRole("button", { name: "Cancel Intelligence sign-in" }),
-  );
-  expect(
-    invokeCalls.some(
-      (call) => call.command === "cancel_self_hosted_intelligence_sign_in",
-    ),
-  ).toBe(true);
-  await act(async () =>
-    projects.resolve([{ id: "42", name: "Cancelled team" }]),
-  );
-  expect(view.queryByRole("button", { name: "Cancelled team" })).toBeNull();
-  expect(view.getByLabelText("API URL")).toHaveProperty("disabled", false);
-  await userEvent.type(view.getByLabelText("Project key"), "manual-key");
-  expect(view.getByRole("button", { name: "Start OpenBot" })).toHaveProperty(
-    "disabled",
-    false,
-  );
-});
-
-test("self-hosted provisioning failure offers a fresh sign-in without retaining a stale picker", async () => {
-  const view = await enterSelfHostedIntelligence();
-  const previous = invokeHandler;
-  invokeHandler = async (command, args) => {
-    if (command === "begin_self_hosted_intelligence_sign_in")
-      return [{ id: "42", name: "Team" }];
-    if (command === "finish_self_hosted_intelligence_sign_in")
-      throw { said: "Your account cannot create the Learning container." };
-    return previous(command, args);
-  };
-  await userEvent.click(
-    view.getByRole("button", { name: "Sign in to Intelligence" }),
-  );
-  await userEvent.click(await view.findByRole("button", { name: "Team" }));
-  expect(view.getByRole("alert").textContent).toContain(
-    "cannot create the Learning container",
-  );
-  expect(view.queryByRole("button", { name: "Team" })).toBeNull();
-  expect(
-    view.getByRole("button", { name: "Sign in to Intelligence" }),
-  ).toHaveProperty("disabled", false);
-  expect(view.getByLabelText("Project key")).toHaveProperty("value", "");
 });

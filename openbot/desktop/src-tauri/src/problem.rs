@@ -16,7 +16,6 @@ use serde::Serialize;
 #[serde(rename_all = "kebab-case")]
 pub enum Connection {
     Model,
-    Intelligence,
     Organization,
 }
 

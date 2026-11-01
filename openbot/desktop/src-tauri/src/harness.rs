@@ -604,11 +604,6 @@ mod tests {
             .expect("BYO endpoint should be valid")
             .expect("BYO endpoint should register a harness");
         let env = crate::env::compose(
-            &crate::env::Intelligence {
-                api_url: "https://api.example".into(),
-                gateway_ws_url: "wss://realtime.example".into(),
-                api_key: "key".into(),
-            },
             &crate::env::Model::default(),
             &crate::engine::EngineStatus {
                 engine: None,

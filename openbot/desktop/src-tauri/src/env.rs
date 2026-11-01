@@ -348,7 +348,6 @@ fn insert_if_given(env: &mut BTreeMap<String, String>, key: &str, value: &str) {
 }
 
 pub fn compose(
-    intelligence: &Intelligence,
     model: &Model,
     engine: &EngineStatus,
     ports: &Ports,
@@ -524,24 +523,6 @@ pub fn compose(
             insert_if_given(&mut env, "AGENT_BOT_MODEL", name);
         }
     }
-
-    // Trimmed, the way the model key beside it already is. All four values come from the same
-    // setup screen, which enables its button on `value.trim() !== ""` and then sends the untrimmed
-    // string, so a key copied from a provider's dashboard with the trailing space the selection
-    // picked up arrives here intact. Compose keeps it, the provider rejects the key, and the Bot
-    // reports that it cannot answer without ever naming the space.
-    env.insert(
-        "INTELLIGENCE_API_URL".into(),
-        intelligence.api_url.trim().to_string(),
-    );
-    env.insert(
-        "INTELLIGENCE_GATEWAY_WS_URL".into(),
-        intelligence.gateway_ws_url.trim().to_string(),
-    );
-    env.insert(
-        "INTELLIGENCE_API_KEY".into(),
-        intelligence.api_key.trim().to_string(),
-    );
 
     /*
      * MINTED ONCE PER DEPLOYMENT, NOT ONCE PER START.
@@ -748,13 +729,6 @@ pub fn compose(
     }
 
     env
-}
-
-#[derive(Clone, Debug)]
-pub struct Intelligence {
-    pub api_url: String,
-    pub gateway_ws_url: String,
-    pub api_key: String,
 }
 
 /**
@@ -1123,14 +1097,6 @@ mod tests {
     use super::*;
     use crate::test_support::temp_root;
 
-    fn intelligence() -> Intelligence {
-        Intelligence {
-            api_url: "https://api.example".into(),
-            gateway_ws_url: "wss://realtime.example".into(),
-            api_key: "key".into(),
-        }
-    }
-
     /// A pinned image per Compose variable, as a release manifest supplies.
     fn pinned() -> Vec<(String, String)> {
         crate::deployment::IMAGE_VARIABLES
@@ -1161,7 +1127,6 @@ mod tests {
         let path = dir.join(".env");
         for separator in ["\n", "\r", "\r\n"] {
             let settings = compose(
-                &intelligence(),
                 &Model {
                     credential: ModelCredential::Compatible {
                         base_url: "http://127.0.0.1:11434/v1".into(),
@@ -1312,19 +1277,13 @@ HTTPS_PROXY=http://proxy:8080
         assert_eq!(mode, 0o600);
     }
 
+    /// The setup screen enables its button on `value.trim() !== ""` and sends the untrimmed
+    /// string, so a key copied from a provider's dashboard keeps whatever whitespace the selection
+    /// picked up. Compose keeps it, the provider rejects the key, and the Bot reports that it cannot
+    /// answer without ever naming the space.
     #[test]
-    fn a_pasted_value_is_trimmed_the_way_the_model_key_beside_it_is() {
-        // The setup screen enables its button on `value.trim() !== ""` and sends the untrimmed
-        // string. The model key was rescued here; the three values entered on the same screen were
-        // not, so a copied credential kept whatever whitespace the selection picked up.
+    fn a_pasted_model_key_is_trimmed() {
         let env = compose(
-            &Intelligence {
-                api_url: "  https://api.example  ".into(),
-                gateway_ws_url: "	wss://realtime.example
-"
-                .into(),
-                api_key: " key-with-a-trailing-space ".into(),
-            },
             &Model {
                 credential: ModelCredential::OpenAi {
                     api_key: " sk-model ".into(),
@@ -1336,37 +1295,12 @@ HTTPS_PROXY=http://proxy:8080
             None,
             &BTreeMap::new(),
         );
-
-        assert_eq!(env["INTELLIGENCE_API_URL"], "https://api.example");
-        assert_eq!(env["INTELLIGENCE_GATEWAY_WS_URL"], "wss://realtime.example");
-        assert_eq!(env["INTELLIGENCE_API_KEY"], "key-with-a-trailing-space");
-        // Unchanged, and the reason the other three now match it.
         assert_eq!(env["OPENAI_API_KEY"], "sk-model");
-    }
-
-    #[test]
-    fn a_value_with_nothing_around_it_is_untouched() {
-        let env = compose(
-            &intelligence(),
-            &Model {
-                credential: ModelCredential::OpenAi {
-                    api_key: "sk-model".into(),
-                },
-            },
-            &engine_status(None),
-            &Ports::default(),
-            &pinned(),
-            None,
-            &BTreeMap::new(),
-        );
-        assert_eq!(env["INTELLIGENCE_API_URL"], "https://api.example");
-        assert_eq!(env["INTELLIGENCE_API_KEY"], "key");
     }
 
     #[test]
     fn every_shared_secret_is_generated_rather_than_the_published_dev_default() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1400,7 +1334,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn starting_again_keeps_what_the_first_start_minted() {
         let first = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1413,7 +1346,6 @@ HTTPS_PROXY=http://proxy:8080
             .map(|key| ((*key).to_string(), first[*key].clone()))
             .collect();
         let second = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1431,7 +1363,6 @@ HTTPS_PROXY=http://proxy:8080
     fn a_blank_kept_secret_is_minted_rather_than_carried() {
         let kept = BTreeMap::from([("KEY_ENCRYPTION_KEY".to_string(), "   ".to_string())]);
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1445,7 +1376,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn two_installs_do_not_share_a_key() {
         let a = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1454,7 +1384,6 @@ HTTPS_PROXY=http://proxy:8080
             &BTreeMap::new(),
         );
         let b = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1468,7 +1397,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn the_server_may_reach_its_own_supervisor_on_loopback() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1487,7 +1415,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn the_deployment_runs_its_own_package_rather_than_a_fallback() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1504,7 +1431,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn a_desktop_install_is_single_user_or_the_server_refuses_to_start() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1521,7 +1447,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn the_worker_is_told_where_the_server_is_or_it_refuses_to_start() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1538,7 +1463,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn the_supervisor_url_is_set_or_every_bot_shares_one_browser() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1555,7 +1479,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn the_engine_socket_is_written_only_when_the_default_is_wrong() {
         let without = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1566,7 +1489,6 @@ HTTPS_PROXY=http://proxy:8080
         assert!(!without.contains_key("ENGINE_SOCKET"));
 
         let with = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(Some("/run/user/501/podman/podman.sock")),
             &Ports::default(),
@@ -1583,7 +1505,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn no_model_choice_does_not_advertise_an_unselected_bundled_service() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1602,7 +1523,6 @@ HTTPS_PROXY=http://proxy:8080
     #[test]
     fn addresses_name_an_address_rather_than_localhost() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1628,7 +1548,6 @@ HTTPS_PROXY=http://proxy:8080
         std::fs::write(&path, "OPENAI_API_KEY=sk-somebodys-own\n# a comment\n").unwrap();
 
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1655,7 +1574,6 @@ HTTPS_PROXY=http://proxy:8080
         let path = dir.join(".env");
 
         let first = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1665,7 +1583,6 @@ HTTPS_PROXY=http://proxy:8080
         );
         write(&path, &first, &BTreeMap::new()).unwrap();
         let second = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1695,7 +1612,6 @@ HTTPS_PROXY=http://proxy:8080
 
     fn fresh() -> BTreeMap<String, String> {
         compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports::default(),
@@ -1859,7 +1775,6 @@ HTTPS_PROXY=http://proxy:8080
         write(&path, &fresh(), &BTreeMap::new()).unwrap();
 
         let moved = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &Ports {
@@ -1894,7 +1809,6 @@ HTTPS_PROXY=http://proxy:8080
             ..Ports::default()
         };
         let settings = compose(
-            &intelligence(),
             &Model::default(),
             &engine_status(None),
             &ports,
@@ -1923,14 +1837,6 @@ mod model_tests {
     use super::*;
     use crate::test_support::temp_root;
 
-    fn intelligence() -> Intelligence {
-        Intelligence {
-            api_url: "https://api.example".into(),
-            gateway_ws_url: "wss://realtime.example".into(),
-            api_key: "key".into(),
-        }
-    }
-
     fn pinned() -> Vec<(String, String)> {
         crate::deployment::IMAGE_VARIABLES
             .iter()
@@ -1956,7 +1862,6 @@ mod model_tests {
     #[test]
     fn every_image_is_named_by_digest_so_compose_never_reaches_for_a_local_build() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine(),
             &Ports::default(),
@@ -1975,7 +1880,6 @@ mod model_tests {
     #[test]
     fn the_model_key_is_written_when_one_is_given() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::OpenAi {
                     api_key: "sk-a-real-one".into(),
@@ -1996,7 +1900,6 @@ mod model_tests {
     #[test]
     fn a_blank_model_key_is_left_out_rather_than_written_empty() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::OpenAi {
                     api_key: "   ".into(),
@@ -2020,7 +1923,6 @@ mod model_tests {
     #[test]
     fn a_claude_plan_never_leaves_an_anthropic_key_in_place() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::ClaudePlan {
                     token: "oauth-token".into(),
@@ -2066,7 +1968,6 @@ mod model_tests {
             (true, "remote-mastra", 4202, "", "http://127.0.0.1:4202"),
         ] {
             let env = compose(
-                &intelligence(),
                 &Model::default(),
                 &engine(),
                 &Ports::default(),
@@ -2092,7 +1993,6 @@ mod model_tests {
     #[test]
     fn a_byo_harness_writes_only_the_remote_ag_ui_address_and_kind() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine(),
             &Ports::default(),
@@ -2147,7 +2047,6 @@ mod model_tests {
             (Some(&installed), "installed"),
         ] {
             let values = compose(
-                &intelligence(),
                 &Model::default(),
                 &engine(),
                 &Ports::default(),
@@ -2172,7 +2071,6 @@ mod model_tests {
     #[test]
     fn no_harness_picked_writes_no_harness_settings() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine(),
             &Ports::default(),
@@ -2199,7 +2097,6 @@ mod model_tests {
     #[test]
     fn a_chatgpt_plan_writes_no_key_and_aims_at_nothing() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::ChatGptPlan {
                     store: "{\"access_token\":\"a\",\"refresh_token\":\"r\"}".into(),
@@ -2238,7 +2135,6 @@ mod model_tests {
     fn the_plan_store_is_not_written_into_the_env() {
         let secret = "refresh-token-that-must-not-appear";
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::ChatGptPlan {
                     store: format!("{{\"refresh_token\":\"{secret}\"}}"),
@@ -2260,7 +2156,6 @@ mod model_tests {
     #[test]
     fn the_retired_plan_token_is_cleared() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::OpenAi {
                     api_key: "sk-x".into(),
@@ -2324,7 +2219,6 @@ mod model_tests {
     #[test]
     fn a_model_name_does_not_survive_a_provider_that_does_not_name_one() {
         let compatible = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Compatible {
                     base_url: "http://127.0.0.1:4310/v1".into(),
@@ -2357,7 +2251,6 @@ mod model_tests {
         );
 
         let with_a_key = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::OpenAi {
                     api_key: "sk-x".into(),
@@ -2388,7 +2281,6 @@ mod model_tests {
     #[test]
     fn a_keyless_endpoint_is_given_a_placeholder_rather_than_nothing() {
         let keyless = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Compatible {
                     base_url: "http://127.0.0.1:11434/v1".into(),
@@ -2414,7 +2306,6 @@ mod model_tests {
 
         // And a real key is never replaced by it.
         let keyed = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Compatible {
                     base_url: "https://api.example.test/v1".into(),
@@ -2441,7 +2332,6 @@ mod model_tests {
     #[test]
     fn answering_the_model_screen_clears_the_keys_it_does_not_imply() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::ClaudePlan {
                     token: "oauth-token".into(),
@@ -2477,7 +2367,6 @@ mod model_tests {
     #[test]
     fn an_anthropic_key_is_an_anthropic_key() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Anthropic {
                     api_key: "sk-ant-real".into(),
@@ -2501,7 +2390,6 @@ mod model_tests {
     #[test]
     fn an_openai_key_does_not_keep_an_anthropic_provider() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::OpenAi {
                     api_key: "sk-openai-real".into(),
@@ -2527,7 +2415,6 @@ mod model_tests {
     #[test]
     fn a_compatible_endpoint_carries_its_address_and_its_model() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Compatible {
                     base_url: "https://example.test/v1".into(),
@@ -2555,7 +2442,6 @@ mod model_tests {
     #[test]
     fn a_compatible_endpoint_can_give_containers_their_own_base_url() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Compatible {
                     base_url: "http://127.0.0.1:11434/v1".into(),
@@ -2583,7 +2469,6 @@ mod model_tests {
     #[test]
     fn a_compatible_endpoint_without_container_url_clears_stale_container_override() {
         let env = compose(
-            &intelligence(),
             &Model {
                 credential: ModelCredential::Compatible {
                     base_url: "https://models.example/v1".into(),
@@ -2609,7 +2494,6 @@ mod model_tests {
     #[test]
     fn no_choice_writes_no_model_keys() {
         let env = compose(
-            &intelligence(),
             &Model::default(),
             &engine(),
             &Ports::default(),
@@ -2642,25 +2526,25 @@ mod model_tests {
         let path = dir.join(".env");
         std::fs::write(
             &path,
-            "# a comment\nINTELLIGENCE_API_KEY=already-here\nINTELLIGENCE_API_URL=\nSOMETHING_ELSE=theirs\n",
+            "# a comment\nLEGACY_CREDENTIAL=already-here\nLEGACY_SETTING=\nSOMETHING_ELSE=theirs\n",
         )
         .unwrap();
 
         let found = already_set(
             &path,
             &[
-                "INTELLIGENCE_API_KEY",
-                "INTELLIGENCE_API_URL",
+                "LEGACY_CREDENTIAL",
+                "LEGACY_SETTING",
                 "SOMETHING_ELSE",
             ],
         );
         assert_eq!(
-            found.get("INTELLIGENCE_API_KEY").map(String::as_str),
+            found.get("LEGACY_CREDENTIAL").map(String::as_str),
             Some("already-here")
         );
         // Blank is not a value: the writer clears keys a choice does not imply, and handing those
         // back would undo that.
-        assert!(!found.contains_key("INTELLIGENCE_API_URL"));
+        assert!(!found.contains_key("LEGACY_SETTING"));
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -2670,17 +2554,17 @@ mod model_tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(".env");
 
-        let missing = read_already_set(&path, &["INTELLIGENCE_API_KEY"]).unwrap();
+        let missing = read_already_set(&path, &["LEGACY_CREDENTIAL"]).unwrap();
         assert!(missing.is_empty());
 
         std::fs::create_dir(&path).unwrap();
-        let directory = read_already_set(&path, &["INTELLIGENCE_API_KEY"])
+        let directory = read_already_set(&path, &["LEGACY_CREDENTIAL"])
             .expect_err("a directory .env is not a first-run empty file");
         assert_ne!(directory.kind(), std::io::ErrorKind::NotFound);
         std::fs::remove_dir(&path).unwrap();
 
-        std::fs::write(&path, b"INTELLIGENCE_API_KEY=\xff\n").unwrap();
-        let invalid = read_already_set(&path, &["INTELLIGENCE_API_KEY"])
+        std::fs::write(&path, b"LEGACY_CREDENTIAL=\xff\n").unwrap();
+        let invalid = read_already_set(&path, &["LEGACY_CREDENTIAL"])
             .expect_err("invalid UTF-8 must not be treated as absent");
         assert_eq!(invalid.kind(), std::io::ErrorKind::InvalidData);
         std::fs::remove_dir_all(&dir).ok();
@@ -2691,12 +2575,12 @@ mod model_tests {
         let dir = temp_root("invalid-write");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(".env");
-        let original = b"CUSTOM=\xff\nINTELLIGENCE_API_KEY=legacy\n".to_vec();
+        let original = b"CUSTOM=\xff\nLEGACY_CREDENTIAL=legacy\n".to_vec();
         std::fs::write(&path, &original).unwrap();
 
         let error = write(
             &path,
-            &BTreeMap::from([("INTELLIGENCE_API_KEY".into(), "replacement".into())]),
+            &BTreeMap::from([("LEGACY_CREDENTIAL".into(), "replacement".into())]),
             &BTreeMap::new(),
         )
         .expect_err("invalid UTF-8 input must stop replacement writes");
@@ -2712,8 +2596,8 @@ mod model_tests {
         let dir = temp_root("read2");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(".env");
-        std::fs::write(&path, "PRIVATE_THING=not-yours\nINTELLIGENCE_API_KEY=k\n").unwrap();
-        let found = already_set(&path, &["INTELLIGENCE_API_KEY"]);
+        std::fs::write(&path, "PRIVATE_THING=not-yours\nLEGACY_CREDENTIAL=k\n").unwrap();
+        let found = already_set(&path, &["LEGACY_CREDENTIAL"]);
         assert_eq!(found.len(), 1);
         assert!(!found.contains_key("PRIVATE_THING"));
         std::fs::remove_dir_all(&dir).ok();
@@ -2722,7 +2606,7 @@ mod model_tests {
     /// No file is not an error; it is a first run.
     #[test]
     fn a_missing_file_reads_back_nothing() {
-        let found = already_set(Path::new("/nowhere/at/all/.env"), &["INTELLIGENCE_API_KEY"]);
+        let found = already_set(Path::new("/nowhere/at/all/.env"), &["LEGACY_CREDENTIAL"]);
         assert!(found.is_empty());
     }
 }

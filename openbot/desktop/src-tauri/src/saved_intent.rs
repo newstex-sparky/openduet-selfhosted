@@ -13,7 +13,6 @@ pub const FILE: &str = ".openbot-saved.json";
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum Category {
-    Intelligence,
     OpenAiApiKey,
     AnthropicApiKey,
     ClaudePlan,
@@ -77,7 +76,6 @@ impl SavedIntent {
 
     fn record(&mut self, secrets: &BTreeMap<String, String>, credential: &ModelCredential) {
         for (key, category) in [
-            ("INTELLIGENCE_API_KEY", Category::Intelligence),
             ("OPENAI_API_KEY", Category::OpenAiApiKey),
             ("ANTHROPIC_API_KEY", Category::AnthropicApiKey),
             ("CLAUDE_CODE_OAUTH_TOKEN", Category::ClaudePlan),
@@ -247,14 +245,8 @@ mod tests {
     fn fixture(label: &str) -> (std::path::PathBuf, BTreeMap<String, String>, String) {
         let root = temp_root(label);
         std::fs::create_dir_all(&root).unwrap();
-        let secrets = BTreeMap::from([
-            (
-                "INTELLIGENCE_API_KEY".into(),
-                "synthetic-intelligence".into(),
-            ),
-            ("OPENAI_API_KEY".into(), "synthetic-model".into()),
-        ]);
-        let legacy = "INTELLIGENCE_API_KEY=synthetic-intelligence\nOPENAI_API_KEY=synthetic-model\nCUSTOM=kept\n".to_string();
+        let secrets = BTreeMap::from([("OPENAI_API_KEY".into(), "synthetic-model".into())]);
+        let legacy = "OPENAI_API_KEY=synthetic-model\nCUSTOM=kept\n".to_string();
         std::fs::write(root.join(".env"), &legacy).unwrap();
         (root, secrets, legacy)
     }
@@ -267,9 +259,9 @@ mod tests {
         for input in [
             "not-json",
             "{}",
-            r#"{"version":2,"categories":["intelligence"],"model":null}"#,
+            r#"{"version":2,"categories":[],"model":null}"#,
             r#"{"version":1,"categories":["unrecognized"],"model":null}"#,
-            r#"{"version":1,"categories":["intelligence"],"model":null,"token":"synthetic"}"#,
+            r#"{"version":1,"categories":["unrecognized"],"model":null,"token":"synthetic"}"#,
             r#"{"version":1,"categories":[],"model":{"provider":"openai","token":"synthetic"}}"#,
         ] {
             std::fs::write(root.join(FILE), input).unwrap();
@@ -490,10 +482,7 @@ mod tests {
         ] {
             let root = temp_root("recorded-reuse");
             std::fs::create_dir_all(&root).unwrap();
-            let mut secrets = BTreeMap::from([(
-                "INTELLIGENCE_API_KEY".into(),
-                "synthetic-intelligence".into(),
-            )]);
+            let mut secrets = BTreeMap::new();
             if !key.is_empty() {
                 secrets.insert(key.into(), "synthetic-selected-secret".into());
             }
@@ -511,10 +500,7 @@ mod tests {
             .unwrap();
             let reopened = SavedIntent::read(&root);
             assert_eq!(reopened.model, Some(model));
-            assert_eq!(
-                reopened.categories,
-                BTreeSet::from([Category::Intelligence, category])
-            );
+            assert_eq!(reopened.categories, BTreeSet::from([category]));
             let json = std::fs::read_to_string(root.join(FILE)).unwrap();
             assert!(!json.contains("synthetic"));
             assert!(!json.contains("token"));
@@ -550,13 +536,7 @@ mod tests {
     fn selecting_no_model_clears_the_saved_model_intent() {
         let root = temp_root("clear-model-intent");
         std::fs::create_dir_all(&root).unwrap();
-        let mut secrets = BTreeMap::from([
-            (
-                "INTELLIGENCE_API_KEY".into(),
-                "synthetic-intelligence".into(),
-            ),
-            ("OPENAI_API_KEY".into(), "synthetic-openai".into()),
-        ]);
+        let mut secrets = BTreeMap::from([("OPENAI_API_KEY".into(), "synthetic-openai".into())]);
 
         persist_configuration_with(
             &root,

@@ -22,7 +22,8 @@ use crate::problem::Problem;
 Whether a setting is a credential.
 
 By name, and the list is the point. A classifier that guessed from the value would be wrong in both
-directions: `INTELLIGENCE_API_URL` looks like nothing and `POSTGRES_PORT` looks like nothing, while
+directions: `OPENBOT_ORGANIZATION_AUTH_URL` looks like nothing and `POSTGRES_PORT` looks like
+nothing, while
 a generated token looks exactly like a random string of settings. Anything not named here is a
 setting and goes in the file where somebody can read it.
 */
@@ -30,8 +31,7 @@ pub fn is_secret(key: &str) -> bool {
     matches!(
         key,
         // Somebody's own credentials, pasted or signed in for.
-        "INTELLIGENCE_API_KEY"
-            | "OPENAI_API_KEY"
+        "OPENAI_API_KEY"
             | "ANTHROPIC_API_KEY"
             | "CLAUDE_CODE_OAUTH_TOKEN"
             // Retired, and still swept up: a machine that ran an older version has one of these.
@@ -1359,16 +1359,16 @@ mod cache_tests {
         let path = dir.join(".env");
         std::fs::write(
             &path,
-            "OPENAI_API_KEY=file-key\nINTELLIGENCE_API_URL=https://api.example\n",
+            "OPENAI_API_KEY=file-key\nOPENBOT_ORGANIZATION_AUTH_URL=https://api.example\n",
         )
         .unwrap();
 
         let found =
-            super::already_given_file_only(&path, &["OPENAI_API_KEY", "INTELLIGENCE_API_URL"]);
+            super::already_given_file_only(&path, &["OPENAI_API_KEY", "OPENBOT_ORGANIZATION_AUTH_URL"]);
 
         assert_eq!(found.get("OPENAI_API_KEY"), Some(&"file-key".to_string()));
         assert_eq!(
-            found.get("INTELLIGENCE_API_URL"),
+            found.get("OPENBOT_ORGANIZATION_AUTH_URL"),
             Some(&"https://api.example".to_string())
         );
         let _ = std::fs::remove_dir_all(dir);
@@ -1379,12 +1379,12 @@ mod cache_tests {
         let dir = temp_root("vault-strict-read");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(".env");
-        std::fs::write(&path, b"INTELLIGENCE_API_URL=\xff\n").unwrap();
+        std::fs::write(&path, b"OPENBOT_ORGANIZATION_AUTH_URL=\xff\n").unwrap();
 
         let file_only = super::already_given_with_policy(
             &dir,
             &path,
-            &["INTELLIGENCE_API_URL"],
+            &["OPENBOT_ORGANIZATION_AUTH_URL"],
             super::ReadPolicy::FileOnly,
         )
         .unwrap();
@@ -1393,7 +1393,7 @@ mod cache_tests {
         let no_ui = super::already_given_with_policy(
             &dir,
             &path,
-            &["INTELLIGENCE_API_URL"],
+            &["OPENBOT_ORGANIZATION_AUTH_URL"],
             super::ReadPolicy::NoUi,
         )
         .expect_err("no_ui Start/Ask must report unreadable .env input");
@@ -1450,7 +1450,6 @@ mod tests {
     #[test]
     fn every_credential_is_named_and_nothing_else_is() {
         for key in [
-            "INTELLIGENCE_API_KEY",
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
             "CLAUDE_CODE_OAUTH_TOKEN",
@@ -1465,8 +1464,7 @@ mod tests {
             assert!(is_secret(key), "{key} would have been written to the file");
         }
         for key in [
-            "INTELLIGENCE_API_URL",
-            "INTELLIGENCE_GATEWAY_WS_URL",
+            "OPENBOT_ORGANIZATION_AUTH_URL",
             "OPENAI_BASE_URL",
             "BOT_PROVIDER",
             "BOT_MODEL",
