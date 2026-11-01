@@ -178,7 +178,7 @@ describe("a history that arrives out of order", () => {
  * A message somebody attached a file to.
  *
  * The composer sends it as a list of parts rather than a string: what the person typed, then the
- * file. `copilot.ts` resolves the file before the run leaves the server, so a text file arrives here
+ * file. `engine.ts` resolves the file before the run leaves the server, so a text file arrives here
  * as a text part and an image as an `image` part carrying its bytes. `String()` of that list is
  * `[object Object],[object Object]`, and that is what the model was sent in place of the question and
  * the file both.

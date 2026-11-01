@@ -9,10 +9,10 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import { CopilotChat, CopilotKitProvider } from "@/lib/agui";
+import { ChatShell, AgentProvider } from "@/lib/agui";
 import { settleReactWork } from "./settle-react-work";
 /**
- * `CopilotChat`, the Bot screen's conversation, driven through the real provider, the real
+ * `ChatShell`, the Bot screen's conversation, driven through the real provider, the real
  * `RuntimeAgent` and a stub runtime.
  *
  * WHAT THIS FILE IS FOR is the one claim the Bot route makes about the chat it draws: that it is
@@ -244,9 +244,9 @@ function mount(): ReturnType<typeof render> {
   });
   return render(
     <QueryClientProvider client={client}>
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
-        <CopilotChat agentId={BOT} threadId={THREAD} />
-      </CopilotKitProvider>
+      <AgentProvider runtimeUrl="/api/engine">
+        <ChatShell agentId={BOT} threadId={THREAD} />
+      </AgentProvider>
     </QueryClientProvider>,
   );
 }
@@ -278,7 +278,7 @@ test("joins the thread the route named, and draws what was already said in it", 
   );
   expect(view.getByText("Where did we leave it?")).toBeTruthy();
   const join = recorded.find((request) => request.url.endsWith("/connect"));
-  expect(join?.url).toBe(`/api/copilotkit/agent/${BOT}/connect`);
+  expect(join?.url).toBe(`/api/engine/agent/${BOT}/connect`);
   expect(join?.body?.threadId).toBe(THREAD);
 });
 
@@ -302,7 +302,7 @@ test("sends the person's words into that thread, and draws the reply as it arriv
   expect(view.getByText("open the dashboard")).toBeTruthy();
 
   const run = recorded.find((request) => request.url.endsWith("/run"));
-  expect(run?.url).toBe(`/api/copilotkit/agent/${BOT}/run`);
+  expect(run?.url).toBe(`/api/engine/agent/${BOT}/run`);
   expect(run?.method).toBe("POST");
   expect(run?.body?.threadId).toBe(THREAD);
   const sent = run?.body?.messages as Message[];
@@ -332,7 +332,7 @@ test("stops the turn at the runtime, not only in this tab", async () => {
       expect(
         recorded.some(
           (request) =>
-            request.url === `/api/copilotkit/agent/${BOT}/stop/${THREAD}` &&
+            request.url === `/api/engine/agent/${BOT}/stop/${THREAD}` &&
             request.method === "POST",
         ),
       ).toBe(true),

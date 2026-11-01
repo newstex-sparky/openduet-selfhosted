@@ -16,11 +16,11 @@ import {
   type ReactNode,
 } from "react";
 import {
-  useCopilotChatConfiguration,
-  useCopilotKit,
+  useChatConfiguration,
+  useAgentRuntime,
   useDefaultAgentId,
 } from "./context";
-import type { CopilotKit } from "./core";
+import type { AgentRuntime } from "./core";
 import type { RuntimeAgent } from "./agent";
 import {
   ToolCallStatus,
@@ -93,7 +93,7 @@ function bump(agent: RuntimeAgent): void {
  * Bind one agent, and re-render when what it was asked for changes.
  *
  * The thread comes from the surrounding chat configuration when the caller does not name one, which
- * is what makes `useAgent({ agentId })` in a route watch the runs its `CopilotChat` starts rather
+ * is what makes `useAgent({ agentId })` in a route watch the runs its `ChatShell` starts rather
  * than a second, empty agent under the same name.
  */
 export function useAgent({
@@ -102,9 +102,9 @@ export function useAgent({
   threadId,
   updates = DEFAULT_UPDATES,
 }: UseAgentProps): UseAgentResult {
-  const { copilotkit } = useCopilotKit();
-  const configuration = useCopilotChatConfiguration();
-  const agent = copilotkit.agentFor({
+  const { agentRuntime } = useAgentRuntime();
+  const configuration = useChatConfiguration();
+  const agent = agentRuntime.agentFor({
     agentId,
     runtimeAgentId: runtimeAgentId ?? agentId,
     threadId: threadId ?? configuration?.threadId,
@@ -216,7 +216,7 @@ function useRegisterTool<S extends ParametersSchema>(
   },
   humanInTheLoop = false,
 ): void {
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   const configuredAgentId = useDefaultAgentId();
   const agentId = tool.agentId ?? configuredAgentId;
   const latest = useRef(tool);
@@ -253,11 +253,11 @@ function useRegisterTool<S extends ParametersSchema>(
           | undefined;
       },
     };
-    const unregister = copilotkit.registerTool(registered);
+    const unregister = agentRuntime.registerTool(registered);
 
     const draw = tool.render as ((props: unknown) => ReactNode) | undefined;
     const undraw = draw
-      ? copilotkit.addHookRenderToolCall({
+      ? agentRuntime.addHookRenderToolCall({
           name,
           agentId,
           get parameters() {
@@ -273,7 +273,7 @@ function useRegisterTool<S extends ParametersSchema>(
       unregister();
       undraw();
     };
-  }, [copilotkit, name, agentId, humanInTheLoop]);
+  }, [agentRuntime, name, agentId, humanInTheLoop]);
 }
 
 /**
@@ -292,7 +292,7 @@ export function useRenderTool<S extends ParametersSchema>(
   deps?: readonly unknown[],
 ): void {
   void deps;
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   const configuredAgentId = useDefaultAgentId();
   const agentId = config.agentId ?? configuredAgentId;
   const latest = useRef(config);
@@ -302,7 +302,7 @@ export function useRenderTool<S extends ParametersSchema>(
   // Keyed on the name for the reason `useRegisterTool` records: an inline schema is a new object
   // every render, and re-registering on it re-renders the watchers, which re-renders this.
   useEffect(() => {
-    return copilotkit.addHookRenderToolCall({
+    return agentRuntime.addHookRenderToolCall({
       name,
       agentId,
       get parameters() {
@@ -310,7 +310,7 @@ export function useRenderTool<S extends ParametersSchema>(
       },
       render: (props) => latest.current.render(props as never),
     });
-  }, [copilotkit, name, agentId]);
+  }, [agentRuntime, name, agentId]);
 }
 
 /**
@@ -331,13 +331,13 @@ export function useRenderToolCall(): (props: {
    */
   toolMessage?: { content: string } & Record<string, unknown>;
 }) => ReactNode | null {
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   const configuredAgentId = useDefaultAgentId();
-  useRenderWatch(copilotkit);
+  useRenderWatch(agentRuntime);
 
   return useCallback(
     ({ toolCall, toolMessage }) => {
-      const renderer = copilotkit.rendererFor(
+      const renderer = agentRuntime.rendererFor(
         toolCall.function.name,
         configuredAgentId,
       );
@@ -354,7 +354,7 @@ export function useRenderToolCall(): (props: {
         respond:
           answered || !renderer.humanInTheLoop
             ? undefined
-            : respondFor(copilotkit, toolCall.id, configuredAgentId),
+            : respondFor(agentRuntime, toolCall.id, configuredAgentId),
         ...(renderer.humanInTheLoop
           ? { description: renderer.description ?? "" }
           : {}),
@@ -364,7 +364,7 @@ export function useRenderToolCall(): (props: {
         props,
       );
     },
-    [copilotkit, configuredAgentId],
+    [agentRuntime, configuredAgentId],
   );
 }
 
@@ -375,31 +375,31 @@ export function useRenderToolCall(): (props: {
  * until the server pauses, and the agent that owns it is whichever one the call belongs to.
  */
 function respondFor(
-  copilotkit: CopilotKit,
+  agentRuntime: AgentRuntime,
   toolCallId: string,
   agentId: string | undefined,
 ): ((result: unknown) => Promise<void>) | undefined {
   if (!agentId) return undefined;
-  const agent = copilotkit.agentFor({ agentId, runtimeAgentId: agentId });
+  const agent = agentRuntime.agentFor({ agentId, runtimeAgentId: agentId });
   const waiting = agent.pendingInterrupts.some(
     (interrupt) => interrupt.toolCallId === toolCallId,
   );
   if (!waiting) return undefined;
   return (result: unknown) =>
-    copilotkit.respondToInterrupt(agent, toolCallId, result);
+    agentRuntime.respondToInterrupt(agent, toolCallId, result);
 }
 
 /** The function a transcript draws an activity message with. */
 export function useRenderActivityMessage(): {
   renderActivityMessage: (message: ActivityMessage) => ReactNode | null;
 } {
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   const configuredAgentId = useDefaultAgentId();
-  useRenderWatch(copilotkit);
+  useRenderWatch(agentRuntime);
 
   const renderActivityMessage = useCallback(
     (message: ActivityMessage) => {
-      const renderer = copilotkit.activityRendererFor(
+      const renderer = agentRuntime.activityRendererFor(
         message.activityType,
         configuredAgentId,
       );
@@ -411,7 +411,7 @@ export function useRenderActivityMessage(): {
           content: message.content,
           message,
           agent: configuredAgentId
-            ? copilotkit.agentFor({
+            ? agentRuntime.agentFor({
                 agentId: configuredAgentId,
                 runtimeAgentId: configuredAgentId,
               })
@@ -419,21 +419,21 @@ export function useRenderActivityMessage(): {
         },
       );
     },
-    [copilotkit, configuredAgentId],
+    [agentRuntime, configuredAgentId],
   );
 
   return { renderActivityMessage };
 }
 
 /** Re-render when a card is added or removed, so an open transcript picks it up. */
-function useRenderWatch(copilotkit: CopilotKit): void {
+function useRenderWatch(agentRuntime: AgentRuntime): void {
   const subscribe = useCallback(
     (onChange: () => void) =>
-      copilotkit.subscribe({ onRenderToolCallsChanged: () => onChange() })
+      agentRuntime.subscribe({ onRenderToolCallsChanged: () => onChange() })
         .unsubscribe,
-    [copilotkit],
+    [agentRuntime],
   );
-  useSyncExternalStore(subscribe, () => copilotkit.renderRevision);
+  useSyncExternalStore(subscribe, () => agentRuntime.renderRevision);
 }
 
 /** Register an activity type's drawing. */
@@ -446,7 +446,7 @@ export function useRenderActivity<TContent>(renderer: {
     message: ActivityMessage;
   }) => ReactNode;
 }): void {
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   const configuredAgentId = useDefaultAgentId();
   const agentId = renderer.agentId ?? configuredAgentId;
   const latest = useRef(renderer);
@@ -466,8 +466,8 @@ export function useRenderActivity<TContent>(renderer: {
           },
         ),
     };
-    return copilotkit.addHookActivityRenderer(registered);
-  }, [copilotkit, activityType, agentId]);
+    return agentRuntime.addHookActivityRenderer(registered);
+  }, [agentRuntime, activityType, agentId]);
 }
 
 /** A tool call's arguments, or an empty object while they are still arriving. */

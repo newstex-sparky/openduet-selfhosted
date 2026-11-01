@@ -39,7 +39,7 @@
       }
     },
     {
-      "includes": ["toolkit/src/**", "!toolkit/src/copilotkit/**"],
+      "includes": ["toolkit/src/**", "!toolkit/src/platform/**"],
       "linter": {
         "rules": {
           "style": {
@@ -53,11 +53,11 @@
                   },
                   {
                     "group": [
-                      "./copilotkit/**",
-                      "@openbot/toolkit/copilotkit",
-                      "@openbot/toolkit/copilotkit/**"
+                      "./platform/**",
+                      "@openbot/toolkit/platform",
+                      "@openbot/toolkit/platform/**"
                     ],
-                    "message": "The toolkit core does not depend on CopilotKit. Code that needs the CopilotKit runtime lives in toolkit/src/copilotkit and imports the core, not the other way round."
+                    "message": "The toolkit core does not depend on CopilotKit. Code that needs the CopilotKit runtime lives in toolkit/src/platform and imports the core, not the other way round."
                   },
                   {
                     "group": [
@@ -67,7 +67,7 @@
                       "hono",
                       "hono/**"
                     ],
-                    "message": "The toolkit core depends on @ag-ui, rxjs, zod and @openbot/shared only. CopilotKit-specific code goes in toolkit/src/copilotkit."
+                    "message": "The toolkit core depends on @ag-ui, rxjs, zod and @openbot/shared only. CopilotKit-specific code goes in toolkit/src/platform."
                   }
                 ]
               }
@@ -77,7 +77,7 @@
       }
     },
     {
-      "includes": ["toolkit/src/copilotkit/**"],
+      "includes": ["toolkit/src/platform/**"],
       "linter": {
         "rules": {
           "style": {

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { LLMock } from "../testing/llmock";
-import { BuiltInAgent } from "@openbot/toolkit/copilotkit/engine/agent/index";
+import { BuiltInAgent } from "@openbot/toolkit/platform/engine/agent/index";
 import { PROVENANCE_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { defaultModelFor } from "@openbot/shared/model-providers";
 import { EMPTY, lastValueFrom } from "rxjs";
@@ -244,7 +244,7 @@ describe("deployment model selection", () => {
   });
 });
 
-describe("registered Copilot agents", () => {
+describe("registered agents", () => {
   test("normalizes built-in and remote rows", () => {
     expect(
       registeredAgentFromRow({
@@ -795,7 +795,7 @@ describe("standing agent roles", () => {
       }),
     );
 
-    const request = new Request("http://openbot.test/api/copilotkit");
+    const request = new Request("http://openbot.test/api/engine");
     const resolved = await factory({ request });
 
     expect(seen.request).toBe(request);
@@ -829,7 +829,7 @@ describe("standing agent roles", () => {
         resolveModelApiKey: async () => null,
       }),
     );
-    const request = new Request("http://openbot.test/api/copilotkit");
+    const request = new Request("http://openbot.test/api/engine");
 
     const before = await factory({ request });
     roleDescription = "Reconcile corporate card statements.";
@@ -1544,7 +1544,7 @@ describe("a person's standing instructions", () => {
     );
 
     await factory({
-      request: new Request("http://openbot.test/api/copilotkit"),
+      request: new Request("http://openbot.test/api/engine"),
     });
 
     /*
@@ -1936,7 +1936,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
   ];
 
   test("a built-in Bot's run fails naming the attachment it could not load", async () => {
-    // Protects `BuiltInAgentWithSaneHistory.run` (toolkit/src/copilotkit/agents.ts). Drop the
+    // Protects `BuiltInAgentWithSaneHistory.run` (toolkit/src/platform/agents.ts). Drop the
     // `inlineAttachments` call there and this run completes instead of erroring.
     const agents = await buildAgents(
       [assistant],
@@ -2007,7 +2007,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
 
   test("the narrowed built-in path reads the attachment once, not twice", async () => {
     /*
-     * Protects the exclusion: `RunBuiltAgent.run` (toolkit/src/copilotkit/agents.ts) deliberately does not call
+     * Protects the exclusion: `RunBuiltAgent.run` (toolkit/src/platform/agents.ts) deliberately does not call
      * `resolveAttachmentParts` itself. It only delegates to the built-in agent its `build()`
      * produces, and that agent's own `run` is what inlines the attachment. Re-adding the call at
      * `RunBuiltAgent.run` would read the same attachment a second time, which is what turns this
@@ -2444,7 +2444,7 @@ describe("where an attachment reaches the model, and where it deliberately does 
    * around this call did to a synchronous throw as much as to a rejection.
    *
    * `MarkAttachmentsSent` is an optional parameter four wirings expose — `buildAgents`,
-   * `resolveRuntimeAgents`, `createRequestAgents` and `mountCopilotRuntime` — so an implementation
+   * `resolveRuntimeAgents`, `createRequestAgents` and `mountAgentRuntime` — so an implementation
    * that throws before it ever returns a promise is a shape this seam has to carry, and it has to
    * carry it WITHOUT replacing the message: the words that reach the person are the ones from the
    * implementation that knows which rows are involved.

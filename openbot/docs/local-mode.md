@@ -46,11 +46,11 @@ At boot the server logs one line saying so:
 `{ mode: "local", durableHistory: true }`. Both modes are durable; they keep conversations in
 different places (Intelligence vs. this deployment's Postgres), which is why setting both is refused.
 
-`toolkit/src/copilotkit/postgres-platform.ts` — one platform object per server process
+`toolkit/src/platform/postgres-platform.ts` — one platform object per server process
 (`server/src/local-mode.ts`, on its own `postgres` pool against `DATABASE_URL`) that answers
 everything the server otherwise asks Intelligence. Its storage is the five tables migration
-`server/drizzle/0068_white_katie_power.sql` adds: `copilotkit_threads`, `copilotkit_thread_messages`,
-`copilotkit_thread_events`, `copilotkit_thread_runs` and `copilotkit_thread_locks`.
+`server/drizzle/0068_white_katie_power.sql` adds: `openduet_threads`, `openduet_thread_messages`,
+`openduet_thread_events`, `openduet_thread_runs` and `openduet_thread_locks`.
 
 - **`runner`** — an `AgentRunner` (`run` / `connect` / `isRunning` / `stop`) handed to
   `new CopilotRuntime({ runner })`, i.e. the runtime's own **SSE mode**. `run` writes every event to
@@ -58,21 +58,21 @@ everything the server otherwise asks Intelligence. Its storage is the five table
   reconnect after a restart — or to a different replica — returns the whole conversation. It also
   implements the runtime's local thread endpoints (`GET /threads`, `/threads/:id/messages|events|state`,
   `POST /threads/clear`), scoped to the signed-in person. Those four reads are synchronous in the
-  runtime's interface, so they read a per-process mirror that the local-mode gate in `copilot.ts`
+  runtime's interface, so they read a per-process mirror that the local-mode gate in `engine.ts`
   primes from Postgres before handing the request on; Postgres stays the source of truth.
 - **thread + history** — `getOrCreateThread`, `getThread`, `getThreadMessages`, in the same shapes
   and with the same error contract as `CopilotKitIntelligence` (a missing or foreign thread is a
   `PlatformRequestError` 404), so `channels/thread-status.ts`, `approvals/wiring.ts`,
   `openduet/task-report.ts`, delivery history and the handoff desk read it unchanged.
 - **per-thread run lock** — `ɵacquireThreadLock` / `ɵrenewThreadLock` / `ɵcleanupThreadLock` backed
-  by a TTL lease row in `copilotkit_thread_locks` (taken with an upsert that only succeeds when the
+  by a TTL lease row in `openduet_thread_locks` (taken with an upsert that only succeeds when the
   existing lease has expired). Every lease comparison uses Postgres's `now()`, never a process
   clock, so replicas cannot disagree about who holds a thread. A conflict is a 409
   `PlatformRequestError`, so `isLockConflict`, `ThreadLockBusyError` and
   `createIntelligenceThreadLock` behave exactly as against the platform. An optional `lockWaitMs`
   lets a caller queue behind a running turn instead of being refused.
 
-The original Phase 1 in-memory store (`toolkit/src/copilotkit/local-platform.ts`) remains in the
+The original Phase 1 in-memory store (`toolkit/src/platform/local-platform.ts`) remains in the
 tree and shares the error helpers (`platform-errors.ts`) and record shapes (`thread-records.ts`),
 but the server no longer uses it for local mode.
 
@@ -91,12 +91,12 @@ so `index.ts` wraps each of those call sites in `headlessTurn`, which runs the t
 `runAsLocalUser(input.ownerUserId)` in local mode (and is a plain `createTurnRunner` in Intelligence
 mode). Without it the first routine firing failed with `Thread … not found`.
 
-**Who owns a thread.** SSE mode never calls `identifyUser`, so `copilot.ts` wraps the CopilotKit
+**Who owns a thread.** SSE mode never calls `identifyUser`, so `engine.ts` wraps the CopilotKit
 handler in a gate: every route except `/info` requires `identifyUser` to succeed (401 otherwise),
 and the request then runs inside `runAsLocalUser(userId)` (an `AsyncLocalStorage`). A thread belongs
 to whoever first touched it; anyone else gets the answer a missing thread gets.
 
-**Telemetry.** `server/src/telemetry.ts` defaults `COPILOTKIT_TELEMETRY_DISABLED=true` in local mode
+**Telemetry.** `server/src/telemetry.ts` defaults `OPENBOT_TELEMETRY_DISABLED=true` in local mode
 before the runtime package is imported. Set it to `false` yourself to opt back in.
 
 **Off in local mode (no-ops, not errors):** Automatic Learning (`learning` is `undefined`,
@@ -114,7 +114,7 @@ own log, not memory.
 
 - **A scheduled routine fires and completes.** The real `scripts/fire-routines.ts` sweep runs in a
   separate process, posts to `/internal/routines/run`, and the turn completes: the `routine_runs` row
-  finishes with no error and the user prompt and assistant reply are in `copilotkit_thread_messages`.
+  finishes with no error and the user prompt and assistant reply are in `openduet_thread_messages`.
 - **An approval-gated action pauses, then resumes.** A routine whose model calls `computer_click` on
   a gated action stops: the `approval_requests` row stays `pending` and the stub computer receives
   **no** request while it waits (the negative control). After an `allow_once` decision over HTTP the

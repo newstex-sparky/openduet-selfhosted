@@ -190,7 +190,7 @@ test("a deployment that chose its own container hears nothing about automatic as
 
 test("a missing container shows exactly what to run, and a Create button only when the deployment can", async () => {
   const instructions =
-    "Sign in once with npx --yes copilotkit@latest login, then run bun scripts/setup-learning.ts.";
+    "Sign in once with npx --yes agentRuntime@latest login, then run bun scripts/setup-learning.ts.";
   serve({
     settings: { enabled: true, defaultTarget: null, agents: {} },
     automatic: { state: "absent", containerId: "openbot", instructions },

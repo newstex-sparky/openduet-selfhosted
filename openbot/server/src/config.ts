@@ -1,7 +1,7 @@
 /**
  * What the runtime can do. One answer: this fork is local-only. The runtime runs in SSE mode on a
  * runner of our own, and threads, history, the event log and the per-thread run lock live in this
- * deployment's Postgres (`@openbot/toolkit/copilotkit/postgres-platform`, migration 0068). DURABLE:
+ * deployment's Postgres (`@openbot/toolkit/platform/postgres-platform`, migration 0068). DURABLE:
  * a restart keeps every conversation, and a second replica sees the same ones. Memory uses OpenBot's
  * own tables. Configuration the product cannot function without belongs at the boot boundary; see
  * runtimeCapabilities.

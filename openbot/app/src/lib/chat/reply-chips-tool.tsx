@@ -63,7 +63,7 @@ export function ReplyChips({
   const [tapped, setTapped] = useState<string | null>(null);
   // Chips offered while the turn is still being written arrive one after another (build-in.tsx).
   const arrived = useArrivedLive(false);
-  // Nowhere to send to, such as CopilotKit's own chat: the Bot's question still reads on its own.
+  // Nowhere to send to, such as AgentRuntime's own chat: the Bot's question still reads on its own.
   if (!conversation) return null;
   const live =
     tapped === null &&

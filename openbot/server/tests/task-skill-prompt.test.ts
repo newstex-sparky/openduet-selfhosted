@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { BaseEvent, Message } from "@ag-ui/client";
-import type { BuiltInAgentClassicConfig } from "@openbot/toolkit/copilotkit/engine/agent/index";
-import { BuiltInAgentWithSaneHistory } from "@openbot/toolkit/copilotkit/agents";
+import type { BuiltInAgentClassicConfig } from "@openbot/toolkit/platform/engine/agent/index";
+import { BuiltInAgentWithSaneHistory } from "@openbot/toolkit/platform/agents";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import {
   createTurnRunner,

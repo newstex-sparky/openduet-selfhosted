@@ -137,7 +137,7 @@ function RouteComponent() {
   return (
     <>
       <h1 className="sr-only">{title}</h1>
-      {/* Remount on channel changes so CopilotKit agent/thread state cannot leak between channels. */}
+      {/* Remount on channel changes so AgentRuntime agent/thread state cannot leak between channels. */}
       <ChannelChat
         channel={channel.data}
         inShell

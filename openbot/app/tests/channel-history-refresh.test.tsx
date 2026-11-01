@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { Message, RunAgentInput } from "@ag-ui/core";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
-import { CopilotKitProvider, useCopilotKit } from "@/lib/agui";
+import { AgentProvider, useAgentRuntime } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { type InfiniteData, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
@@ -19,7 +19,7 @@ import {
   channelKeys,
 } from "@/lib/channels/queries";
 import { applyChannelEvent } from "@/lib/channels/use-channel-events";
-import { a2uiProviderOptions, OPENBOT_A2UI_CATALOG } from "@/lib/copilot/a2ui";
+import { a2uiProviderOptions, OPENBOT_A2UI_CATALOG } from "@/lib/chat/a2ui";
 import { queryClient } from "@/query-client";
 
 type ChannelCache = InfiniteData<ChannelPage>;
@@ -65,10 +65,10 @@ let gatewaySnapshot: readonly Message[] = [];
 let runRequests: { path: string; input: RunAgentInput }[] = [];
 let activityRequests: ActivityRequest[] = [];
 let runEvents: (input: RunAgentInput) => unknown[];
-let core: ReturnType<typeof useCopilotKit>["copilotkit"] | undefined;
+let core: ReturnType<typeof useAgentRuntime>["agentRuntime"] | undefined;
 
 function CoreProbe() {
-  core = useCopilotKit().copilotkit;
+  core = useAgentRuntime().agentRuntime;
   return null;
 }
 function stored(messages: unknown[]) {
@@ -163,13 +163,13 @@ afterAll(() => {
 function tree(selected: AgentChannel, a2uiEnabled = false) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider
-        runtimeUrl="http://localhost/api/copilotkit"
+      <AgentProvider
+        runtimeUrl="http://localhost/api/engine"
         {...a2uiProviderOptions(a2uiEnabled)}
       >
         <CoreProbe />
         <ChannelChat channel={selected} runtimeAgentId="refresh-bot" />
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>
   );
 }
@@ -284,7 +284,7 @@ test("A2UI activity actions run the actual channel agent and thread with edited 
   await user.type(destination, "Kyoto");
   await user.click(view.getByRole("button", { name: "Confirm trip" }));
   await waitFor(() => expect(runRequests).toHaveLength(1));
-  expect(runRequests[0]?.path).toBe("/api/copilotkit/agent/refresh-bot/run");
+  expect(runRequests[0]?.path).toBe("/api/engine/agent/refresh-bot/run");
   expect(runRequests[0]?.input.threadId).toBe(channel.threadId);
   expect(runRequests[0]?.input.forwardedProps).toMatchObject({
     a2uiAction: {
@@ -363,7 +363,7 @@ test.each([
     );
     await user.click(view.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(runRequests).toHaveLength(1));
-    expect(runRequests[0]?.path).toBe("/api/copilotkit/agent/refresh-bot/run");
+    expect(runRequests[0]?.path).toBe("/api/engine/agent/refresh-bot/run");
     expect(runRequests[0]?.input.threadId).toBe(channel.threadId);
     expect(runRequests[0]?.input.messages.slice(0, snapshot.length)).toEqual([
       ...snapshot,
@@ -373,7 +373,7 @@ test.each([
       content: "Later local turn",
     });
     expect(view.getByText(unavailable)).toBeTruthy();
-    expect(view.queryByText(/different CopilotKit project/)).toBeNull();
+    expect(view.queryByText(/different AgentRuntime project/)).toBeNull();
   },
 );
 
@@ -784,7 +784,7 @@ test("a stalled mount history read releases the send gate and shows unavailable 
 
   await view.findByText(unavailable, {}, { timeout: 4000 });
   await waitFor(() => expect(runRequests).toHaveLength(1), { timeout: 4000 });
-  expect(runRequests[0]?.path).toBe("/api/copilotkit/agent/refresh-bot/run");
+  expect(runRequests[0]?.path).toBe("/api/engine/agent/refresh-bot/run");
   expect(runRequests[0]?.input.threadId).toBe(channel.threadId);
   expect(runRequests[0]?.input.messages.slice(0, -1)).toEqual([initial]);
   expect(runRequests[0]?.input.messages.at(-1)).toMatchObject({

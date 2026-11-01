@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { CopilotKitProvider, useCopilotKit } from "@/lib/agui";
+import { AgentProvider, useAgentRuntime } from "@/lib/agui";
 import {
   focusManager,
   QueryClient,
@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { SignInTool } from "@/lib/copilot/sign-in-tool";
+import { SignInTool } from "@/lib/chat/sign-in-tool";
 import { settleReactWork } from "./settle-react-work";
 
 /**
@@ -78,12 +78,12 @@ type Kept = {
 };
 
 function Capture({ kept }: { kept: Kept }) {
-  const { copilotkit } = useCopilotKit();
-  const entry = copilotkit.renderToolCalls.find(
+  const { agentRuntime } = useAgentRuntime();
+  const entry = agentRuntime.renderToolCalls.find(
     (candidate) => candidate.name === "computer_request_sign_in",
   );
   kept.renderer = entry?.render as Renderer | undefined;
-  kept.handler = copilotkit.handlerFor("computer_request_sign_in", undefined)?.tool
+  kept.handler = agentRuntime.handlerFor("computer_request_sign_in", undefined)?.tool
     .handler as Kept["handler"];
   return null;
 }
@@ -97,7 +97,7 @@ function Providers({
 }) {
   return (
     <QueryClientProvider client={queries}>
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">{children}</CopilotKitProvider>
+      <AgentProvider runtimeUrl="/api/engine">{children}</AgentProvider>
     </QueryClientProvider>
   );
 }

@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@/lib/agui";
+import { AgentProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render } from "@testing-library/react";
 import { ConversationView } from "@/components/channels/conversation-view";
-import { PageCardTool } from "@/lib/copilot/page-card-tool";
+import { PageCardTool } from "@/lib/chat/page-card-tool";
 import { settleReactWork } from "./settle-react-work";
 
 /**
@@ -81,10 +81,10 @@ function Chat({
 }) {
   return (
     <QueryClientProvider client={queries}>
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <PageCardTool />
         <ConversationView busy={busy} messages={messages} onSubmit={() => {}} />
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>
   );
 }

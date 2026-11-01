@@ -245,7 +245,7 @@ export function createApp(
    * pulls in `eventsource`, which Bun cannot `require()` from a test, so importing it at module
    * scope broke every server test that touches createApp even though none of them use CopilotKit.
    */
-  copilotHandler?: HonoApp,
+  engineHandler?: HonoApp,
   /** The single governed computer module: policy, audit trail, transport, and provider lifecycle. */
   computerGateway?: ComputerGateway,
   /** What the gateway enforces, and what an administrator can change while running. */
@@ -1394,14 +1394,14 @@ export function createApp(
     });
   }
   // The CopilotKit runtime, behind the same session guard as every other API route. Mounted last so
-  // its own routing under /api/copilotkit cannot shadow an OpenBot route declared above.
-  if (copilotHandler) {
+  // its own routing under /api/engine cannot shadow an OpenBot route declared above.
+  if (engineHandler) {
     // Mounted at the ROOT with the handler carrying its own basePath. Mounting it at
-    // "/api/copilotkit" as well double-prefixes it: Hono strips the prefix before the handler sees
-    // the path, so every route lands at /api/copilotkit/api/copilotkit/* and /info 404s. The browser
+    // "/api/engine" as well double-prefixes it: Hono strips the prefix before the handler sees
+    // the path, so every route lands at /api/engine/api/engine/* and /info 404s. The browser
     // reports that as "Runtime info request failed with status 404" and every run fails before it
     // starts, with nothing at all in the server log.
-    app.route("/", copilotHandler);
+    app.route("/", engineHandler);
   }
 
   /**

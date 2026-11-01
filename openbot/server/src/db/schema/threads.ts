@@ -21,12 +21,12 @@ import {
  * nothing else owns a conversation: the threads, the messages the agent held after each run, the
  * event log a reloaded page replays, and the one-run-at-a-time lock are all this deployment's
  * problem. Phase 1 kept them in process memory and lost every conversation on restart
- * (`toolkit/src/copilotkit/local-platform.ts` says so in its own header). These are the tables that
+ * (`toolkit/src/platform/local-platform.ts` says so in its own header). These are the tables that
  * replace that memory.
  *
  * SHAPED LIKE THE PLATFORM, NOT LIKE THE PRODUCT. The columns are the fields
  * the SaaS platform returns — `id`, `user_id`, `agent_id`, `archived`, … — because the
- * readers in `server/src/copilot.ts` and the runtime's own thread endpoints read those shapes and
+ * readers in `server/src/engine.ts` and the runtime's own thread endpoints read those shapes and
  * must not need to know which of the two is behind them.
  *
  * NO FOREIGN KEY ON `user_id`. A thread id is the runtime's, and a server-side path (a routine, a
@@ -57,8 +57,8 @@ const anyJson = customType<{ data: unknown; driverData: unknown }>({
  * `updated_at` is what thread lists sort by and what retention would sweep on, so it is touched by
  * every run rather than being a copy of the last message's timestamp.
  */
-export const copilotThreads = pgTable(
-  "copilotkit_threads",
+export const threads = pgTable(
+  "openduet_threads",
   {
     id: text("id").primaryKey(),
     /**
@@ -83,11 +83,11 @@ export const copilotThreads = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("copilotkit_threads_owner_updated_idx").on(
+    index("openduet_threads_owner_updated_idx").on(
       table.userId,
       table.updatedAt,
     ),
-    index("copilotkit_threads_updated_idx").on(table.updatedAt),
+    index("openduet_threads_updated_idx").on(table.updatedAt),
   ],
 );
 
@@ -102,13 +102,13 @@ export const copilotThreads = pgTable(
  * `seq` orders them. It is a database sequence rather than an index the writer computes, so two
  * writers cannot both decide they are row 7.
  */
-export const copilotThreadMessages = pgTable(
-  "copilotkit_thread_messages",
+export const threadMessages = pgTable(
+  "openduet_thread_messages",
   {
     seq: bigserial("seq", { mode: "number" }).primaryKey(),
     threadId: text("thread_id")
       .notNull()
-      .references(() => copilotThreads.id, { onDelete: "cascade" }),
+      .references(() => threads.id, { onDelete: "cascade" }),
     messageId: text("message_id").notNull(),
     role: text("role").notNull(),
     /** Absent on an assistant row that only calls tools, as AG-UI allows. */
@@ -121,11 +121,11 @@ export const copilotThreadMessages = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("copilotkit_thread_messages_message_idx").on(
+    uniqueIndex("openduet_thread_messages_message_idx").on(
       table.threadId,
       table.messageId,
     ),
-    index("copilotkit_thread_messages_thread_idx").on(
+    index("openduet_thread_messages_thread_idx").on(
       table.threadId,
       table.seq,
     ),
@@ -143,13 +143,13 @@ export const copilotThreadMessages = pgTable(
  * conversations wants a window on it, the way `audit-retention` has one. Named rather than silently
  * assumed to be somebody else's problem.
  */
-export const copilotThreadEvents = pgTable(
-  "copilotkit_thread_events",
+export const threadEvents = pgTable(
+  "openduet_thread_events",
   {
     seq: bigserial("seq", { mode: "number" }).primaryKey(),
     threadId: text("thread_id")
       .notNull()
-      .references(() => copilotThreads.id, { onDelete: "cascade" }),
+      .references(() => threads.id, { onDelete: "cascade" }),
     runId: text("run_id"),
     /** The `BaseEvent` exactly as the runtime streamed it. */
     event: anyJson("event").notNull(),
@@ -158,7 +158,7 @@ export const copilotThreadEvents = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("copilotkit_thread_events_thread_idx").on(table.threadId, table.seq),
+    index("openduet_thread_events_thread_idx").on(table.threadId, table.seq),
   ],
 );
 
@@ -169,13 +169,13 @@ export const copilotThreadEvents = pgTable(
  * `stop_requested` is here rather than in memory for the same reason: a stop arrives on whichever
  * replica the browser is talking to, and the replica actually running the turn may be another one.
  */
-export const copilotThreadRuns = pgTable(
-  "copilotkit_thread_runs",
+export const threadRuns = pgTable(
+  "openduet_thread_runs",
   {
     runId: text("run_id").notNull(),
     threadId: text("thread_id")
       .notNull()
-      .references(() => copilotThreads.id, { onDelete: "cascade" }),
+      .references(() => threads.id, { onDelete: "cascade" }),
     userId: text("user_id"),
     agentId: text("agent_id"),
     status: text("status").notNull().default("running"),
@@ -189,18 +189,18 @@ export const copilotThreadRuns = pgTable(
   },
   (table) => [
     /*
-     * A RUN IS NAMED WITHIN ITS THREAD, as a message is (`copilotkit_thread_messages_message_idx`).
+     * A RUN IS NAMED WITHIN ITS THREAD, as a message is (`openduet_thread_messages_message_idx`).
      * The run id comes from the client's RunAgentInput, and with `run_id` alone as the key a client
      * reusing one on another thread hit the upsert in `startRun` and kept the first thread's row:
      * the second run had no record of its own and its finish was written onto the first one's.
      */
     primaryKey({ columns: [table.threadId, table.runId] }),
-    index("copilotkit_thread_runs_thread_idx").on(
+    index("openduet_thread_runs_thread_idx").on(
       table.threadId,
       table.startedAt,
     ),
     check(
-      "copilotkit_thread_runs_status_check",
+      "openduet_thread_runs_status_check",
       sql`${table.status} IN ('running', 'finished', 'error', 'stopped')`,
     ),
   ],
@@ -223,12 +223,12 @@ export const copilotThreadRuns = pgTable(
  * Deleting a thread takes its lock with it (`onDelete: cascade`), which is the one case where a
  * locked thread may lose it. Nothing deletes a running thread: `clearThreads` skips those.
  */
-export const copilotThreadLocks = pgTable(
-  "copilotkit_thread_locks",
+export const threadLocks = pgTable(
+  "openduet_thread_locks",
   {
     threadId: text("thread_id")
       .primaryKey()
-      .references(() => copilotThreads.id, { onDelete: "cascade" }),
+      .references(() => threads.id, { onDelete: "cascade" }),
     runId: text("run_id").notNull(),
     userId: text("user_id"),
     acquiredAt: timestamp("acquired_at", { withTimezone: true })
@@ -237,5 +237,5 @@ export const copilotThreadLocks = pgTable(
     /** In the past means free: the run that held this stopped renewing and is presumed gone. */
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },
-  (table) => [index("copilotkit_thread_locks_expiry_idx").on(table.expiresAt)],
+  (table) => [index("openduet_thread_locks_expiry_idx").on(table.expiresAt)],
 );

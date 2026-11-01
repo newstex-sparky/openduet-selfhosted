@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import { createStallGuard } from "../src/channels/stall-guard";
 import { loadConfig } from "../src/config";
-import { mountCopilotRuntime } from "../src/copilot";
+import { mountAgentRuntime } from "../src/copilot";
 import { localThreadPlatform } from "../src/local-mode";
 import { testDatabaseUrl } from "./support/database";
 import { testEnvironment } from "./support/environment";
@@ -26,7 +26,7 @@ test("delegation creates its scratch Thread before locking, then refuses a secon
   );
   const threadId = `learning-handoff-scratch-${crypto.randomUUID()}`;
   try {
-    const runtime = mountCopilotRuntime(
+    const runtime = mountAgentRuntime(
       config,
       createActorAgentResolver({
         model: { provider: "openai", defaultModel: "unused" },

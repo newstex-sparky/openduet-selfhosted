@@ -228,7 +228,7 @@ describe("the CopilotKit CLI", () => {
       PATH: "/usr/bin",
       HOME: "/home/openbot",
       COPILOTKIT_CONFIG_DIR: "/var/run/copilotkit",
-      COPILOTKIT_TELEMETRY_DISABLED: "1",
+      OPENBOT_TELEMETRY_DISABLED: "1",
     });
   });
 });

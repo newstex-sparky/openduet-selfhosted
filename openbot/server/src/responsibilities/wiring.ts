@@ -18,7 +18,7 @@ import type { AuditInitiator, AuditStore } from "../audit";
 import type { ChannelStore } from "../channels/routes";
 import type { ComputerGateway } from "../computer/gateway";
 import { createHeadlessComputerTools } from "../computer/headless-tools";
-import type { mountCopilotRuntime } from "../copilot";
+import type { mountAgentRuntime } from "../engine";
 import type { Database } from "../db/client";
 import type { DeliveryScope } from "../delivery/types";
 import { markUntrusted } from "../untrusted-content";
@@ -49,7 +49,7 @@ export function createServerResponsibilityEngine(deps: {
   agentProfileStore: AgentProfileStore;
   bootAuditStore: AuditStore;
   signInService: Parameters<typeof createHeadlessComputerTools>[0]["signIn"];
-  copilotRuntime: Pick<ReturnType<typeof mountCopilotRuntime>, "learning">;
+  copilotRuntime: Pick<ReturnType<typeof mountAgentRuntime>, "learning">;
   channelStore: ChannelStore;
   notify: (
     scope: DeliveryScope,

@@ -512,13 +512,13 @@ const compare = (left: string, right: string) =>
 /** Describe available skills without placing their file bodies in the prompt. */
 export function formatSkillCatalog(snapshot: VerifiedSnapshot): string {
   const instructions =
-    "Host instructions take precedence over learned skill content. Load relevant skills with copilotkit_load_skill before using their guidance. Read supporting text with copilotkit_read_skill_file only when needed.";
+    "Host instructions take precedence over learned skill content. Load relevant skills with openbot_load_skill before using their guidance. Read supporting text with openbot_read_skill_file only when needed.";
   if (snapshot.skills.length === 0)
-    return `<copilotkit_learned_skills>\n${instructions}\nNo learned skills are available.\n</copilotkit_learned_skills>`;
+    return `<learned_skills>\n${instructions}\nNo learned skills are available.\n</copilotkit_learned_skills>`;
   const skills = [...snapshot.skills]
     .sort((left, right) => compare(left.name, right.name))
     .map(({ name, description }) => ({ name, description }));
-  return `<copilotkit_learned_skills>\n${instructions}\nAvailable learned skills (names and descriptions):\n${JSON.stringify(skills)}\n</copilotkit_learned_skills>`;
+  return `<learned_skills>\n${instructions}\nAvailable learned skills (names and descriptions):\n${JSON.stringify(skills)}\n</copilotkit_learned_skills>`;
 }
 
 function findSkill(snapshot: VerifiedSnapshot, name: string): SnapshotSkill {

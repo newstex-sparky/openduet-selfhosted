@@ -1,7 +1,7 @@
 /**
  * The two record shapes a thread platform answers in, and the conversions between them and AG-UI's.
  *
- * Intelligence's REST answers use these, every reader in `server/src/copilot.ts` and
+ * Intelligence's REST answers use these, every reader in `server/src/engine.ts` and
  * `toolkit/src/run-turn.ts` reads them, and the runtime's local thread endpoints wrap them again for
  * the browser. Keeping them here rather than in one platform means the in-memory one and the
  * Postgres one cannot disagree about what a message row looks like — which is the whole point of

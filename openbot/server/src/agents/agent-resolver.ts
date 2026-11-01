@@ -12,7 +12,7 @@ import {
   resolveRuntimeAgents,
   type SignRun,
   type ToolSelection,
-} from "../copilot";
+} from "../engine";
 import type { AcquireLearnedSkills } from "../learning/runtime";
 import type { LoadPersonalMemory } from "../memory/tools";
 import type { AgentActor } from "./profile-types";

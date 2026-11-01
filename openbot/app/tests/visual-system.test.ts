@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { GENERATIVE_UI_DESIGN_SKILL } from "../src/lib/copilot/generative-ui";
+import { GENERATIVE_UI_DESIGN_SKILL } from "../src/lib/chat/generative-ui";
 import { SANDBOX_THEME_ASK, SANDBOX_THEME_MESSAGE } from "../src/lib/theme";
 import { cn, TYPE_SCALE_CLASSES } from "../src/lib/utils";
 import {

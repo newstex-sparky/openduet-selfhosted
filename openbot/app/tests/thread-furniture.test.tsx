@@ -8,7 +8,7 @@ import {
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
 import { frameTaskInput, frameTaskReply } from "@openbot/shared/task-brief";
-import { CopilotKitContext } from "@/lib/agui/context";
+import { AgentContext } from "@/lib/agui/context";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render } from "@testing-library/react";
@@ -40,7 +40,7 @@ afterAll(async () => {
 });
 
 const noRenderers = {
-  copilotkit: {
+  agentRuntime: {
     renderToolCalls: [],
     // Nothing is registered, which is the case under test: `useRenderToolCall` asks the registry
     // for a card and is told there is none, and the transcript draws its own line instead.
@@ -52,11 +52,11 @@ const noRenderers = {
 
 function draw(messages: Message[], busy = false) {
   return render(
-    <CopilotKitContext.Provider value={noRenderers}>
+    <AgentContext.Provider value={noRenderers}>
       <QueryClientProvider client={new QueryClient()}>
         <ChatTranscript busy={busy} messages={messages} />
       </QueryClientProvider>
-    </CopilotKitContext.Provider>,
+    </AgentContext.Provider>,
   );
 }
 
@@ -182,11 +182,11 @@ describe("Seen", () => {
     // The rest arrives a moment later, as a replay does.
     await new Promise((resolve) => setTimeout(resolve, 50));
     view.rerender(
-      <CopilotKitContext.Provider value={noRenderers}>
+      <AgentContext.Provider value={noRenderers}>
         <QueryClientProvider client={new QueryClient()}>
           <ChatTranscript messages={older} />
         </QueryClientProvider>
-      </CopilotKitContext.Provider>,
+      </AgentContext.Provider>,
     );
     await new Promise((resolve) => setTimeout(resolve, 600));
     expect(view.queryByText("Seen")).toBeNull();

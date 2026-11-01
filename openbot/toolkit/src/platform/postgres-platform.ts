@@ -20,7 +20,7 @@
  *      SYNCHRONOUS by `LocalThreadEndpointRunner`, and the runtime calls `.map`/`JSON.stringify` on
  *      what they return. A promise would be stringified as `{}`. So those four read a per-process
  *      MIRROR that `prime(threadId)` and `refresh()` load from Postgres — awaited by the local-mode
- *      gate in `server/src/copilot.ts` before it hands a `/threads…` request to the runtime. The
+ *      gate in `server/src/engine.ts` before it hands a `/threads…` request to the runtime. The
  *      mirror is a read cache with an explicit loader, never the source of truth: every write goes
  *      to Postgres first.
  *   2. `run` and `connect` return observables, which is where the async work happens. Nothing is
@@ -239,10 +239,10 @@ export function createPostgresThreadPlatform(
     agentId: string,
   ): Promise<LocalThreadSummary> {
     const rows = await read<ThreadRow>(sql`
-      insert into copilotkit_threads (id, user_id, agent_id, organization_id, name, archived)
+      insert into openduet_threads (id, user_id, agent_id, organization_id, name, archived)
       values (${threadId}, ${userId ?? null}, ${agentId}, '', null, false)
       on conflict (id) do update set updated_at = now()
-        where copilotkit_threads.user_id is not distinct from excluded.user_id
+        where openduet_threads.user_id is not distinct from excluded.user_id
       returning id, user_id, agent_id, name, organization_id, archived, created_at, updated_at
     `);
     const row = rows[0];
@@ -264,11 +264,11 @@ export function createPostgresThreadPlatform(
       userId === undefined
         ? await read<ThreadRow>(sql`
             select id, user_id, agent_id, name, organization_id, archived, created_at, updated_at
-            from copilotkit_threads where id = ${threadId}
+            from openduet_threads where id = ${threadId}
           `)
         : await read<ThreadRow>(sql`
             select id, user_id, agent_id, name, organization_id, archived, created_at, updated_at
-            from copilotkit_threads where id = ${threadId} and user_id = ${userId}
+            from openduet_threads where id = ${threadId} and user_id = ${userId}
           `);
     const row = rows[0];
     return row ? summaryOf(row) : undefined;
@@ -279,8 +279,8 @@ export function createPostgresThreadPlatform(
     return read<ListedThreadRow>(sql`
       select t.id, t.user_id, t.agent_id, t.name, t.organization_id, t.archived,
              t.created_at, t.updated_at,
-             exists (select 1 from copilotkit_thread_events e where e.thread_id = t.id) as has_events
-      from copilotkit_threads t
+             exists (select 1 from openduet_thread_events e where e.thread_id = t.id) as has_events
+      from openduet_threads t
       where t.user_id = ${userId}
       order by t.updated_at desc
       limit ${listedThreads}
@@ -290,7 +290,7 @@ export function createPostgresThreadPlatform(
   async function threadMessages(threadId: string): Promise<Message[]> {
     const rows = await read<MessageRow>(sql`
       select seq, message_id, role, content, tool_calls, tool_call_id
-      from copilotkit_thread_messages
+      from openduet_thread_messages
       where thread_id = ${threadId}
       order by seq
     `);
@@ -302,7 +302,7 @@ export function createPostgresThreadPlatform(
     after: number,
   ): Promise<{ seq: number; event: BaseEvent }[]> {
     const rows = await read<EventRow>(sql`
-      select seq, event from copilotkit_thread_events
+      select seq, event from openduet_thread_events
       where thread_id = ${threadId} and seq > ${after}
       order by seq
     `);
@@ -365,7 +365,7 @@ export function createPostgresThreadPlatform(
       }),
     );
     await sql`
-      insert into copilotkit_thread_messages (thread_id, message_id, role, content, tool_calls, tool_call_id)
+      insert into openduet_thread_messages (thread_id, message_id, role, content, tool_calls, tool_call_id)
       select ${threadId}, m->>'messageId', m->>'role', m->'content', m->'toolCalls', m->>'toolCallId'
       from jsonb_array_elements(${payload}::text::jsonb) as m
       on conflict (thread_id, message_id) do update
@@ -374,7 +374,7 @@ export function createPostgresThreadPlatform(
             tool_calls = excluded.tool_calls,
             tool_call_id = excluded.tool_call_id
     `;
-    await sql`update copilotkit_threads set updated_at = now() where id = ${threadId}`;
+    await sql`update openduet_threads set updated_at = now() where id = ${threadId}`;
     const cached = mirror.get(threadId);
     if (cached) cached.messages = [...messages];
   }
@@ -388,7 +388,7 @@ export function createPostgresThreadPlatform(
     if (events.length === 0) return;
     const payload = JSON.stringify(events);
     await sql`
-      insert into copilotkit_thread_events (thread_id, run_id, event)
+      insert into openduet_thread_events (thread_id, run_id, event)
       select ${threadId}, ${runId}, value
       from jsonb_array_elements(${payload}::text::jsonb) as value
     `;
@@ -418,7 +418,7 @@ export function createPostgresThreadPlatform(
     const deadline = Date.now() + lockWaitMs;
     for (;;) {
       const rows = await read<{ run_id: string }>(sql`
-        insert into copilotkit_thread_locks (thread_id, run_id, user_id, expires_at)
+        insert into openduet_thread_locks (thread_id, run_id, user_id, expires_at)
         values (${threadId}, ${runId}, ${userId ?? null},
                 now() + (${lockTtlSeconds}::text || ' seconds')::interval)
         on conflict (thread_id) do update
@@ -426,8 +426,8 @@ export function createPostgresThreadPlatform(
               user_id = excluded.user_id,
               acquired_at = now(),
               expires_at = excluded.expires_at
-          where copilotkit_thread_locks.expires_at <= now()
-             or copilotkit_thread_locks.run_id = excluded.run_id
+          where openduet_thread_locks.expires_at <= now()
+             or openduet_thread_locks.run_id = excluded.run_id
         returning run_id
       `);
       if (rows.length > 0) return true;
@@ -439,7 +439,7 @@ export function createPostgresThreadPlatform(
   /** Keep it while the turn works. False when somebody else has it: the lock was lost. */
   async function renewLock(threadId: string, runId: string): Promise<boolean> {
     const rows = await read<{ thread_id: string }>(sql`
-      update copilotkit_thread_locks
+      update openduet_thread_locks
         set expires_at = now() + (${lockTtlSeconds}::text || ' seconds')::interval
         where thread_id = ${threadId} and run_id = ${runId} and expires_at > now()
       returning thread_id
@@ -449,7 +449,7 @@ export function createPostgresThreadPlatform(
 
   async function releaseLock(threadId: string, runId: string): Promise<void> {
     await sql`
-      delete from copilotkit_thread_locks
+      delete from openduet_thread_locks
       where thread_id = ${threadId} and run_id = ${runId}
     `;
   }
@@ -457,7 +457,7 @@ export function createPostgresThreadPlatform(
   /** Whether anything is running in this conversation, from any replica. */
   async function lockIsLive(threadId: string): Promise<boolean> {
     const rows = await read<{ thread_id: string }>(sql`
-      select thread_id from copilotkit_thread_locks
+      select thread_id from openduet_thread_locks
       where thread_id = ${threadId} and expires_at > now()
     `);
     return rows.length > 0;
@@ -480,7 +480,7 @@ export function createPostgresThreadPlatform(
     agentId: string,
   ): Promise<void> {
     await sql`
-      insert into copilotkit_thread_runs (run_id, thread_id, user_id, agent_id, status)
+      insert into openduet_thread_runs (run_id, thread_id, user_id, agent_id, status)
       values (${runId}, ${threadId}, ${userId ?? null}, ${agentId}, 'running')
       on conflict (thread_id, run_id) do update
         set status = 'running', stop_requested = false, finished_at = null, error = null
@@ -494,7 +494,7 @@ export function createPostgresThreadPlatform(
     error?: string,
   ): Promise<void> {
     await sql`
-      update copilotkit_thread_runs
+      update openduet_thread_runs
         set status = ${status}, finished_at = now(), error = ${error ?? null}
         where thread_id = ${threadId} and run_id = ${runId}
     `;
@@ -505,7 +505,7 @@ export function createPostgresThreadPlatform(
     runId: string,
   ): Promise<boolean> {
     const rows = await read<{ stop_requested: boolean }>(sql`
-      select stop_requested from copilotkit_thread_runs
+      select stop_requested from openduet_thread_runs
         where thread_id = ${threadId} and run_id = ${runId}
     `);
     return rows[0]?.stop_requested === true;
@@ -517,7 +517,7 @@ export function createPostgresThreadPlatform(
     runId: string,
   ): Promise<boolean> {
     const rows = await read<{ run_id: string }>(sql`
-      update copilotkit_thread_runs set stop_requested = true
+      update openduet_thread_runs set stop_requested = true
         where thread_id = ${threadId} and run_id = ${runId} and status = 'running'
       returning run_id
     `);
@@ -1001,14 +1001,14 @@ export function createPostgresThreadPlatform(
       }
       void Promise.resolve(
         sql`
-        delete from copilotkit_threads t
+        delete from openduet_threads t
         where t.user_id = ${user}
           and not exists (
-            select 1 from copilotkit_thread_locks l
+            select 1 from openduet_thread_locks l
             where l.thread_id = t.id and l.expires_at > now()
           )
           and not exists (
-            select 1 from copilotkit_thread_runs r
+            select 1 from openduet_thread_runs r
             where r.thread_id = t.id and r.status = 'running'
           )
       `,
@@ -1124,10 +1124,10 @@ export function createPostgresThreadPlatform(
     /** For diagnostics and tests: what this process is holding, and what Postgres holds. */
     async stats() {
       const [threads] = await read<{ count: string }>(
-        sql`select count(*)::text as count from copilotkit_threads`,
+        sql`select count(*)::text as count from openduet_threads`,
       );
       const [running] = await read<{ count: string }>(
-        sql`select count(*)::text as count from copilotkit_thread_locks where expires_at > now()`,
+        sql`select count(*)::text as count from openduet_thread_locks where expires_at > now()`,
       );
       return {
         threads: Number(threads?.count ?? 0),

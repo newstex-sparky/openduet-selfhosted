@@ -23,7 +23,7 @@ export const BASIC_CATALOG_ID =
   "https://a2ui.org/specification/v0_9/basic_catalog.json";
 
 /**
- * The basic catalog, drawn by this repository instead of by the CopilotKit A2UI renderer package.
+ * The basic catalog, drawn by this repository instead of by the AgentRuntime A2UI renderer package.
  *
  * Same component names and the same prop schemas as `@a2ui/web_core`'s `BASIC_COMPONENTS` — the
  * schemas are what tell the binder which props are data bindings, which are actions and which are

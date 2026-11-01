@@ -23,7 +23,7 @@ import { TeamBotConsentCard } from "./team-bot-consent";
 /**
  * One conversation with several Bots, read from the server's shared transcript.
  *
- * Not the CopilotKit chat. Each Bot answers in a thread of its own on the server, so there is no one
+ * Not the AgentRuntime chat. Each Bot answers in a thread of its own on the server, so there is no one
  * agent for a browser run to bind to; the person posts a message, the server runs every addressed
  * Bot through the ordinary headless AG-UI path, and this draws what each of them said, attributed.
  * `@Name` in the composer addresses one Bot; otherwise every Bot answers, one after another.

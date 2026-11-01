@@ -18,7 +18,7 @@ export const THREAD_LOCK_TTL_SECONDS = 120;
  * Structural rather than `Pick<…, …>` of any concrete class so that both platforms satisfy it: the
  * in-process one (`./local-platform.ts`) and the Postgres one (`./postgres-platform.ts`) answer the
  * same four calls with the same error contract (409 is "not now"). Nothing here names the vendor
- * type, so a platform that drifts fails the server's typecheck at the call site in `copilot.ts`.
+ * type, so a platform that drifts fails the server's typecheck at the call site in `engine.ts`.
  */
 export type ThreadLockClient = {
   getOrCreateThread(params: {

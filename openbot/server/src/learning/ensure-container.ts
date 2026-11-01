@@ -108,12 +108,12 @@ export function intelligenceApiOrigin(value: string): string {
  * else. It is `copilotkit@latest` from the registry, so it never sees this process's secrets.
  */
 const CLI_ENVIRONMENT =
-  /^(PATH|HOME|USER|LOGNAME|SHELL|TMPDIR|TEMP|TMP|LANG|LC_[A-Z]+|XDG_[A-Z_]+|APPDATA|LOCALAPPDATA|USERPROFILE|SYSTEMROOT|SystemRoot|COMSPEC|PATHEXT|HTTPS?_PROXY|NO_PROXY|https?_proxy|no_proxy|NODE_EXTRA_CA_CERTS|npm_config_[a-z_]+|NPM_CONFIG_[A-Z_]+|COPILOTKIT_CONFIG_DIR|COPILOTKIT_DEPLOYMENT|COPILOTKIT_APP_API_URL|COPILOTKIT_OPS_API_URL|COPILOTKIT_TELEMETRY_DISABLED)$/;
+  /^(PATH|HOME|USER|LOGNAME|SHELL|TMPDIR|TEMP|TMP|LANG|LC_[A-Z]+|XDG_[A-Z_]+|APPDATA|LOCALAPPDATA|USERPROFILE|SYSTEMROOT|SystemRoot|COMSPEC|PATHEXT|HTTPS?_PROXY|NO_PROXY|https?_proxy|no_proxy|NODE_EXTRA_CA_CERTS|npm_config_[a-z_]+|NPM_CONFIG_[A-Z_]+|COPILOTKIT_CONFIG_DIR|COPILOTKIT_DEPLOYMENT|COPILOTKIT_APP_API_URL|COPILOTKIT_OPS_API_URL|OPENBOT_TELEMETRY_DISABLED)$/;
 
 export function cliEnvironment(
   environment: Record<string, string | undefined> = process.env,
 ): Record<string, string> {
-  const kept: Record<string, string> = { COPILOTKIT_TELEMETRY_DISABLED: "1" };
+  const kept: Record<string, string> = { OPENBOT_TELEMETRY_DISABLED: "1" };
   for (const [name, value] of Object.entries(environment))
     if (value !== undefined && CLI_ENVIRONMENT.test(name)) kept[name] = value;
   return kept;

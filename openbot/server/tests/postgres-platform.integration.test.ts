@@ -5,8 +5,8 @@ import { AbstractAgent, EventType } from "@ag-ui/client";
 import {
   createPostgresThreadPlatform,
   type PlatformSql,
-} from "@openbot/toolkit/copilotkit/postgres-platform";
-import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
+} from "@openbot/toolkit/platform/postgres-platform";
+import { runAsLocalUser } from "@openbot/toolkit/platform/request-scope";
 import { isLockConflict } from "@openbot/toolkit/lease";
 import postgres from "postgres";
 import { Observable } from "rxjs";
@@ -171,14 +171,14 @@ describe("the Postgres thread platform", () => {
     clients.push(client);
     const rows = await client<{ table_name: string }[]>`
       SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name LIKE 'copilotkit_thread%'
+      WHERE table_schema = 'public' AND table_name LIKE 'openduet_thread%'
       ORDER BY table_name`;
     expect(rows.map((row) => row.table_name)).toEqual([
-      "copilotkit_thread_events",
-      "copilotkit_thread_locks",
-      "copilotkit_thread_messages",
-      "copilotkit_thread_runs",
-      "copilotkit_threads",
+      "openduet_thread_events",
+      "openduet_thread_locks",
+      "openduet_thread_messages",
+      "openduet_thread_runs",
+      "openduet_threads",
     ]);
   }, 120_000);
 
@@ -376,7 +376,7 @@ describe("the Postgres thread platform", () => {
       { thread_id: string; run_id: string; status: string; stop: boolean }[]
     >`
       select thread_id, run_id, status, stop_requested as stop
-        from copilotkit_thread_runs order by thread_id`;
+        from openduet_thread_runs order by thread_id`;
 
     for (const threadId of ["thread-one", "thread-two"]) {
       const events = await turn(

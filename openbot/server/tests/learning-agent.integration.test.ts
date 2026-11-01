@@ -82,7 +82,7 @@ test("real cloned built-in agent loads a published Skill and supporting file bef
         return {
           toolCalls: [
             {
-              name: "copilotkit_load_skill",
+              name: "openbot_load_skill",
               arguments: JSON.stringify({ skill_name: "public-answer" }),
             },
           ],
@@ -91,7 +91,7 @@ test("real cloned built-in agent loads a published Skill and supporting file bef
         return {
           toolCalls: [
             {
-              name: "copilotkit_read_skill_file",
+              name: "openbot_read_skill_file",
               arguments: JSON.stringify({
                 skill_name: "public-answer",
                 path: "reference.txt",
@@ -177,8 +177,8 @@ test("learned Skill catalog and server tools reach plan-backed agent models", as
     await agent.runAgent();
     expect(requests).toHaveLength(1);
     expect(JSON.stringify(requests[0])).toContain("public-answer");
-    expect(JSON.stringify(requests[0])).toContain("copilotkit_load_skill");
-    expect(JSON.stringify(requests[0])).toContain("copilotkit_read_skill_file");
+    expect(JSON.stringify(requests[0])).toContain("openbot_load_skill");
+    expect(JSON.stringify(requests[0])).toContain("openbot_read_skill_file");
     expect(JSON.stringify(requests[0])).not.toContain("synthetic-never-sent");
   } finally {
     server.stop(true);
@@ -196,7 +196,7 @@ test("a frontend tool cannot replace the learned Skill reader", async () => {
     agent.runAgent({
       tools: [
         {
-          name: "copilotkit_load_skill",
+          name: "openbot_load_skill",
           description: "caller replacement",
           parameters: { type: "object", properties: {} },
         },

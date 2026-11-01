@@ -18,8 +18,8 @@
 import type {
   PlatformSql,
   PostgresThreadPlatform,
-} from "@openbot/toolkit/copilotkit/postgres-platform";
-import { createPostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
+} from "@openbot/toolkit/platform/postgres-platform";
+import { createPostgresThreadPlatform } from "@openbot/toolkit/platform/postgres-platform";
 import postgres from "postgres";
 import type { DeploymentConfig } from "./config";
 

@@ -300,25 +300,24 @@ function RosterStep() {
 /**
  * Where an evaluator's data is kept, said as the server actually keeps it.
  *
- * IT USED TO SAY CONVERSATIONS STAYED ON THIS COMPUTER, AND THEY DO NOT. The server refuses to start
- * without CopilotKit Intelligence (`INTELLIGENCE_API_URL` and `INTELLIGENCE_API_KEY`, see
- * `.env.example` and `docs/telemetry.md`), because Intelligence owns durable threads and memory. Its
- * address defaults to CopilotKit's managed service, and only somebody who runs Intelligence
- * themselves points it elsewhere. So each sentence below is one thing this install verifiably does:
+ * THIS SLIDE USED TO WARN ABOUT A HOSTED SERVICE, AND THERE IS NONE. The server used to refuse to
+ * start without a vendor project because that vendor owned durable threads and memory. It does not
+ * any more: local mode is the only mode, and the threads, the messages, the event log and the run
+ * lock are rows in this install's own Postgres (`toolkit/src/platform/postgres-platform.ts`). So each
+ * sentence below is one thing this install verifiably does:
  *
  * - Bots and settings are rows in this install's own Postgres (`agents`, preferences, rules).
  *   "This install's database", not "this computer": `DATABASE_URL` decides where that is, and
  *   nothing here reads it. Files and connected accounts are left out on purpose. A file's bytes are
  *   in that database, but what a message carries about it also reaches the thread and the model;
  *   and an app connected through Composio or Arcade is held by that service, not here.
- * - Conversations and memory are in Intelligence, named, with where it runs by default.
+ * - Conversations, memory and the run lock are in the same database, so a restart keeps them.
  * - Every message goes to the model provider this install was set up with.
- * - The CopilotKit runtime sends usage events to CopilotKit unless `DO_NOT_TRACK=1` or
- *   `COPILOTKIT_TELEMETRY_DISABLED=true` is set (`server/src/telemetry.ts`). Naming the variable is
- *   fine here: this step is shown only to a single-user install, whose one reader runs the server.
+ * - No usage telemetry leaves this install: the runtime is in this repository (`server/src/engine.ts`)
+ *   and reports to nothing outside it (see `docs/telemetry.md`).
  *
- * Nothing about sign-in: activating a local install signs you in to CopilotKit, which is its own
- * question and not this step's.
+ * Nothing about sign-in: activating a local install signs you in to this deployment, which is its
+ * own question and not this step's.
  */
 function LocalStep() {
   return (
@@ -327,13 +326,11 @@ function LocalStep() {
         Where your data lives
       </h1>
       <p className="mt-3 max-w-md text-center text-muted-foreground">
-        Your Bots and settings stay in this install's database. Conversations
-        and memory are kept in CopilotKit Intelligence, in CopilotKit's cloud
-        unless you host it yourself. What you ask goes to your AI model.
+        Your Bots, settings, conversations and memory stay in this install's
+        own database. What you ask goes to your AI model.
       </p>
       <p className="type-caption mt-3 max-w-md text-center text-duet-ink-3">
-        CopilotKit also receives usage events. Set DO_NOT_TRACK=1 to turn them
-        off.
+        No usage events leave this install.
       </p>
       <div className="h-8" />
       <CapabilityDemo kind="approval" />
@@ -373,30 +370,6 @@ function AgentsStep() {
   );
 }
 
-/**
- * CopilotKit's other open products, named and described as the website's own Products menu has them
- * (copilotkit.ai). Somebody trying OpenDuet on their own machine is the person most likely to want
- * one of them, and this is the slide about what comes after trying it. `ref` tells CopilotKit the
- * visit came from onboarding.
- */
-const MORE_FROM_COPILOTKIT = [
-  {
-    name: "OpenBot",
-    line: "The self-hosted assistant OpenDuet is built on.",
-    href: "https://www.copilotkit.ai/openbot?ref=openduet_onboarding",
-  },
-  {
-    name: "OpenMuse",
-    line: "A personal agent with its own browser and files, on iOS, Android and web.",
-    href: "https://www.copilotkit.ai/openmuse?ref=openduet_onboarding",
-  },
-  {
-    name: "OpenDots",
-    line: "Always-on coworkers for text, calls and Slack.",
-    href: "https://www.copilotkit.ai/opendots?ref=openduet_onboarding",
-  },
-] as const;
-
 function OrganizationStep() {
   return (
     <div className="w-full flex flex-col items-center justify-center">
@@ -425,44 +398,6 @@ function OrganizationStep() {
       >
         Get early access
       </a>
-      <section
-        aria-labelledby="more-from-copilotkit"
-        className="mt-8 w-full max-w-lg"
-      >
-        <h2
-          className="type-sub px-1 font-medium text-duet-ink-2"
-          id="more-from-copilotkit"
-        >
-          More from CopilotKit
-        </h2>
-        <ul className="mt-2 overflow-hidden rounded-2xl border border-border">
-          {MORE_FROM_COPILOTKIT.map((product, index) => (
-            <li
-              className={index > 0 ? "border-t border-border" : undefined}
-              key={product.name}
-            >
-              <a
-                className="flex min-h-[44px] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-duet-accent/40"
-                href={product.href}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="type-body block font-medium">
-                    {product.name}
-                  </span>
-                  <span className="type-sub block text-duet-ink-2">
-                    {product.line}
-                  </span>
-                </span>
-                <span aria-hidden className="text-duet-ink-3">
-                  ↗
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
@@ -624,7 +559,7 @@ function RouteComponent() {
    * shows an organization's employees a page about deploying OpenBot themselves.
    *
    * NOT GATED ON `selfHostBanner` AS WELL. That flag is off for any deployment with a paid
-   * Intelligence entitlement, and the stack `copilotkit local` installs runs on an enterprise
+   * Intelligence entitlement, and the stack `agentRuntime local` installs runs on an enterprise
    * evaluation licence, so every CLI evaluator, the person these slides are for, would never see them.
    */
   const { data: capabilities, isPending: asking } = useQuery(

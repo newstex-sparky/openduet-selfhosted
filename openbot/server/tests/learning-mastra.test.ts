@@ -11,8 +11,8 @@ test("Mastra's maintained AG-UI bridge consumes the catalog and both learned too
       const history = JSON.stringify(body.messages);
       const done = history.includes("SUPPORTING_FILE_CONTENT");
       const name = history.includes("LOADED_SKILL_CONTENT")
-        ? "copilotkit_read_skill_file"
-        : "copilotkit_load_skill";
+        ? "openbot_read_skill_file"
+        : "openbot_load_skill";
       const delta = done
         ? { role: "assistant", content: "SUPPORTING_FILE_CONTENT" }
         : {
@@ -26,7 +26,7 @@ test("Mastra's maintained AG-UI bridge consumes the catalog and both learned too
                   name,
                   arguments: JSON.stringify({
                     skill_name: "refunds",
-                    ...(name === "copilotkit_read_skill_file"
+                    ...(name === "openbot_read_skill_file"
                       ? { path: "supporting.txt" }
                       : {}),
                   }),
@@ -64,7 +64,7 @@ test("Mastra's maintained AG-UI bridge consumes the catalog and both learned too
     import { lastValueFrom, toArray } from "rxjs";
     import { mastra } from "../agent-mastra/src/mastra/index.ts";
     import { RemoteLearnedSkillsMiddleware } from "./src/learning/remote.ts";
-    const tools = ["copilotkit_load_skill", "copilotkit_read_skill_file"].map(name => ({
+    const tools = ["openbot_load_skill", "openbot_read_skill_file"].map(name => ({
       name, description: "Read learned guidance", parameters: {
         type: "object", properties: { skill_name: { type: "string" }, path: { type: "string" } }, required: ["skill_name"]
       }
@@ -72,7 +72,7 @@ test("Mastra's maintained AG-UI bridge consumes the catalog and both learned too
     const remote = getLocalAgents({ mastra, resourceId: "learning-test" }).openbot;
     const middleware = new RemoteLearnedSkillsMiddleware("bot", async () => ({
       catalog: "LEARNED_CATALOG_MARKER", tools,
-      execute: async (name) => name === "copilotkit_load_skill" ? "LOADED_SKILL_CONTENT" : "SUPPORTING_FILE_CONTENT"
+      execute: async (name) => name === "openbot_load_skill" ? "LOADED_SKILL_CONTENT" : "SUPPORTING_FILE_CONTENT"
     }));
     const events = await lastValueFrom(middleware.run({
       threadId: crypto.randomUUID(), runId: crypto.randomUUID(), tools: [], context: [], state: {}, forwardedProps: {},

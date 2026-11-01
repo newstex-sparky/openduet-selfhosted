@@ -1,10 +1,10 @@
 import type { Message } from "@ag-ui/core";
 import {
   type Attachment,
-  CopilotChatConfigurationProvider,
+  ChatConfigurationProvider,
   UseAgentUpdate,
   useAgent,
-  useCopilotKit,
+  useAgentRuntime,
 } from "@/lib/agui";
 import type { TaskReplyContext } from "@openbot/shared/task-reply";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -406,7 +406,7 @@ export function ChannelChat({
   // it cannot hide the accepted Queued row or overwrite the reply once the server records it.
   const [taskPreviews, setTaskPreviews] = useState<Message[]>([]);
   // The core attaches the frontend tool registry; direct agent runs do not.
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   // Mentions are scoped to the channel's permitted agents.
   const { data: agentProfiles } = useQuery(agentListQueryOptions());
   const channelAgentId = `channel:${channel.id}`;
@@ -588,7 +588,7 @@ export function ChannelChat({
           runOpen = false;
         },
       });
-      const connect = copilotkit.connectAgent({ agent });
+      const connect = agentRuntime.connectAgent({ agent });
       /*
        * A JOIN IS NOT A TURN. `connectAgent` holds `agent.isRunning` true for its whole replay,
        * exactly as a run does, and this client is ready in the same commit that starts the join —
@@ -741,7 +741,7 @@ export function ChannelChat({
     return () => {
       current = false;
     };
-  }, [copilotkit, agent, isReady, channel.threadId, runtimeAgentId]);
+  }, [agentRuntime, agent, isReady, channel.threadId, runtimeAgentId]);
 
   /*
    * A turn nobody here streamed, surfaced while the channel is open.
@@ -937,7 +937,7 @@ export function ChannelChat({
    * WHY THIS TURN ENDED WITHOUT AN ANSWER, KEPT WHERE `deliver` CAN STILL SEE IT — because the one
    * thing that knows is a subscriber, and the one thing that has to act on it is an `await`.
    *
-   * `copilotkit.runAgent` DOES NOT REJECT ON A FAILED RUN. `CopilotKitCore.runAgent` catches
+   * `agentRuntime.runAgent` DOES NOT REJECT ON A FAILED RUN. `AgentRuntimeCore.runAgent` catches
    * everything the agent throws, reports it through `emitError` as `AGENT_RUN_FAILED`, and returns
    * `{ result: undefined, newMessages: [] }` — a value indistinguishable from a run that finished
    * with nothing to say. So a gateway 503, a stream that dies, a model that refuses the request:
@@ -960,7 +960,7 @@ export function ChannelChat({
    * Two overlapping turns — a component button pressed during a composer send — would have the
    * second clear the first's reason, which reports the earlier turn as successful. That is the
    * pre-existing shape of `awaitingReply`, not a new one, and narrowing it means giving a run a
-   * handle that `copilotkit.runAgent` does not hand back.
+   * handle that `agentRuntime.runAgent` does not hand back.
    */
   const turnFailure = useRef<string | null>(null);
   /**
@@ -979,7 +979,7 @@ export function ChannelChat({
    * what decides whether the next thing typed is sent or parked, and what tells the queue its wait
    * is over.
    *
-   * `runsInFlight` counts what Stop can actually reach: the run `copilotkit.runAgent` opens, and
+   * `runsInFlight` counts what Stop can actually reach: the run `agentRuntime.runAgent` opens, and
    * nothing before it. A turn can be in flight for a second and a half before that, while `say`
    * waits for the runtime agent, and a Stop drawn in that window aborts a controller nobody has
    * made yet.
@@ -1236,8 +1236,8 @@ export function ChannelChat({
     });
     setRunsInFlight((count) => count + 1);
     try {
-      await withVoiceContext(copilotkit, target.agentId, voiceHistory, () =>
-        copilotkit.runAgent({ agent: target }),
+      await withVoiceContext(agentRuntime, target.agentId, voiceHistory, () =>
+        agentRuntime.runAgent({ agent: target }),
       );
     } finally {
       startWatch.unsubscribe();
@@ -1455,7 +1455,7 @@ export function ChannelChat({
   const stopTask = () => {
     awaitingReply.current = false;
     stopEpoch.current++;
-    copilotkit.stopAgent({ agent });
+    agentRuntime.stopAgent({ agent });
     freshConnectionAfterStop(agent);
   };
 
@@ -1521,7 +1521,7 @@ export function ChannelChat({
         await followTurn({
           ...(first ? { first: watched(first) } : {}),
           connect: () =>
-            watched(copilotkit.connectAgent({ agent: agentRef.current })),
+            watched(agentRuntime.connectAgent({ agent: agentRef.current })),
           ...(done ? { done: () => done(runs) } : {}),
           stopped: () => !alive.current || epoch !== stopEpoch.current,
           wait: afterMs,
@@ -1669,7 +1669,7 @@ export function ChannelChat({
   return (
     // Activity renderers resolve their agent through this SDK context. It must match useAgent's
     // channel instance so an action continues this thread instead of looking for a default agent.
-    <CopilotChatConfigurationProvider
+    <ChatConfigurationProvider
       agentId={channelAgentId}
       threadId={channel.threadId}
     >
@@ -1748,7 +1748,7 @@ export function ChannelChat({
                   run={async () => {
                     setRunsInFlight((count) => count + 1);
                     try {
-                      await copilotkit.runAgent({ agent });
+                      await agentRuntime.runAgent({ agent });
                     } finally {
                       setRunsInFlight((count) => count - 1);
                     }
@@ -1889,6 +1889,6 @@ export function ChannelChat({
           />
         </div>
       </ConversationProvider>
-    </CopilotChatConfigurationProvider>
+    </ChatConfigurationProvider>
   );
 }

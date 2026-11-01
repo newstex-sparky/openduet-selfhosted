@@ -7,16 +7,16 @@ import {
   CloningRemoteAgent,
   RunBuiltAgent,
   UnavailableAgent,
-} from "@openbot/toolkit/copilotkit/agents";
-import type { BuiltInAgentConfiguration } from "@openbot/toolkit/copilotkit/engine/agent/index";
+} from "@openbot/toolkit/platform/agents";
+import type { BuiltInAgentConfiguration } from "@openbot/toolkit/platform/engine/agent/index";
 import type {
   Engine as ProtocolEngine,
   EngineRunner as ProtocolEngineRunner,
-} from "@openbot/toolkit/copilotkit/engine/engine";
-import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
-import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
-import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
-import { createThreadLock } from "@openbot/toolkit/copilotkit/thread-lock";
+} from "@openbot/toolkit/platform/engine/engine";
+import { createEngineHandler } from "@openbot/toolkit/platform/engine/engine";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/platform/postgres-platform";
+import { runAsLocalUser } from "@openbot/toolkit/platform/request-scope";
+import { createThreadLock } from "@openbot/toolkit/platform/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { parametersFor } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolsMiddleware } from "@openbot/toolkit/headless-tools";
@@ -90,7 +90,7 @@ import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
  * server.
  *
  * Threads, memory and learning used to live in CopilotKit Intelligence, and this function used to
- * mount that instead. This fork is local-only by product decision: `mountLocalCopilotRuntime` (bottom
+ * mount that instead. This fork is local-only by product decision: `mountLocalAgentRuntime` (bottom
  * of this file) runs the same runtime in SSE mode on the process's Postgres thread platform, so a
  * restart keeps every conversation. See `RuntimeCapabilities`.
  */
@@ -1728,7 +1728,7 @@ export function createRequestAgents(
  * reachable on the next request. Resolving once at boot would mean every new Bot needed a restart,
  * which is not a property you can explain to somebody who just created one.
  */
-export function mountCopilotRuntime(
+export function mountAgentRuntime(
   config: DeploymentConfig,
   resolver: ActorAgentResolver,
   identifyUser: IdentifyUser,
@@ -1742,7 +1742,7 @@ export function mountCopilotRuntime(
     }) => void | Promise<void>;
   } = {},
 ) {
-  const { basePath = "/api/copilotkit", onRunBusy } = options;
+  const { basePath = "/api/engine", onRunBusy } = options;
 
   /**
    * The same Bot a person's run would get, built without a request.
@@ -1821,7 +1821,7 @@ export function mountCopilotRuntime(
       .runner as unknown as ProtocolEngineRunner,
   };
 
-  return mountLocalCopilotRuntime({
+  return mountLocalAgentRuntime({
     engine,
     platform,
     basePath,
@@ -1924,7 +1924,7 @@ async function claimRunLock(
   return { threadId, runId };
 }
 
-function mountLocalCopilotRuntime(input: {
+function mountLocalAgentRuntime(input: {
   basePath: string;
   identifyUser: IdentifyUser;
   onRunBusy?: (input: {

@@ -49,7 +49,7 @@ import { createStateEventNormalizer } from "./state-delta";
  * - `mcpServers` / `mcpClients` — the fork offers tools through its own plugin store, which
  *   checks the grant, the policy and the audit row. A vendor MCP path would walk around all three.
  * - `overridableProperties` and the `forwardedProps` overrides — no configuration here sets it.
- * - `learnedSkills` (the vendor's SkillRegistry) — `copilot.ts` injects a learned Skill's catalog
+ * - `learnedSkills` (the vendor's SkillRegistry) — `engine.ts` injects a learned Skill's catalog
  *   into the prompt and its tools into the tool list itself.
  * - the `type:"aisdk"` and `type:"tanstack"` factories — no caller. The AG-UI event conversion and
  *   the usage accounting that the classic path shares with them are kept in `./converters`.

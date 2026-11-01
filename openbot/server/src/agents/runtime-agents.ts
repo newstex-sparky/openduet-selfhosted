@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { teamBotAccess } from "../team-bots/access";
 import type { ManagedAgentConfig } from "../config";
-import { type RegisteredAgent, registeredAgentFromRow } from "../copilot";
+import { type RegisteredAgent, registeredAgentFromRow } from "../engine";
 import type { CredentialSecretReader } from "../credentials";
 import type { Database } from "../db/client";
 import {

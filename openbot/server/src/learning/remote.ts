@@ -15,8 +15,8 @@ import type { AcquireLearnedSkills, LearnedSkillInvocation } from "./runtime";
 const CATALOG_ID = "openbot:learned-skills";
 const CATALOG_CONTEXT = "OpenBot learned skills";
 const RESERVED_TOOLS = new Set([
-  "copilotkit_load_skill",
-  "copilotkit_read_skill_file",
+  "openbot_load_skill",
+  "openbot_read_skill_file",
 ]);
 const MAX_SKILL_STEPS = 10;
 

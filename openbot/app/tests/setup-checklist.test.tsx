@@ -129,7 +129,7 @@ const ADMIN: Checklist = {
       fix: {
         kind: "env",
         names: ["OPENAI_API_KEY"],
-        docsUrl: "https://github.com/CopilotKit/OpenDuet#quick-start",
+        docsUrl: "https://github.com/AgentRuntime/OpenDuet#quick-start",
         page: { label: "Credentials", path: "/admin/credentials" },
       },
     }),
@@ -151,7 +151,7 @@ const ADMIN: Checklist = {
         kind: "env",
         names: ["OPENTAG_SHARED_SECRET", "OPENTAG_URL"],
         docsUrl:
-          "https://github.com/CopilotKit/OpenDuet/blob/main/openbot/docs/configuration.md",
+          "https://github.com/AgentRuntime/OpenDuet/blob/main/openbot/docs/configuration.md",
       },
     }),
   ],
@@ -233,7 +233,7 @@ test("an admin is shown the variable to set, the page, and the guide", async () 
   expect(model.getByText("OPENAI_API_KEY")).not.toBeNull();
   const guide = model.getByRole("link", { name: "Setup guide" });
   expect(guide.getAttribute("href")).toBe(
-    "https://github.com/CopilotKit/OpenDuet#quick-start",
+    "https://github.com/AgentRuntime/OpenDuet#quick-start",
   );
   expect(guide.getAttribute("target")).toBe("_blank");
 

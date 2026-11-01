@@ -12,7 +12,7 @@ import { useAutoWatchScreen } from "@/components/computer/use-auto-watch-screen"
 import {
   reportComputerActivity,
   withdrawComputerActivity,
-} from "@/lib/copilot/computer-activity";
+} from "@/lib/chat/computer-activity";
 import { settleReactWork } from "./settle-react-work";
 
 /**

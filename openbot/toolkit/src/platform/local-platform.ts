@@ -25,7 +25,7 @@
  *
  * WHO OWNS A THREAD. Intelligence scopes every thread to the user `identifyUser` returns. SSE mode
  * gives the runner no user at all, so the server wraps the CopilotKit handler in
- * {@link runAsLocalUser} (see `server/src/copilot.ts`) and every runner entry point reads the person
+ * {@link runAsLocalUser} (see `server/src/engine.ts`) and every runner entry point reads the person
  * from there. A thread belongs to whoever first touched it; anyone else gets the answer a missing
  * thread gets, so a thread id is not an oracle for whether somebody else's conversation exists.
  * Server-side callers (headless turns) carry no request user and are trusted, exactly as they are

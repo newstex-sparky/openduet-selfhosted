@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LearnedSkillsError } from "@openbot/toolkit/copilotkit/engine/learned-skills";
+import { LearnedSkillsError } from "@openbot/toolkit/platform/engine/learned-skills";
 import type { AuditEventInput, AuditStore } from "../src/audit";
 import type { LearnedSkillsInspection } from "../src/learning/runtime";
 import {

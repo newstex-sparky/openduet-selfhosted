@@ -34,14 +34,14 @@ import type {
 const MAX_CLIENT_TOOL_ROUNDS = 8;
 
 /** What a subscriber is told when the render registry changes. */
-export interface CopilotKitSubscriber {
+export interface AgentRuntimeSubscriber {
   onRenderToolCallsChanged?: (event: {
-    copilotkit: CopilotKit;
+    agentRuntime: AgentRuntime;
     renderToolCalls: readonly ReactToolCallRenderer[];
   }) => void;
 }
 
-export interface CopilotKitSubscription {
+export interface AgentRuntimeSubscription {
   unsubscribe: () => void;
 }
 
@@ -66,7 +66,7 @@ export interface AgentLookup {
   threadId?: string;
 }
 
-export interface CopilotKitConfig {
+export interface AgentRuntimeConfig {
   runtimeUrl: string;
   /** Cards configured by the provider, before any hook registers one. */
   renderToolCalls?: ReactToolCallRenderer[];
@@ -88,7 +88,7 @@ export function agentKey({
   return threadId ? `${base}#${threadId}` : base;
 }
 
-export class CopilotKit {
+export class AgentRuntime {
   readonly runtimeUrl: string;
   private readonly configuredRenderToolCalls: ReactToolCallRenderer[];
   private readonly configuredActivityRenderers: ReactActivityMessageRenderer<unknown>[];
@@ -99,7 +99,7 @@ export class CopilotKit {
     string,
     ReactActivityMessageRenderer<unknown>
   >();
-  private readonly subscribers = new Set<CopilotKitSubscriber>();
+  private readonly subscribers = new Set<AgentRuntimeSubscriber>();
   private readonly aborts = new WeakMap<AbstractAgent, AbortController>();
   /**
    * Extra context a run is given, by the id `addContext` handed back.
@@ -122,7 +122,7 @@ export class CopilotKit {
   private renderToolCallsCache?: readonly ReactToolCallRenderer[];
   private activityRenderersCache?: readonly ReactActivityMessageRenderer<unknown>[];
 
-  constructor(config: CopilotKitConfig) {
+  constructor(config: AgentRuntimeConfig) {
     this.runtimeUrl = config.runtimeUrl;
     this.configuredRenderToolCalls = [...(config.renderToolCalls ?? [])];
     this.configuredActivityRenderers = [
@@ -320,7 +320,7 @@ export class CopilotKit {
     );
   }
 
-  subscribe(subscriber: CopilotKitSubscriber): CopilotKitSubscription {
+  subscribe(subscriber: AgentRuntimeSubscriber): AgentRuntimeSubscription {
     this.subscribers.add(subscriber);
     return {
       unsubscribe: () => {
@@ -335,7 +335,7 @@ export class CopilotKit {
     this.activityRenderersCache = undefined;
     for (const subscriber of this.subscribers) {
       subscriber.onRenderToolCallsChanged?.({
-        copilotkit: this,
+        agentRuntime: this,
         renderToolCalls: this.renderToolCalls,
       });
     }

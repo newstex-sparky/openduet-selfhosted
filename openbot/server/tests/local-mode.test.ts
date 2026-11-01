@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import { createStallGuard } from "../src/channels/stall-guard";
 import { loadConfig, runtimeCapabilities } from "../src/config";
-import { mountCopilotRuntime } from "../src/copilot";
+import { mountAgentRuntime } from "../src/copilot";
 import { localThreadPlatform } from "../src/local-mode";
 import { testDatabaseUrl } from "./support/database";
 import { testEnvironment } from "./support/environment";
@@ -81,7 +81,7 @@ function localConfig() {
 }
 
 function mountLocal(identifyUser: () => Promise<{ id: string; name: string }>) {
-  return mountCopilotRuntime(
+  return mountAgentRuntime(
     localConfig(),
     createActorAgentResolver({
       model: { provider: "openai", defaultModel: "unused" },
@@ -108,15 +108,15 @@ describe("the runtime in local mode", () => {
     });
 
     const info = await runtime.handler.fetch(
-      new Request("http://openduet.test/api/copilotkit/info"),
+      new Request("http://openduet.test/api/engine/info"),
     );
     expect(info.status).toBe(200);
     expect(((await info.json()) as { mode?: string }).mode).toBe("sse");
 
     for (const path of [
-      "/api/copilotkit/threads?agentId=openduet",
-      "/api/copilotkit/agent/openduet/run",
-      "/api/copilotkit/agent/openduet/connect",
+      "/api/engine/threads?agentId=openduet",
+      "/api/engine/agent/openduet/run",
+      "/api/engine/agent/openduet/connect",
     ]) {
       const refused = await runtime.handler.fetch(
         new Request(`http://openduet.test${path}`, {
@@ -172,7 +172,7 @@ describe("the runtime in local mode", () => {
     }));
     const listed = await runtime.handler.fetch(
       new Request(
-        "http://openduet.test/api/copilotkit/threads?agentId=openduet",
+        "http://openduet.test/api/engine/threads?agentId=openduet",
       ),
     );
     expect(listed.status).toBe(200);

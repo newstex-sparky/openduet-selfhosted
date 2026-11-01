@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { currentUserQueryOptions, needsOnboarding } from "../lib/auth/queries";
-import { CopilotProvider } from "../lib/chat/provider";
+import { RuntimeProvider } from "../lib/chat/provider";
 import { AppHotkeys } from "../lib/hotkeys/app-hotkeys";
 
 export const Route = createFileRoute("/_authed")({
@@ -23,9 +23,9 @@ export const Route = createFileRoute("/_authed")({
   // Mounted INSIDE the authed boundary, not at the root: the runtime endpoint requires a session, so
   // a provider above the sign-in gate would open a run for a visitor who has not signed in yet.
   component: () => (
-    <CopilotProvider>
+    <RuntimeProvider>
       <AppHotkeys />
       <Outlet />
-    </CopilotProvider>
+    </RuntimeProvider>
   ),
 });

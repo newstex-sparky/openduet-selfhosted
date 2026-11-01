@@ -34,7 +34,7 @@ import {
 import { PageBlocks } from "@/components/duet/page-view";
 import { MakeScreen } from "@/components/shell/make-screen";
 import { agentKeys } from "@/lib/agents/queries";
-import { ConversationPageCard, readPage } from "@/lib/copilot/page-card-tool";
+import { ConversationPageCard, readPage } from "@/lib/chat/page-card-tool";
 import {
   type PageBlock,
   type PageSlide,

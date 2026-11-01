@@ -20,7 +20,7 @@ function step(
   };
 }
 
-// The computer tools the app draws itself, as CopilotKit's renderer registry would list them.
+// The computer tools the app draws itself, as AgentRuntime's renderer registry would list them.
 const drawn = (name: string) =>
   name.startsWith("computer_request_") || name === "computer_run_command";
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createThreadLock,
   type ThreadLockClient,
-} from "../src/copilotkit/thread-lock";
+} from "../src/platform/thread-lock";
 
 /**
  * The lock a hop takes on a conversation, as the platform issues it.

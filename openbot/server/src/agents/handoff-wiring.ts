@@ -6,7 +6,7 @@ import type { GroupConversations } from "../channels/group";
 import type { ChannelStore } from "../channels/routes";
 import type { ThreadIdentity } from "../channels/thread-identity";
 import type { DeploymentConfig } from "../config";
-import type { mountCopilotRuntime } from "../copilot";
+import type { mountAgentRuntime } from "../engine";
 import type { Database } from "../db/client";
 import { intelligenceChannelMappings } from "../db/schema";
 import { repeatAfterEach } from "../work/loop";
@@ -34,7 +34,7 @@ export async function startHandoffDelivery(deps: {
   database: Database;
   bootAuditStore: AuditStore;
   actorFor: (ownerUserId: string) => Promise<AgentActor>;
-  copilotRuntime: ReturnType<typeof mountCopilotRuntime>;
+  copilotRuntime: ReturnType<typeof mountAgentRuntime>;
   threadIdentity: ThreadIdentity;
   groupConversations: GroupConversations;
   channelStore: ChannelStore;

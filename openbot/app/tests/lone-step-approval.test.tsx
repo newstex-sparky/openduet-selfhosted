@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitContext } from "@/lib/agui/context";
+import { AgentContext } from "@/lib/agui/context";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
@@ -112,11 +112,11 @@ const waitingSend = (toolCallId: string) => ({
 });
 
 /**
- * The transcript asks CopilotKit for a renderer per call. None is registered for a connector tool,
+ * The transcript asks AgentRuntime for a renderer per call. None is registered for a connector tool,
  * which is the case under test: the call is drawn by the transcript's own line.
  */
 const noRenderers = {
-  copilotkit: {
+  agentRuntime: {
     renderToolCalls: [],
     // Nothing is registered for a connector tool: `useRenderToolCall` asks the registry for a card
     // and is told there is none, so the transcript's own line draws the call.
@@ -131,11 +131,11 @@ function draw() {
     defaultOptions: { queries: { retry: false } },
   });
   const view = render(
-    <CopilotKitContext.Provider value={noRenderers}>
+    <AgentContext.Provider value={noRenderers}>
       <QueryClientProvider client={client}>
         <ChatTranscript messages={turn} />
       </QueryClientProvider>
-    </CopilotKitContext.Provider>,
+    </AgentContext.Provider>,
   );
   return { ...view, client };
 }
@@ -207,11 +207,11 @@ test("a send the person declined is never named as sent", async () => {
     defaultOptions: { queries: { retry: false } },
   });
   const view = render(
-    <CopilotKitContext.Provider value={noRenderers}>
+    <AgentContext.Provider value={noRenderers}>
       <QueryClientProvider client={client}>
         <ChatTranscript messages={declined} />
       </QueryClientProvider>
-    </CopilotKitContext.Provider>,
+    </AgentContext.Provider>,
   );
   expect(await view.findByText("You declined: Send your email")).toBeTruthy();
   expect(view.queryByText(/Sent your email/)).toBeNull();

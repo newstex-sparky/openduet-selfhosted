@@ -3,7 +3,7 @@ import {
   type ParametersOf,
   type ParametersSchema,
   type ToolRenderProps,
-  useCopilotKit,
+  useAgentRuntime,
   useFrontendTool as useSDKFrontendTool,
 } from "@/lib/agui";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,7 +39,7 @@ const writes = new Set([
 export function useFrontendTool<S extends ParametersSchema>(
   tool: FrontendToolConfig<S>,
 ) {
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   // Stable for the provider's life, so a handler may keep it.
   const queryClient = useQueryClient();
   const bot = useActiveBotHolder();
@@ -83,7 +83,7 @@ export function useFrontendTool<S extends ParametersSchema>(
               throw new Error("The interrupted conversation is unavailable.");
             // Stop signals the client to discard this handler's unfinished result. The server owns
             // resume: the decision executes the action once and continues this conversation.
-            copilotkit.stopAgent({ agent: context.agent });
+            agentRuntime.stopAgent({ agent: context.agent });
             // Draw the card now rather than on the inbox's next poll.
             void queryClient.invalidateQueries({ queryKey: ["approvals"] });
             return { waiting: true };

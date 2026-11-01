@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { CopilotKitProvider } from "@/lib/agui";
+import { AgentProvider } from "@/lib/agui";
 import { deploymentCapabilitiesQueryOptions } from "@/lib/deployment/queries";
 import "./a2ui.css";
 import { ActiveBotProvider } from "./active-bot";
@@ -20,8 +20,8 @@ import { SkillTools } from "./skill-tools";
 import { TaskCardTool } from "./task-card-tool";
 
 /**
- * Whether CopilotKit's developer inspector is drawn over the app. Off unless a developer asks for it
- * with `VITE_COPILOTKIT_INSPECTOR=true` when starting the app.
+ * Whether AgentRuntime's developer inspector is drawn over the app. Off unless a developer asks for it
+ * with `VITE_OPENBOT_INSPECTOR=true` when starting the app.
  *
  * OFF BY DEFAULT BECAUSE THE VENDOR'S DEFAULT WAS WRONG FOR THIS PRODUCT. It turned the inspector on
  * for every development build served from localhost, and the README's own path (`start.sh`) serves
@@ -37,7 +37,7 @@ import { TaskCardTool } from "./task-card-tool";
 export function inspectorEnabled(
   environment: Record<string, string | boolean | undefined> = import.meta.env,
 ): boolean {
-  return environment.VITE_COPILOTKIT_INSPECTOR === "true";
+  return environment.VITE_OPENBOT_INSPECTOR === "true";
 }
 
 /**
@@ -60,7 +60,7 @@ export function inspectorEnabled(
  * the activity it sends by `OpenGenerativeUIActivityRenderer`, not from a prop that switches a whole
  * runtime middleware on for every deployment that passes it.
  */
-export function CopilotProvider({ children }: { children: ReactNode }) {
+export function RuntimeProvider({ children }: { children: ReactNode }) {
   const { data: capabilities } = useQuery(deploymentCapabilitiesQueryOptions());
 
   /* The surfaces below ask the capability query what this deployment can do — a computer, voice,
@@ -69,8 +69,8 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
    * the activity renderers are read from the same answer below. See activity-renderers.ts.
    */
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+    <AgentProvider
+      runtimeUrl="/api/engine"
       renderActivityMessages={activityRenderers(capabilities?.generativeUi)}
     >
       {/* Computer tools target the Bot declared by the mounted surface. */}
@@ -107,6 +107,6 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         <BotTools />
         {children}
       </ActiveBotProvider>
-    </CopilotKitProvider>
+    </AgentProvider>
   );
 }

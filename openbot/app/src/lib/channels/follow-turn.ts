@@ -36,7 +36,7 @@ export async function liveRun({
 }): Promise<string | null | undefined> {
   try {
     const response = await tryClient(
-      `/api/copilotkit/agent/${encodeURIComponent(agentId)}/connect`,
+      `/api/engine/agent/${encodeURIComponent(agentId)}/connect`,
       {
         method: "POST",
         body: {

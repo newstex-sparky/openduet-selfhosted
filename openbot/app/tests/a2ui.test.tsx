@@ -11,7 +11,7 @@ import {
   OPENBOT_A2UI_CATALOG,
   type ServerToClientMessage,
   useA2UIActions,
-} from "@/lib/copilot/a2ui";
+} from "@/lib/chat/a2ui";
 
 beforeAll(() => GlobalRegistrator.register());
 afterEach(cleanup);

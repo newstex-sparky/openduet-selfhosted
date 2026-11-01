@@ -11,14 +11,14 @@ import { RemoteLearnedSkillsMiddleware } from "../src/learning/remote";
 import type { LearnedSkillInvocation } from "../src/learning/runtime";
 
 const load: Tool = {
-  name: "copilotkit_load_skill",
+  name: "openbot_load_skill",
   description: "Read a learned skill",
   parameters: {
     type: "object",
     properties: { skill_name: { type: "string" } },
   },
 };
-const read: Tool = { ...load, name: "copilotkit_read_skill_file" };
+const read: Tool = { ...load, name: "openbot_read_skill_file" };
 const input: RunAgentInput = {
   threadId: "thread",
   runId: "run",

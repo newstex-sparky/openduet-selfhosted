@@ -10,7 +10,7 @@ import {
   groupToolSteps,
   stepDetails,
 } from "../src/components/channels/tool-activity";
-import { readThreadMessages } from "../src/lib/copilot/thread-messages";
+import { readThreadMessages } from "../src/lib/chat/thread-messages";
 
 function conversation(
   content: ToolMessage["content"],

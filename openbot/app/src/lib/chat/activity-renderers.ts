@@ -10,14 +10,14 @@
  * The order is the tie-break order the registry searches in, so it is kept stable: A2UI first, then
  * the interface the Bot writes itself. Neither claims `*`, so neither can shadow the other.
  */
-import type { CopilotKitProviderProps } from "@/lib/agui";
+import type { AgentProviderProps } from "@/lib/agui";
 import { generativeUIActivityRenderers } from "@/lib/agui";
 import { a2uiActivityRenderers } from "./a2ui";
 
 /** The `renderActivityMessages` prop for a deployment with generative UI on or off. */
 export function activityRenderers(
   enabled: boolean | undefined,
-): NonNullable<CopilotKitProviderProps["renderActivityMessages"]> {
+): NonNullable<AgentProviderProps["renderActivityMessages"]> {
   return [
     ...a2uiActivityRenderers(enabled),
     ...generativeUIActivityRenderers(enabled),

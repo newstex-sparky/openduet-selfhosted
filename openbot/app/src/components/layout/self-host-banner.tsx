@@ -9,9 +9,9 @@ import {
 import { appConfig } from "@/lib/generated/application-config";
 import { cn } from "@/lib/utils";
 
-/** `ref` tells CopilotKit the visit came from inside a running OpenDuet, not from the README. */
+/** Where the bar sends somebody for this fork's own self-hosting instructions. */
 export const SELF_HOST_URL =
-  "https://www.copilotkit.ai/talk-to-an-engineer?ref=openduet_app";
+  "https://github.com/newstex-sparky/openduet-selfhosted#quick-start";
 
 /**
  * A slim bar offering help self-hosting this product, until this person closes it.
@@ -37,8 +37,8 @@ export function SelfHostBanner() {
       className="duet-face type-caption flex shrink-0 flex-wrap items-center gap-x-2 border-duet-hair-2 border-b bg-duet-card px-4 py-0.5 text-duet-ink-2"
     >
       {/*
-       * Packed from the left rather than pushing Dismiss to the far right: on localhost CopilotKit's
-       * dev inspector floats over the top-right corner, which is where somebody trying OpenBot first
+       * Packed from the left rather than pushing Dismiss to the far right: on localhost the dev
+       * inspector floats over the top-right corner, which is where somebody trying OpenBot first
        * sees this, and a Dismiss under it cannot be clicked.
        *
        * Wraps rather than truncates, so a phone reads the whole sentence. The link and Dismiss stay
@@ -58,7 +58,7 @@ export function SelfHostBanner() {
           rel="noopener noreferrer"
           target="_blank"
         >
-          Talk to an engineer
+          Setup guide
         </a>
         <Button
           aria-label="Dismiss"

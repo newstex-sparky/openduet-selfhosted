@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LearnedSkillsError } from "@openbot/toolkit/copilotkit/engine/learned-skills";
+import { LearnedSkillsError } from "@openbot/toolkit/platform/engine/learned-skills";
 import {
   createLearningRuntime,
   clearLearningRevisionFallback,
@@ -102,12 +102,12 @@ describe("Automatic Learning runtime", () => {
     const first = await learning.acquire("bot");
     expect(first?.catalog).toContain("public-answer");
     expect(
-      await first?.execute("copilotkit_load_skill", {
+      await first?.execute("openbot_load_skill", {
         skill_name: "public-answer",
       }),
     ).toContain("guidance r1");
     expect(
-      await first?.execute("copilotkit_read_skill_file", {
+      await first?.execute("openbot_read_skill_file", {
         skill_name: "public-answer",
         path: "reference.txt",
       }),
@@ -115,18 +115,18 @@ describe("Automatic Learning runtime", () => {
     revision = "r2";
     const second = await learning.acquire("bot");
     expect(
-      await second?.execute("copilotkit_load_skill", {
+      await second?.execute("openbot_load_skill", {
         skill_name: "public-answer",
       }),
     ).toContain("guidance r2");
     expect(
-      await first?.execute("copilotkit_load_skill", {
+      await first?.execute("openbot_load_skill", {
         skill_name: "public-answer",
       }),
     ).toContain("guidance r1");
     expect(requests).toBe(2);
     await expect(
-      first?.execute("copilotkit_read_skill_file", {
+      first?.execute("openbot_read_skill_file", {
         skill_name: "public-answer",
         path: "../secret",
       }),
@@ -158,7 +158,7 @@ describe("Automatic Learning runtime", () => {
     };
     await expect(alwaysRefresh.acquire("first")).rejects.toThrow();
     expect(
-      await captured?.execute("copilotkit_load_skill", {
+      await captured?.execute("openbot_load_skill", {
         skill_name: "public-answer",
       }),
     ).toContain("guidance r1");
@@ -271,7 +271,7 @@ test("Admin can clear an environment-seeded pin and follow latest", async () => 
     }).acquire("bot");
     expect(requestedRevision).toBeUndefined();
     expect(
-      await invocation?.execute("copilotkit_load_skill", {
+      await invocation?.execute("openbot_load_skill", {
         skill_name: "public-answer",
       }),
     ).toContain("guidance r2");

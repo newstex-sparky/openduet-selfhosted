@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { HttpAgent, type Message, type RunAgentInput } from "@ag-ui/client";
 import { EventSchemas } from "@ag-ui/core/schemas";
-import { PLAN_RUN_COMPLETED } from "@openbot/toolkit/copilotkit/agents";
-import type { BuiltInAgentClassicConfig } from "@openbot/toolkit/copilotkit/engine/agent/index";
+import { PLAN_RUN_COMPLETED } from "@openbot/toolkit/platform/agents";
+import type { BuiltInAgentClassicConfig } from "@openbot/toolkit/platform/engine/agent/index";
 import type { Subscription } from "rxjs";
 import {
   clearDesktopConnectionFailure,

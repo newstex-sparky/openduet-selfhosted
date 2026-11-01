@@ -9,7 +9,7 @@ import {
 } from "bun:test";
 import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { MastraAgent } from "@ag-ui/mastra";
-import { createEngineHandler } from "@openbot/toolkit/copilotkit/engine/engine";
+import { createEngineHandler } from "@openbot/toolkit/platform/engine/engine";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { Observable } from "rxjs";
 import { z } from "zod";

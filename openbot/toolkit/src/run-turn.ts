@@ -8,7 +8,7 @@
  * not exported, so this is a hand copy of it with one addition — `getOrCreateThread` first — and it
  * has to be re-read against the package whenever the runtime is upgraded.
  *
- * WHY NOT A SECOND MOUNTED HANDLER. A loopback that mounts a second `mountCopilotRuntime` and POSTs
+ * WHY NOT A SECOND MOUNTED HANDLER. A loopback that mounts a second `mountAgentRuntime` and POSTs
  * to its own run route is viable on identity grounds: `identifyUser` and `identifyActor` are both
  * injectable there (`copilot.ts:915-916`), so a routine's request could assert its owner without a
  * header. It was rejected on information, not on identity. The run route answers at gateway-JOIN
@@ -20,12 +20,12 @@
  *
  * WHAT WE ARE REACHING INTO. Three lock methods — `acquireThreadLock`, `renewThreadLock` and
  * `cleanupThreadLock` — plus the runner's URL and token at wiring time in `index.ts`. All of them
- * belong to this repository now: `./copilotkit/thread-lock.ts` names the lock's request and response
- * shapes, and `./copilotkit/local-platform.ts` plus `./copilotkit/postgres-platform.ts` implement
+ * belong to this repository now: `./platform/thread-lock.ts` names the lock's request and response
+ * shapes, and `./platform/local-platform.ts` plus `./platform/postgres-platform.ts` implement
  * them. This file still declares those shapes again in `IntelligenceLike` below rather than
  * importing the platform classes, so a test can drive every exit path without a database. A change
  * to the platform that the restatement does not follow is a compile error at the call site in
- * `copilot.ts`, which is where the real client is bound. `routine-run-turn.test.ts` pins the
+ * `engine.ts`, which is where the real client is bound. `routine-run-turn.test.ts` pins the
  * lifecycle this file has to keep.
  *
  * THE LOCK LIFECYCLE IS NOW OURS TO KEEP CORRECT. In the browser path the engine handler takes the

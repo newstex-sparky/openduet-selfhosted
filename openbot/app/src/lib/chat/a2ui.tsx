@@ -1,7 +1,7 @@
 import {
-  type CopilotKitProviderProps,
-  useCopilotChatConfiguration,
-  useCopilotKit,
+  type AgentProviderProps,
+  useChatConfiguration,
+  useAgentRuntime,
 } from "@/lib/agui";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -118,8 +118,8 @@ function A2UISurface({
   content: A2UIActivityContent;
   catalog: Catalog<ReactComponentImplementation>;
 }) {
-  const { copilotkit } = useCopilotKit();
-  const configuration = useCopilotChatConfiguration();
+  const { agentRuntime } = useAgentRuntime();
+  const configuration = useChatConfiguration();
   const operations = content.a2ui_operations ?? NO_OPERATIONS;
   const surfaceId = useMemo(
     () => surfaceIdOf(content, operations),
@@ -129,17 +129,17 @@ function A2UISurface({
   const onAction = useCallback(
     async (message: A2UIClientEventMessage) => {
       if (!configuration) return;
-      const agent = copilotkit.agentFor({
+      const agent = agentRuntime.agentFor({
         agentId: configuration.agentId,
         runtimeAgentId: configuration.agentId,
         threadId: configuration.threadId,
       });
-      await copilotkit.runAgent({
+      await agentRuntime.runAgent({
         agent,
         forwardedProps: { a2uiAction: message },
       });
     },
-    [configuration, copilotkit],
+    [configuration, agentRuntime],
   );
 
   return (
@@ -153,7 +153,7 @@ function A2UISurface({
 /** Draws A2UI activities with the app's own renderer, over `@a2ui/web_core`. */
 export function a2uiActivityRenderers(
   enabled: boolean | undefined,
-): NonNullable<CopilotKitProviderProps["renderActivityMessages"]> {
+): NonNullable<AgentProviderProps["renderActivityMessages"]> {
   if (!enabled) return [];
   return [
     {

@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { CopilotKitProvider, useCopilotKit } from "@/lib/agui";
+import { AgentProvider, useAgentRuntime } from "@/lib/agui";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { BOT_CREATOR_SLUG } from "@/lib/agents/proposal";
 import { agentListQueryOptions } from "@/lib/agents/queries";
-import { ActiveBotProvider, useActiveBot } from "@/lib/copilot/active-bot";
-import { BotTools } from "@/lib/copilot/bot-tools";
-import { SkillTools } from "@/lib/copilot/skill-tools";
+import { ActiveBotProvider, useActiveBot } from "@/lib/chat/active-bot";
+import { BotTools } from "@/lib/chat/bot-tools";
+import { SkillTools } from "@/lib/chat/skill-tools";
 import { pluginsPageQueryOptions } from "@/lib/plugins/queries";
 import { SKILL_CREATOR_SLUG } from "@/lib/skills/proposal";
 import { queryClient } from "@/query-client";
@@ -125,13 +125,13 @@ type Kept = {
 };
 
 function Capture({ kept, names }: { kept: Kept; names: string[] }) {
-  const { copilotkit } = useCopilotKit();
+  const { agentRuntime } = useAgentRuntime();
   for (const name of names) {
-    const entry = copilotkit.renderToolCalls.find(
+    const entry = agentRuntime.renderToolCalls.find(
       (candidate) => candidate.name === name,
     );
     if (entry) kept.renderers.set(name, entry.render as Renderer);
-    const tool = copilotkit.handlerFor(name, undefined)?.tool;
+    const tool = agentRuntime.handlerFor(name, undefined)?.tool;
     if (tool?.handler) kept.handlers.set(name, tool.handler as Handler);
   }
   return null;
@@ -145,12 +145,12 @@ function Declare() {
 function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <ActiveBotProvider>
           <Declare />
           {children}
         </ActiveBotProvider>
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>
   );
 }

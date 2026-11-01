@@ -6,8 +6,8 @@ import { RemoteLearnedSkillsMiddleware } from "../src/learning/remote";
 const catalog = "Published skill refunds: use the refund procedure.";
 const skill = "Load supporting.txt before answering.";
 const support = "Refunds are available for 37 days.";
-const load = "copilotkit_load_skill";
-const read = "copilotkit_read_skill_file";
+const load = "openbot_load_skill";
+const read = "openbot_read_skill_file";
 const tools: Tool[] = [load, read].map((name) => ({
   name,
   description: "Read learned guidance",

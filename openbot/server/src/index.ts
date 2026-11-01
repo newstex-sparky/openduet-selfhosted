@@ -2,9 +2,9 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
 import { workOwner } from "@openbot/shared/work-owner";
-import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/platform/postgres-platform";
 import { createTurnRunner, type TurnRunner } from "@openbot/toolkit/run-turn";
-import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
+import { runAsLocalUser } from "@openbot/toolkit/platform/request-scope";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createActivityStore } from "./activity/activity";
@@ -122,11 +122,11 @@ import { loadConfig } from "./config";
 import {
   type IdentifyActor,
   type IdentifyUser,
-  mountCopilotRuntime,
+  mountAgentRuntime,
   normalizeModelBaseUrls,
   runtimeModelForEnvironment,
   type ToolSelection,
-} from "./copilot";
+} from "./engine";
 import {
   createCredentialAdminService,
   createCredentialStore,
@@ -1462,7 +1462,7 @@ const loadInstructionsForActor = (actorId: string) => () =>
  * row is fetched here and the bytes go up inline, so the Bot sees the file the person attached
  * instead of a link it cannot follow.
  *
- * Built per actor and passed to both turn paths — the request path through `mountCopilotRuntime` and
+ * Built per actor and passed to both turn paths — the request path through `mountAgentRuntime` and
  * a routine's turn through `buildAgentFor` — so a routine firing at three in the morning inlines
  * exactly as a person's chat turn does, on exactly the same footing.
  *
@@ -1490,7 +1490,7 @@ const loadAttachmentForActor =
  *
  * Bound per actor and handed to the same two turn paths as the reader above, so a routine's send at
  * three in the morning is recorded exactly as a person's chat turn is. `inlineAttachments`
- * (copilot.ts) calls it with the ids on the message being asked about and no others: history is
+ * (engine.ts) calls it with the ids on the message being asked about and no others: history is
  * replayed on every turn and by whoever is running it, so nothing behind that message is evidence
  * of a send.
  *
@@ -1700,7 +1700,7 @@ const routineAgentRunner = localPlatform.runner;
  * EVERY HEADLESS TURN, WITH LOCAL MODE'S OWNER SCOPE AROUND IT.
  *
  * Local mode scopes thread reads, thread writes and the run lock to the signed-in person, through
- * the `AsyncLocalStorage` in `@openbot/toolkit/copilotkit/request-scope`: that is what makes a
+ * the `AsyncLocalStorage` in `@openbot/toolkit/platform/request-scope`: that is what makes a
  * thread belong to somebody. A routine, a responsibility, a proactive turn, a wake-up, a group
  * continuation and an approval continuation have no browser request behind them to supply that
  * person, so the first firing failed with `Thread … not found` — the turn asked for the owner's
@@ -1787,7 +1787,7 @@ const actorAgentResolver = withRunChannels(baseAgentResolver, (owner, thread) =>
   openDuetChannels.ofThread(owner, thread),
 );
 
-const copilotRuntime = mountCopilotRuntime(
+const copilotRuntime = mountAgentRuntime(
   config,
   actorAgentResolver,
   identifyUser,

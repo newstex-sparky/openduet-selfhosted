@@ -18,8 +18,8 @@ import httpx
 CATALOG = "Published skills: refunds — apply the learned refund policy."
 SKILL = "Refund policy: consult supporting.txt before answering."
 SUPPORT = "The approved refund window is 37 days."
-LOAD = "copilotkit_load_skill"
-READ = "copilotkit_read_skill_file"
+LOAD = "openbot_load_skill"
+READ = "openbot_read_skill_file"
 TOOLS = [
     {
         "name": name,

@@ -10,7 +10,7 @@ import {
   loadSkill,
   readSkillFile,
   SkillRegistry,
-} from "@openbot/toolkit/copilotkit/engine/learned-skills";
+} from "@openbot/toolkit/platform/engine/learned-skills";
 import { z } from "zod";
 import type { InspectorSnapshot } from "./auto-assign";
 import type { LearningSettingsStore } from "./settings";
@@ -48,20 +48,20 @@ export type AcquireLearnedSkills = (
 ) => Promise<LearnedSkillInvocation | undefined>;
 
 export const LEARNED_SKILL_TOOL_NAMES = new Set([
-  "copilotkit_load_skill",
-  "copilotkit_read_skill_file",
+  "openbot_load_skill",
+  "openbot_read_skill_file",
 ]);
 const skillArgs = z.object({ skill_name: z.string().min(1) }).strict();
 const fileArgs = skillArgs.extend({ path: z.string().min(1) }).strict();
 const skillTools: readonly Tool[] = [
   {
-    name: "copilotkit_load_skill",
+    name: "openbot_load_skill",
     description:
       "Load a published learned Skill's instructions and supporting file names.",
     parameters: z.toJSONSchema(skillArgs),
   },
   {
-    name: "copilotkit_read_skill_file",
+    name: "openbot_read_skill_file",
     description:
       "Read one supporting text file from a published learned Skill.",
     parameters: z.toJSONSchema(fileArgs),
@@ -149,10 +149,10 @@ export function createLearningRuntime(options: {
       catalog: snapshot.skills.length > 0 ? formatSkillCatalog(snapshot) : "",
       tools: snapshot.skills.length > 0 ? skillTools : [],
       execute: async (name, args) => {
-        if (name === "copilotkit_load_skill") {
+        if (name === "openbot_load_skill") {
           return loadSkill(snapshot, skillArgs.parse(args).skill_name);
         }
-        if (name === "copilotkit_read_skill_file") {
+        if (name === "openbot_read_skill_file") {
           const parsed = fileArgs.parse(args);
           return readSkillFile(snapshot, parsed.skill_name, parsed.path);
         }

@@ -6,8 +6,8 @@ import {
   createLocalThreadPlatform,
   currentLocalUser,
   runAsLocalUser,
-} from "../src/copilotkit/local-platform";
-import { createThreadLock } from "../src/copilotkit/thread-lock";
+} from "../src/platform/local-platform";
+import { createThreadLock } from "../src/platform/thread-lock";
 import { isLockConflict } from "../src/lease";
 import { createTurnRunner } from "../src/run-turn";
 import { historyOrEmpty, isMissingThread } from "../src/thread-history";

@@ -123,7 +123,7 @@ function errorResponse(message: string, status: number): Response {
 /**
  * `/{agentId}/suggest`: a stateless run whose events never touch a thread.
  *
- * The client forces `toolChoice: copilotkitSuggest` in the body, so the run is a provider call and
+ * The client forces `toolChoice: openbotSuggest` in the body, so the run is a provider call and
  * nothing else. It deliberately does NOT go through the runner: a suggestion is not a turn, and
  * persisting one would put a throwaway exchange in the person's history.
  */
@@ -365,7 +365,7 @@ async function handleInfo(
  * The `/threads` family, answered from the runner's own reads.
  *
  * SYNCHRONOUS BY CONTRACT. These read a mirror the platform loaded for this request before the
- * engine was called (`primeThread` in `server/src/copilot.ts`), because a promise here would be
+ * engine was called (`primeThread` in `server/src/engine.ts`), because a promise here would be
  * serialized as `{}`. The scoping is the runner's: every read is filtered by the person the request
  * runs as, so one person's list is never another's.
  */

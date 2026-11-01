@@ -27,10 +27,10 @@ def test_partial_tool_arguments_wait_without_dropping_neighboring_text(monkeypat
     async def provider(self, request, stream=False):
         yield LlmResponse(partial=True, content=types.Content(role="model", parts=[
             types.Part(text="Looking up the policy."),
-            types.Part(function_call=types.FunctionCall(id="call", name="copilotkit_load_skill", will_continue=True)),
+            types.Part(function_call=types.FunctionCall(id="call", name="openbot_load_skill", will_continue=True)),
         ]))
         yield LlmResponse(partial=False, content=types.Content(role="model", parts=[
-            types.Part(function_call=types.FunctionCall(id="call", name="copilotkit_load_skill", args={"skill_name": "refunds"})),
+            types.Part(function_call=types.FunctionCall(id="call", name="openbot_load_skill", args={"skill_name": "refunds"})),
         ]))
 
     monkeypatch.setattr(LiteLlm, "generate_content_async", provider)

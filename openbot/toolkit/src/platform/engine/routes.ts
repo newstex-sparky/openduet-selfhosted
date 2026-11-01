@@ -61,7 +61,7 @@ function safeDecodeURIComponent(value: string): string | null {
 /**
  * Match a request path against the known routes.
  *
- * `basePath` is stripped first when it is given, so the engine can sit under `/api/copilotkit` while
+ * `basePath` is stripped first when it is given, so the engine can sit under `/api/engine` while
  * the patterns below only ever describe what comes after it.
  */
 export function matchRoute(pathname: string, basePath?: string): Route | null {
