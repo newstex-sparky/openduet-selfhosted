@@ -78,7 +78,7 @@ identifies_as_openbot() {
   case "$name" in
     server)
       curl -fsS --max-time 3 "http://localhost:$port/api/engine/info" 2>/dev/null \
-        | grep -q '"licenseStatus"'
+        | grep -q '"threadEndpoints"'
       ;;
     app)
       curl -fsS --max-time 3 "http://localhost:$port/" 2>/dev/null \

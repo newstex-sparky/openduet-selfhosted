@@ -80,9 +80,9 @@ export function SetupChecklist({
   });
 
   /*
-   * Check again asks the server to ask Intelligence and the model provider again, which a plain
-   * refetch would not: those two answers are kept from the last time they were asked. A checklist
-   * that could not be read at all is read again first.
+   * Check again asks the server to ask the model provider again, which a plain refetch would not:
+   * that answer is kept from the last time it was asked. A checklist that could not be read at all
+   * is read again first.
    */
   const checking = checklist.isFetching || recheck.isPending;
   const checkAgain = (
