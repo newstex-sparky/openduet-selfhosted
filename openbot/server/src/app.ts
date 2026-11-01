@@ -86,10 +86,6 @@ import { createHostAccessRoutes } from "./host-access/routes";
 import { identityRoutes } from "./identity/routes";
 import type { IdentityStore } from "./identity/store";
 import { localThreadPlatform } from "./local-mode";
-import {
-  createLearningRoutes,
-  type LearningAdminDependencies,
-} from "./learning/routes";
 import type { MemoryIngestion } from "./memory/ingestion";
 import { createMemoryRoutes } from "./memory/routes";
 import type { MemoryStore } from "./memory/store";
@@ -405,7 +401,6 @@ export function createApp(
   modelProviderProxy?: ModelProviderProxy,
   userPreferences?: UserPreferencesStore,
   voiceSessions?: VoiceSessionServices,
-  learning?: LearningAdminDependencies,
   coworker?: {
     demonstrations?: {
       store: DemonstrationStore;
@@ -691,10 +686,6 @@ export function createApp(
       channelStore,
       agentProfileStore,
       voiceSessions,
-      learning?.status
-        ? async (agentId) =>
-            (await learning.status?.(agentId))?.configured ?? false
-        : undefined,
     ),
   );
 
@@ -867,20 +858,6 @@ export function createApp(
 
     return context.json({ instructions: saved });
   });
-  if (learning) {
-    app.route(
-      "/api/admin/learning",
-      createLearningRoutes(
-        learning,
-        requireUser,
-        [
-          ...(config.auth?.trustedOrigins ?? []),
-          ...(config.appUrl ? [config.appUrl] : []),
-        ],
-        auditStore,
-      ),
-    );
-  }
   app.get("/api/admin/status", requireUser, (context) => {
     const denied = requireAdmin(context);
     return denied ?? context.json({ status: "ok" });
