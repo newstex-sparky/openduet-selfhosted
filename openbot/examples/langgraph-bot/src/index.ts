@@ -19,7 +19,7 @@ import { listenPort } from "../../../shared/listen-port";
  * only as an AG-UI endpoint URL.
  *
  * It is an AG-UI HTTP endpoint. One POST carrying a `RunAgentInput`, and
- * a stream of AG-UI events back. `@ag-ui/langgraph` is a client: it lets a CopilotKit
+ * a stream of AG-UI events back. `@ag-ui/langgraph` is a client: it lets an AG-UI
  * runtime talk to LangGraph Platform. What a Bot has to be here is the other end, a server, so this
  * emits the protocol directly with `@ag-ui/encoder`, the same way `agent-bot` does.
  *

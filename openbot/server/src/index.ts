@@ -286,7 +286,7 @@ import { repeatAfterEach } from "./work/loop";
 import { createWorkQueue, type WorkOfferedListener } from "./work/queue";
 
 /**
- * Who is asking, for a CopilotKit request.
+ * Who is asking, for an engine request.
  *
  * One resolver, because a run has two questions to answer about the same person: whose threads and
  * memory these are, and which coworkers they may run. Answering them from different places is how
@@ -303,13 +303,13 @@ async function resolveRequestActor(request: Request): Promise<{
   const session = await auth?.api.getSession({ headers: request.headers });
   const user = session?.user;
   if (!user) {
-    throw new Error("A CopilotKit run requires a signed-in user.");
+    throw new Error("An engine run requires a signed-in user.");
   }
   const roles = user.role
     ? [user.role]
     : await roleRepository.rolesForUser(user.id);
   if (!roles.includes("admin") && !roles.includes("user")) {
-    throw new Error("A CopilotKit run requires an authorized user.");
+    throw new Error("An engine run requires an authorized user.");
   }
   return {
     id: user.id,

@@ -12,7 +12,7 @@ import { listenPort } from "../../../shared/listen-port";
  * arrive in `input.tools` from the surface, so both drive a governed browser they have no direct
  * access to.
  *
- * `@ag-ui/mastra` exists and is the client side, it lets a CopilotKit runtime call a Mastra agent. A
+ * `@ag-ui/mastra` exists and is the client side, it lets an AG-UI runtime call a Mastra agent. A
  * Bot here has to be the server, so this emits AG-UI directly with `@ag-ui/encoder`, the same shape
  * as `agent-bot` and the LangGraph example.
  */

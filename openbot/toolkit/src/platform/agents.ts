@@ -18,7 +18,7 @@ import { nativeApprovalRun } from "../native-approval";
 import { BuiltInAgent, type BuiltInAgentConfiguration } from "./engine/agent";
 
 /**
- * The CopilotKit agents OpenBot runs its Bots as: a built-in Bot that will not send a broken
+ * The built-in agents OpenBot runs its Bots as: a built-in Bot that will not send a broken
  * conversation, one whose tools are chosen when its run starts, a remote Bot that survives being
  * cloned, a Bot that is no longer there, and the platform client with one answer corrected.
  *

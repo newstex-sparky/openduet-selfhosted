@@ -232,7 +232,7 @@ before writing a new one.
 - Filtering or paginating an existing list → Procedure 1, step 5: a new parameter goes in the
   trailing object of the list key, not into a second key factory.
 - The data is form input rather than server state → not this skill; `lib/<entity>/form.ts`.
-- The data arrives over the CopilotKit runtime → not this skill; `lib/chat/`.
+- The data arrives over the engine runtime → not this skill; `lib/chat/`.
 
 ## Red Flags
 

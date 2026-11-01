@@ -3,7 +3,7 @@
  *
  * Intelligence scopes every thread to the person `identifyUser` returns, and the runtime calls that
  * itself. The runtime's SSE mode does not call it at all: it gives the runner a thread id and no
- * user, so the server wraps the whole CopilotKit handler in {@link runAsLocalUser} and every runner
+ * user, so the server wraps the whole engine handler in {@link runAsLocalUser} and every runner
  * entry point reads the person from here.
  *
  * THE STORAGE DOES NOT MATTER, which is why this is its own module: the in-memory platform and the
@@ -12,7 +12,7 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 
-/** The person a request is running as. Set by the server around the CopilotKit handler. */
+/** The person a request is running as. Set by the server around the engine handler. */
 const requestScope = new AsyncLocalStorage<{ userId: string }>();
 
 /** Run `fn` as `userId`, so the runner can scope what it reads and writes to that person. */

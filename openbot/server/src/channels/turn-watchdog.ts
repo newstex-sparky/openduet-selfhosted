@@ -29,7 +29,7 @@
  *
  * The computer tools are frontend tools, executed in the browser, and the run ENDS before the
  * browser runs one. The Bot emits TOOL_CALL_START, ARGS and END and then RUN_FINISHED, its stream
- * closes, the browser executes the tool, and the CopilotKit client opens a SECOND run carrying the
+ * closes, the browser executes the tool, and the AG-UI client opens a SECOND run carrying the
  * result. Verified in @copilotkit/core 1.67.1, whose `processAgentResult` executes frontend tools
  * only after `agent.runAgent` has resolved and then re-enters `runAgent`, and against `agent-bot` in
  * this repository, which writes its tool calls followed by RUN_FINISHED and closes the stream.

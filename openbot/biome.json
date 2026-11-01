@@ -57,7 +57,7 @@
                       "@openbot/toolkit/platform",
                       "@openbot/toolkit/platform/**"
                     ],
-                    "message": "The toolkit core does not depend on CopilotKit. Code that needs the CopilotKit runtime lives in toolkit/src/platform and imports the core, not the other way round."
+                    "message": "The toolkit core does not depend on the engine runtime. Code that needs the engine runtime lives in toolkit/src/platform and imports the core, not the other way round."
                   },
                   {
                     "group": [
@@ -67,7 +67,7 @@
                       "hono",
                       "hono/**"
                     ],
-                    "message": "The toolkit core depends on @ag-ui, rxjs, zod and @openbot/shared only. CopilotKit-specific code goes in toolkit/src/platform."
+                    "message": "The toolkit core depends on @ag-ui, rxjs, zod and @openbot/shared only. Engine-specific code goes in toolkit/src/platform."
                   }
                 ]
               }
@@ -87,7 +87,7 @@
                 "patterns": [
                   {
                     "group": ["../../**"],
-                    "message": "The CopilotKit adapters run without the server. Take what they need as a port or a constructor option instead of importing server code."
+                    "message": "The platform adapters run without the server. Take what they need as a port or a constructor option instead of importing server code."
                   },
                   {
                     "group": [
@@ -96,7 +96,7 @@
                       "hono",
                       "hono/**"
                     ],
-                    "message": "The CopilotKit adapters do not reach the database or the HTTP framework."
+                    "message": "The platform adapters do not reach the database or the HTTP framework."
                   }
                 ]
               }

@@ -1,7 +1,7 @@
 /**
  * The protocol engine: the HTTP surface OpenDuet's browser half speaks, owned by this repository.
  *
- * WHY THIS EXISTS. Until now this fork mounted `createCopilotHonoHandler` from the CopilotKit
+ * WHY THIS EXISTS. Until now this fork mounted `createCopilotHonoHandler` from the vendor
  * runtime package and handed it a `CopilotRuntime`. Everything the fork actually exercised in
  * that package is here instead: the route table (`./routes.ts`), the SSE response (`./sse.ts`), the
  * per-request agent clone and middleware attach (`./agent-request.ts`), the thread reads and the run

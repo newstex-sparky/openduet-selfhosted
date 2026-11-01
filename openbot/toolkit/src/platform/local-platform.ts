@@ -1,5 +1,5 @@
 /**
- * The thread platform for LOCAL MODE: everything this deployment otherwise asks CopilotKit
+ * The thread platform for LOCAL MODE: everything this deployment otherwise asks the engine
  * Intelligence for, held in this process instead.
  *
  * WHAT THIS IS. Phase 1 of running OpenDuet without Intelligence (see `RuntimeCapabilities` in
@@ -24,7 +24,7 @@
  * is a turn rather than a database. Keep the two surfaces in step.
  *
  * WHO OWNS A THREAD. Intelligence scopes every thread to the user `identifyUser` returns. SSE mode
- * gives the runner no user at all, so the server wraps the CopilotKit handler in
+ * gives the runner no user at all, so the server wraps the engine handler in
  * {@link runAsLocalUser} (see `server/src/engine.ts`) and every runner entry point reads the person
  * from there. A thread belongs to whoever first touched it; anyone else gets the answer a missing
  * thread gets, so a thread id is not an oracle for whether somebody else's conversation exists.
@@ -54,7 +54,7 @@ export {
   PlatformRequestError as LocalPlatformRequestError,
 } from "./platform-errors";
 
-/** The person a request is running as. Set by the server around the CopilotKit handler. */
+/** The person a request is running as. Set by the server around the engine handler. */
 export { currentLocalUser, runAsLocalUser } from "./request-scope";
 
 /**

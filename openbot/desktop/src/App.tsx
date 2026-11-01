@@ -165,7 +165,7 @@ export function App() {
    */
   const [signInUrl, setSignInUrl] = useState<string | null>(null);
 
-  async function signInToCopilotKit() {
+  async function signInToIntelligence() {
     await cancelSelfHostedSignIn();
     setIntelligenceSignInKind("managed");
     setSigningIn(true);
@@ -1031,7 +1031,7 @@ export function App() {
                   <button
                     type="button"
                     className="quiet"
-                    onClick={signInToCopilotKit}
+                    onClick={signInToIntelligence}
                   >
                     Sign in to CopilotKit again
                   </button>
@@ -1047,7 +1047,7 @@ export function App() {
                 <button
                   type="button"
                   className="quiet"
-                  onClick={signInToCopilotKit}
+                  onClick={signInToIntelligence}
                 >
                   Sign in to CopilotKit again
                 </button>
@@ -1096,7 +1096,7 @@ export function App() {
                       onClick={
                         intelligenceSignInKind === "self-hosted"
                           ? signInToSelfHostedIntelligence
-                          : signInToCopilotKit
+                          : signInToIntelligence
                       }
                     >
                       {signingIn
@@ -1143,7 +1143,7 @@ export function App() {
                   <button
                     type="button"
                     disabled={signingIn}
-                    onClick={signInToCopilotKit}
+                    onClick={signInToIntelligence}
                   >
                     {signingIn
                       ? "Waiting for your browser…"

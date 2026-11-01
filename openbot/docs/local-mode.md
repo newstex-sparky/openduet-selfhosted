@@ -9,7 +9,7 @@
 > | 1 | The runtime boots with zero calls to a hosted service | `server/tests/local-mode.test.ts` |
 > | 2 | Threads, messages, the event log and the per-thread run lock live in Postgres (migration `0068`); replaces Phase 1's in-memory store | `server/tests/postgres-platform.integration.test.ts` (restart keeps history, two processes share one lock, 409 on a busy thread) |
 > | 3 | Routines, approvals, proactive turns and handoffs drive turns through the Postgres runner/lock | `server/tests/local-mode-e2e.integration.test.ts` (a scheduled routine fires and completes; an approval-gated click pauses, stays pending with nothing sent to the computer, then resumes after `allow_once`, with an audit row) |
-> | 4-6 | The runtime, the frontend and the thread API are first-party: no `@copilotkit/*` package is installed | `server/tests/local-mode.test.ts` asserts the manifests name none |
+> | 4-6 | The runtime, the frontend and the thread API are first-party: no vendor runtime package is installed | `server/tests/local-mode.test.ts` asserts the manifests name none |
 > | 7 | The old table names were renamed in place by migration `0070` | `server/drizzle/0070_rename_thread_tables.sql` |
 
 ## Booting it

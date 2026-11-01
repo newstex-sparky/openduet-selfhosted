@@ -150,7 +150,7 @@ function appFor(actor: { id: string; email: string; role: "admin" | "user" }) {
     context.json({ ok: true }),
   );
   app.patch("/api/agents/:id", (context) => context.json({ saved: true }));
-  // Mounted the way app.ts mounts the CopilotKit runtime: a basePath sub-app that takes every path
+  // Mounted the way app.ts mounts the engine runtime: a basePath sub-app that takes every path
   // under it. The runtime then matches a run by its TRAILING segments (fetch-router `matchSegments`:
   // `.../agent/<id>/run` anywhere under the base), so this stub answers whatever path reaches it.
   app.route(
