@@ -23,15 +23,10 @@ bash scripts/start.sh
 
 Both above stop server startup if missing.
 
-`INTELLIGENCE_*` and `COPILOTKIT_*` variables are ignored. This fork runs in local mode only: it
-boots with no hosted service, keeps threads, messages, the event log and the run lock in the
-`DATABASE_URL` database, and refuses to start without one. See [local-mode.md](local-mode.md).
-
-The one exception is the optional Automatic Learning provisioning helper
-(`scripts/setup-learning.ts`, and the chart's setup Job). That helper reads `INTELLIGENCE_API_URL`,
-`INTELLIGENCE_API_KEY` and, on a local evaluation install, `INTELLIGENCE_SERVICE_TOKEN` with
-`INTELLIGENCE_PROJECT_ID`. It is a separate script, not the server's boot path, and the server
-itself never reads those variables.
+`INTELLIGENCE_*` and `COPILOTKIT_*` variables are ignored, and nothing in this repository sets or
+reads them any more. This fork runs in local mode only: it boots with no hosted service, keeps
+threads, messages, the event log and the run lock in the `DATABASE_URL` database, and refuses to
+start without one. See [local-mode.md](local-mode.md).
 
 `MANAGED_AGENT_AG_UI_URL` names the Bot in the box: the default endpoint for coworkers created in
 the product. It needs `MANAGED_AGENT_TOKEN` beside it, or the server refuses to start. Unset, the
@@ -48,7 +43,7 @@ at `agent-langgraph` on a laptop.
 | `OPENBOT_HOST`       | this machine with no sign-in; every interface with sign-in | Where the API server and the app's dev, preview and installed servers listen. A comma-separated list of addresses; `0.0.0.0`, `::` or `*` is every interface. See [Where it listens](#where-it-listens). |
 | `NODE_ENV`           | unset                              | `production` refuses the example `KEY_ENCRYPTION_KEY` and ignores `OPENDUET_FAKE_GOOGLE_URL`. It does not decide whether sign-in is required; see `OPENBOT_SINGLE_USER`. |
 | `TENANT_PACKAGE_DIR` | `../examples/fintech`              | Tenant package directory, resolved from `server/`.                  |
-| `DEPLOYMENT_ID`      | the tenant package's id            | Names this deployment inside a shared Intelligence project, and prefixes the identity a Shared app's account is held under at the vendor. That identity is fixed when the app is made Shared, so changing this later does not move it. |
+| `DEPLOYMENT_ID`      | the tenant package's id            | Names this deployment, and prefixes the identity a Shared app's account is held under at the provider. That identity is fixed when the app is made Shared, so changing this later does not move it. |
 | `OPENAI_API_KEY`     | unset                              | Default model key for built-in agents and both shipped Bots.        |
 | `OPENAI_BASE_URL`    | unset                              | OpenAI-compatible endpoint that key is spent against. See below.    |
 | `BOT_PROVIDER`       | `openai`                           | Provider the framework Bot (`agent-langgraph`) and the picked harness run on: `openai`, `anthropic`, or `google`. The Python Bots read it too; `agent-bot` does not, it is OpenAI only. |
@@ -67,7 +62,7 @@ at `agent-langgraph` on a laptop.
 | `AUDIT_RETENTION_DAYS` | unset                            | Whole number of days to keep audit rows; older ones are removed. Unset keeps the trail forever. |
 | `WORKER_SHARED_SECRET` | unset; `start.sh` uses a fixed local default | The secret the routines worker presents to fire a due routine. Without it the server refuses every handoff, whether or not a worker exists to send one. |
 | `OPENBOT_GENERATIVE_UI` | unset (capability on)               | Set `false` or `0` to stop Bots from answering with generated interfaces. |
-| `OPENBOT_SELF_HOST_BANNER` | unset (banner on)               | Set `false` or `0` to hide the bar offering help self-hosting OpenBot, for everybody. It never shows on a paid Intelligence plan, and each person can also close it for themselves. |
+| `OPENBOT_SELF_HOST_BANNER` | unset (banner on)               | Set `false` or `0` to hide the bar offering help self-hosting OpenBot, for everybody. Each person can also close it for themselves. |
 | `OPENBOT_ACCESSIBILITY_DISABLED` | unset | `true` or `1` stops naming OpenDuet on the analytics the runtime already sends. |
 | `COMPOSIO_API_KEY`   | unset                              | One key for the whole deployment, for the broker that holds people's accounts for a few hundred apps. Unset, there is nothing to connect, nothing to grant and no Composio tool for a Bot to call; what remains is one row that goes nowhere, under **More apps** on the admin Plugins page, naming this variable. See [Composio](plugins/composio.md). |
 
@@ -496,8 +491,8 @@ Slack app of its own.
 Point OpenTag's `AGENT_URL` at `<public URL>/api/delivery/webhooks/opentag/agent`. A person links
 their Slack or Teams identity from a Bot's page, under **Reaching you**: OpenBot shows a one-time `link <code>` message,
 valid for ten minutes, which they send to the OpenTag app. After that, only that person's messages
-reach their chosen Bot, in their own OpenBot conversation, with learning, governance, approvals and
-audit on every turn. Anyone unlinked is told how to link and nothing runs. Approval requests appear
+reach their chosen Bot, in their own OpenBot conversation, with governance, approvals and audit on
+every turn. Anyone unlinked is told how to link and nothing runs. Approval requests appear
 as OpenTag approval cards (allow once, always allow, cancel) and are decided through the approvals
 service as the linked owner; a reply to a Bot's question answers that question.
 
@@ -605,21 +600,13 @@ SNS asks.
 Both are needed. With either missing, the email route is not mounted, and an email trigger has no
 address: its page and the Bot both say inbound email is not configured on this deployment.
 
-## Automatic Learning
+## Memory sources and background research
 
-Learning is on by default; with no container assigned, nothing is collected or delivered and the
-deployment still starts and chats. Until something is saved, the server assigns its Intelligence
-project's `openbot` container as the default by itself once that container exists. The variables
-below are optional; an administrator's saved settings under **Admin → Automatic Learning** override
-them, including a saved off. See [automatic-learning.md](automatic-learning.md).
+Both are on by default. The variables below are optional, and existing settings are left as they
+are.
 
 | Variable                                 | Meaning                                                                                       |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID` | Default Learning container for this deployment's Bots. 1 to 64 lowercase letters, digits and single hyphens, or the server refuses to start. |
-| `CPK_INTELLIGENCE_SKILLS_REVISION`       | An exact published skills revision to pin. Read only beside a container id. Unset follows the latest. |
-| `OPENBOT_LEARNING_AUTO_ASSIGN`           | `false` or `0` stops the server assigning the project's `openbot` container automatically. On otherwise, and off whenever `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID` is set. |
-| `INTELLIGENCE_SERVICE_TOKEN`             | An Intelligence service token that creates the `openbot` Learning container (local evaluation installs only; see [Creating the container](automatic-learning.md#creating-the-container)). Requires `INTELLIGENCE_PROJECT_ID`. |
-| `INTELLIGENCE_PROJECT_ID`                | The numeric ID of the runtime key's Intelligence project, where the service token creates the container. Set both or neither, or the server refuses to start. |
 | `OPENBOT_MEMORY_SOURCE_DEFAULTS`         | `false` or `0` stops OpenBot making each app a person connected into a memory source for the Bots they talk to. On otherwise. Existing sources are left as they are. |
 | `OPENBOT_PROACTIVE_DEFAULTS`             | `false` or `0` stops OpenBot switching on background research for the Bots a person talks to. On otherwise. Existing settings are left as they are. |
 
@@ -1009,10 +996,10 @@ To run two deployments on one Docker host, give the second one its own `COMPOSE_
 `COMPUTER_NAMESPACE` and `COMPUTER_IMAGE`. Container and volume names are global to a host, and the
 namespace is what keeps each deployment's per-Bot computers its own.
 
-Give it its own `DEPLOYMENT_ID` as well when it shares an Intelligence project, which a copy made
-from the same `.env` does. Threads are listed per Bot and carry nothing else that says where a
-conversation came from, so the name goes into every thread id a deployment mints and is how its own
-conversations stay tellable from the other's.
+Give it its own `DEPLOYMENT_ID` as well, which a copy made from the same `.env` does not. Threads
+are listed per Bot and carry nothing else that says where a conversation came from, so the name
+goes into every thread id a deployment mints and is how its own conversations stay tellable from
+the other's.
 
 Set `OPENBOT_ONE_COMPUTER_EACH=false` when using `start.sh` to run all Bots against one shared computer.
 
