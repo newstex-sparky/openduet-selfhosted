@@ -558,9 +558,9 @@ function RouteComponent() {
    * cannot be in. Until the answer arrives they are left out, so a slow or failed request never
    * shows an organization's employees a page about deploying OpenBot themselves.
    *
-   * NOT GATED ON `selfHostBanner` AS WELL. That flag is off for any deployment with a paid
-   * Intelligence entitlement, and the stack `agentRuntime local` installs runs on an enterprise
-   * evaluation licence, so every CLI evaluator, the person these slides are for, would never see them.
+   * NOT GATED ON `selfHostBanner` AS WELL. That flag is off for any deployment whose operator turned
+   * it off, so gating on it as well would keep every CLI evaluator, the person these slides are for,
+   * from ever seeing them.
    */
   const { data: capabilities, isPending: asking } = useQuery(
     deploymentCapabilitiesQueryOptions(),

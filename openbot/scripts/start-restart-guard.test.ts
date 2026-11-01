@@ -170,7 +170,7 @@ if [[ "$args" == *"/internal/routines/run"* ]]; then
 fi
 if [[ "$args" == *"/api/engine/info"* ]]; then
   if [ -f "$SERVER_STOPPED" ] && [ ! -f "$SERVER_STARTED" ]; then exit 7; fi
-  printf '{"licenseStatus":"valid","mode":"test","agents":{"analyst":{}}}'
+  printf '{"version":"1","mode":"test","agents":{"analyst":{}},"threadEndpoints":{"list":true}}'
   exit 0
 fi
 if [[ "$args" == *"http://localhost:3010/"* ]]; then

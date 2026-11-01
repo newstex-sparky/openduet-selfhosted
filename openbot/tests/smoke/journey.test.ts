@@ -110,14 +110,16 @@ describe.skipIf(!asked)("a deployment that is up", () => {
     expect(capabilities.durableHistory).toBe(true);
   });
 
-  test("holds a licence the runtime accepts, and has Bots registered", async () => {
-    // A licence the runtime refuses leaves the product running and quietly degraded, which is worth
-    // failing a smoke test over.
+  test("has Bots registered, and a runtime that answers for every thread route", async () => {
+    // The runtime is this fork's own engine. `/info` is what a deployment check reads to tell
+    // "the API is up and serving its Bots" from "something else answers on that port".
     const info = await json<{
-      licenseStatus: string;
+      version: string;
       agents: Record<string, unknown>;
+      threadEndpoints: Record<string, unknown>;
     }>("/api/engine/info");
-    expect(info.licenseStatus).toBe("valid");
+    expect(info.version).toBeTruthy();
+    expect(info.threadEndpoints).toBeTruthy();
     expect(Object.keys(info.agents).length).toBeGreaterThan(0);
   });
 

@@ -5,7 +5,6 @@ import { type Observable, tap } from "rxjs";
 
 export type DesktopConnectionFailure =
   | { connection: "model"; code: "provider_authentication_failed" }
-  | { connection: "intelligence"; code: "intelligence_authentication_failed" }
   | { connection: "organization"; code: "organization_authentication_failed" };
 
 const failures = new Map<
