@@ -22,15 +22,14 @@ KEY_ENCRYPTION_KEY=…        # base64 32 bytes
 OPENAI_API_KEY=…            # or the provider you configured
 ```
 
-`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY`,
-`COPILOTKIT_LICENSE_TOKEN` and `OPENDUET_LOCAL_MODE` are ignored rather than refused, because a
+`INTELLIGENCE_*`, `COPILOTKIT_*` and `OPENDUET_LOCAL_MODE` are ignored rather than refused, because a
 leftover `.env` from a managed deployment is not a deployment asking for another mode. There is no
 other mode to ask for.
 
 At boot the server logs one line saying so:
 
 ```json
-{"type":"openduet-local-mode","durableHistory":true,"message":"Running in local mode. Threads, history and run locks are stored in this deployment's Postgres and survive a restart. Automatic Learning, the entitlement check and the self-host banner are off; memory uses OpenBot's own tables."}
+{"type":"openduet-local-mode","durableHistory":true,"message":"Running in local mode. Threads, history and run locks are stored in this deployment's Postgres and survive a restart. There is no hosted service, no entitlement check and no paid plan; memory uses OpenBot's own tables."}
 ```
 
 ## How it works
@@ -94,10 +93,9 @@ whoever first touched it; anyone else gets the answer a missing thread gets.
 **Telemetry.** This fork sends none: the engine in this repository reports to nothing outside it.
 See `docs/telemetry.md`.
 
-**Off, as no-ops rather than errors:** Automatic Learning (`learning` is `undefined`, auto-assign
-reports `off`), the entitlement check (not run), and the self-host banner (shown only if the operator
-set `OPENBOT_SELF_HOST_BANNER`). Memory uses OpenBot's own Postgres tables — that is the whole
-implementation now, not a fallback.
+**Off, as no-ops rather than errors:** the entitlement check (not run) and the self-host banner
+(shown only if the operator set `OPENBOT_SELF_HOST_BANNER`). Memory uses OpenBot's own Postgres
+tables — that is the whole implementation now, not a fallback.
 
 ## Verified end to end (Phase 3, re-proved in Phase 6c)
 
@@ -132,4 +130,4 @@ SSE keep-alive frames.
   server yet.
 - **No push-based realtime fan-out.** There is no gateway and no `LISTEN/NOTIFY`: a second tab,
   device or replica sees a run by `connect`, which polls the event log.
-- **No ranked/semantic memory recall, no Automatic Learning, no thread auto-naming.**
+- **No ranked/semantic memory recall, no thread auto-naming.**
