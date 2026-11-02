@@ -1164,14 +1164,7 @@ async fn start_stack<R: tauri::Runtime>(
     // converts to the plain half, so a path without its own sentence reads as it always did.
 ) -> Result<(), openbot_desktop_lib::problem::Problem> {
     let root = stack::root_from(&root);
-    start_stack_inner(
-        app,
-        root,
-        model,
-        harness,
-        organization_auth_url,
-    )
-    .await
+    start_stack_inner(app, root, model, harness, organization_auth_url).await
 }
 
 #[allow(
@@ -6063,9 +6056,14 @@ fn main() {
                 } else {
                     serde_json::json!({"provider":"openai","login":"api-key","apiKey":"synthetic-container-root-key"})
                 };
-                let result = self.invoke("start_stack", serde_json::json!({
-                    "root":root,"model":model,"harness":null,
-                })).expect_err("fixture Start must stop before host startup");
+                let result = self
+                    .invoke(
+                        "start_stack",
+                        serde_json::json!({
+                            "root":root,"model":model,"harness":null,
+                        }),
+                    )
+                    .expect_err("fixture Start must stop before host startup");
                 println!(
                     "CONTAINER_START={}",
                     serde_json::json!({"root":root,"problem":result})
@@ -6990,9 +6988,13 @@ fn main() {
             vec!["fixture-image".into()],
         )
         .unwrap();
-        let problem = invoke("start_stack", serde_json::json!({
-            "root":root, "model":model, "harness":choice,
-        })).expect_err("intentional migration barrier prevents host/DB startup");
+        let problem = invoke(
+            "start_stack",
+            serde_json::json!({
+                "root":root, "model":model, "harness":choice,
+            }),
+        )
+        .expect_err("intentional migration barrier prevents host/DB startup");
         let commands = std::fs::read_to_string(&record).unwrap_or_default();
         assert!(
             problem["detail"]

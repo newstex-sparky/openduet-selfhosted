@@ -1363,8 +1363,10 @@ mod cache_tests {
         )
         .unwrap();
 
-        let found =
-            super::already_given_file_only(&path, &["OPENAI_API_KEY", "OPENBOT_ORGANIZATION_AUTH_URL"]);
+        let found = super::already_given_file_only(
+            &path,
+            &["OPENAI_API_KEY", "OPENBOT_ORGANIZATION_AUTH_URL"],
+        );
 
         assert_eq!(found.get("OPENAI_API_KEY"), Some(&"file-key".to_string()));
         assert_eq!(

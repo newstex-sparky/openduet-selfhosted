@@ -2532,11 +2532,7 @@ mod model_tests {
 
         let found = already_set(
             &path,
-            &[
-                "LEGACY_CREDENTIAL",
-                "LEGACY_SETTING",
-                "SOMETHING_ELSE",
-            ],
+            &["LEGACY_CREDENTIAL", "LEGACY_SETTING", "SOMETHING_ELSE"],
         );
         assert_eq!(
             found.get("LEGACY_CREDENTIAL").map(String::as_str),
