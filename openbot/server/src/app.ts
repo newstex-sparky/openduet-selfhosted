@@ -494,9 +494,9 @@ export function createApp(
       webBotAuthDirectory(context.req.raw, webBotAuth),
     );
   }
-  // Projected, never the raw runtime. config.runtime carries the Intelligence contract, including
-  // INTELLIGENCE_API_KEY and the licence token, and this endpoint is reachable by anyone. Returning
-  // the object wholesale would serve deployment secrets to the browser. Add fields here explicitly.
+  // Projected, never the raw config. This endpoint is reachable by anyone, and the wider config
+  // carries deployment secrets, so returning it wholesale would serve those to the browser. Add
+  // fields here explicitly.
   app.get("/api/capabilities", async (context) =>
     context.json({
       mode: config.runtime.mode,
