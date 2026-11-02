@@ -1,6 +1,5 @@
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
 import { parseEnv } from "node:util";
 import {
   cliLoginPresent,
@@ -16,11 +15,6 @@ import {
   runCli,
   verifiedContainer,
 } from "../server/src/learning/ensure-container";
-import {
-  intelligenceApiOrigin,
-  type LearningConnection,
-  setupSelfHostedLearning,
-} from "./self-hosted-learning";
 
 export type { KeyIntelligence } from "../server/src/learning/ensure-container";
 
@@ -60,42 +54,20 @@ async function saveEnvironment(envPath: string, content: string) {
   }
 }
 
-async function interactiveSelfHosted(apiUrl: string, existingKey?: string) {
-  const controller = new AbortController();
-  const cancel = () => controller.abort();
-  process.once("SIGINT", cancel);
-  process.once("SIGTERM", cancel);
-  console.log("Sign in to Intelligence in the temporary browser window.");
+/**
+ * The canonical origin of the configured API URL.
+ *
+ * The browser sign-in that wanted a stricter check (HTTPS, or HTTP on loopback) went with
+ * `self-hosted-learning.ts`; what is left passes the origin to `ensure-container`, which does its
+ * own request and fails loudly on an unreachable one.
+ */
+function apiOrigin(value: string): string {
   try {
-    return await setupSelfHostedLearning({
-      apiUrl,
-      ...(existingKey ? { existingKey } : {}),
-      signal: controller.signal,
-      selectProject: async (projects, signal) => {
-        if (projects.length === 1) return projects[0].id;
-        const input = createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
-        try {
-          for (const [index, project] of projects.entries()) {
-            console.log(`${index + 1}. ${project.name} (${project.id})`);
-          }
-          const answer = await input.question("Choose a project number: ", {
-            signal,
-          });
-          const selected = projects[Number(answer.trim()) - 1];
-          if (!selected)
-            throw new Error("Select a project number from the list.");
-          return selected.id;
-        } finally {
-          input.close();
-        }
-      },
-    });
-  } finally {
-    process.removeListener("SIGINT", cancel);
-    process.removeListener("SIGTERM", cancel);
+    return new URL(value).origin;
+  } catch {
+    throw new Error(
+      "Set INTELLIGENCE_API_URL to a complete URL, such as https://api.example.com, and run this helper again.",
+    );
   }
 }
 
@@ -105,10 +77,6 @@ export async function setupLearning(
     directory?: string;
     environment?: Record<string, string | undefined>;
     runCli?: RunCli;
-    setupSelfHosted?: (
-      apiUrl: string,
-      existingKey?: string,
-    ) => Promise<LearningConnection>;
     /** No browser, no prompt and no new key: what `scripts/start.sh` runs on every start. */
     nonInteractive?: boolean;
     /**
@@ -143,10 +111,9 @@ export async function setupLearning(
      * credential that can (learning/ensure-container.ts) and counts only once the key itself can see
      * the result. The server then assigns it; nothing is written to `.env`.
      */
-    const apiUrl = intelligenceApiOrigin(effective("INTELLIGENCE_API_URL"));
+    const apiUrl = apiOrigin(effective("INTELLIGENCE_API_URL"));
     const serviceToken = effective("INTELLIGENCE_SERVICE_TOKEN");
     const projectId = effective("INTELLIGENCE_PROJECT_ID");
-    const setupSelfHosted = options.setupSelfHosted ?? interactiveSelfHosted;
     return ensureLearningContainer({
       directory,
       apiUrl,
@@ -161,54 +128,20 @@ export async function setupLearning(
         ? { serviceToken: { token: serviceToken, projectId } }
         : {}),
       ...(options.cliLogin === undefined ? {} : { cliLogin: options.cliLogin }),
-      setupSelfHosted: async () => {
-        const connection = await setupSelfHosted(apiUrl, existingKey);
-        if (
-          connection.apiKey !== existingKey ||
-          connection.learningContainerId !== "openbot"
-        ) {
-          throw new Error(
-            "Intelligence returned an invalid setup connection. Nothing was saved.",
-          );
-        }
-      },
     });
   }
-  // Provisioning a key edits .env and may need a browser: a person runs that, not a start script.
+  // Provisioning a key edits .env: a person runs that, not a start script.
   if (options.nonInteractive) return "skipped";
-  const apiUrl = intelligenceApiOrigin(effective("INTELLIGENCE_API_URL"));
+  const apiUrl = apiOrigin(effective("INTELLIGENCE_API_URL"));
   if (apiUrl !== MANAGED_API) {
-    const connection = await (options.setupSelfHosted ?? interactiveSelfHosted)(
-      apiUrl,
+    /*
+     * This used to open a browser against the deployment's own sign-in, through
+     * `self-hosted-learning.ts`. That helper is gone with the desktop sign-in it existed for, and
+     * nothing here can mint a key without a person either way.
+     */
+    throw new Error(
+      "This helper provisions a key only for the managed service. For a deployment of your own, set INTELLIGENCE_API_URL and INTELLIGENCE_API_KEY directly and run this helper again.",
     );
-    if (
-      connection.apiUrl !== apiUrl ||
-      connection.learningContainerId !== "openbot" ||
-      !connection.apiKey.startsWith("cpk-")
-    ) {
-      throw new Error(
-        "Intelligence returned an invalid setup connection. Nothing was saved.",
-      );
-    }
-    const current = await readFile(envPath, "utf8");
-    if (current !== original) {
-      throw new Error(
-        "Setup configuration changed while signing in. It was preserved; inspect .env and run this helper again.",
-      );
-    }
-    await saveEnvironment(
-      envPath,
-      upsert(
-        upsert(
-          upsert(current, "INTELLIGENCE_API_URL", apiUrl),
-          "INTELLIGENCE_API_KEY",
-          connection.apiKey,
-        ),
-        CONTAINER,
-        connection.learningContainerId,
-      ),
-    );
-    return "configured";
   }
   const projectPath = resolve(directory, ".copilotkit/project.json");
   const selected = json(
@@ -314,7 +247,7 @@ async function skippedMessage(directory: string) {
   );
   let apiUrl = MANAGED_API;
   try {
-    apiUrl = intelligenceApiOrigin(
+    apiUrl = apiOrigin(
       (
         process.env.INTELLIGENCE_API_URL ||
         values.INTELLIGENCE_API_URL ||

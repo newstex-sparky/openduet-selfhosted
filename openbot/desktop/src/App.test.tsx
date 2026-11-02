@@ -584,10 +584,7 @@ test.each([false, true])(
   async (strictMode) => {
     const root = "/tmp/successful-setup-root";
     setupRootConfiguration("/tmp/default-root", async () => ({
-      values: {
-        INTELLIGENCE_API_URL: "https://own.example/api",
-        INTELLIGENCE_GATEWAY_WS_URL: "wss://own.example/ws",
-      },
+      values: {},
       saved: { ...savedOpenAiConfiguration().saved, model: "open-ai-api-key" },
       launch: { harness: { id: "mastra" } },
     }));
@@ -871,10 +868,7 @@ function useInterruptedShutdownSetup() {
   const root = "/tmp/interrupted-shutdown-root";
   const notice = "OpenBot had trouble shutting down last time.";
   setupRootConfiguration("/tmp/default-root", async () => ({
-    values: {
-      INTELLIGENCE_API_URL: "https://own.example/api",
-      INTELLIGENCE_GATEWAY_WS_URL: "wss://own.example/ws",
-    },
+    values: {},
     saved: { ...savedOpenAiConfiguration().saved, model: "open-ai-api-key" },
     launch: { harness: { id: "mastra" } },
   }));
@@ -908,9 +902,6 @@ test("an interrupted shutdown restores saved setup for explicit recovery", async
 
   expect(getStartStackPayload()).toEqual({
     root,
-    apiKey: "",
-    apiUrl: "https://own.example/api",
-    gatewayWsUrl: "wss://own.example/ws",
     harness: { id: "mastra" },
     model: { provider: "openai", login: "api-key", saved: true },
   });
@@ -1652,7 +1643,6 @@ test("Change the model after an Ask failure stops the stack and reaches the prov
     if (command === "already_configured") {
       return {
         values: {
-          INTELLIGENCE_API_KEY: "ck-test",
           OPENAI_API_KEY: "sk-test",
         },
         saved: {
@@ -2077,7 +2067,13 @@ test.each([
     }
     await user.click(view.getByRole("button", { name: "Continue" }));
     const previousStart = view.getByRole("button", { name: "Start OpenBot" });
-    expect(previousStart).toHaveProperty("disabled", !savedModel);
+    /*
+     * Start is available as soon as the model screen is answered, whether that answer was a saved
+     * key or one typed on this screen. The old assertion here read `!savedModel`, but it passed
+     * for the wrong reason: the button was disabled because the removed Intelligence sign-in had
+     * left its key field empty, not because the model was unanswered.
+     */
+    expect(previousStart).toHaveProperty("disabled", false);
     await user.click(view.getByRole("button", { name: "Change installation" }));
     const rootField = view.getByLabelText("Where OpenBot lives");
 
@@ -2377,9 +2373,6 @@ test.each(["http://localhost:11434/v1", "https://models.example/v1"])(
     ).toHaveLength(1);
     expect(payload).toEqual({
       root: "/tmp/openbot-app-test",
-      apiKey: "",
-      apiUrl: "https://api.intelligence.copilotkit.ai",
-      gatewayWsUrl: "wss://realtime.intelligence.copilotkit.ai",
       harness: { id: "langgraph" },
       model: {
         provider: "openai-compatible",
