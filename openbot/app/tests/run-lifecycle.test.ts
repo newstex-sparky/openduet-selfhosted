@@ -351,7 +351,7 @@ describe("liveRun", () => {
   test("asks the runtime's join for the thread, and reads the run holding it", async () => {
     answer(() => Response.json({ threadId: "thread-1", runId: "run-9" }));
     expect(await liveRun(where)).toBe("run-9");
-    expect(asked[0]?.url).toBe("/api/copilotkit/agent/openduet/connect");
+    expect(asked[0]?.url).toBe("/api/engine/agent/openduet/connect");
     expect(asked[0]?.body).toMatchObject({
       threadId: "thread-1",
       forwardedProps: { openbotAsk: "live-run" },

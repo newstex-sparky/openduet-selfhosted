@@ -152,7 +152,7 @@ function scriptModel(
 let modelDelayMs = 0;
 
 /**
- * One chat turn over the deployment's own HTTP surface: `POST /api/copilotkit/agent/openduet/run`,
+ * One chat turn over the deployment's own HTTP surface: `POST /api/engine/agent/openduet/run`,
  * the request a browser sends, read to the end of its SSE stream.
  *
  * What a client can see is the point, so this keeps the status and content type and every event
@@ -161,7 +161,7 @@ let modelDelayMs = 0;
  */
 async function runOverHttp(threadId: string, runId: string, text: string) {
   const response = await fetch(
-    `${publicUrl}/api/copilotkit/agent/openduet/run`,
+    `${publicUrl}/api/engine/agent/openduet/run`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -308,7 +308,7 @@ function sweepEvidence(output: string): string {
 async function threadMessages(threadId: string) {
   const rows = await database.$client`
     select message_id, role, content
-      from copilotkit_thread_messages
+      from openduet_thread_messages
      where thread_id = ${threadId}
      order by seq
   `;
@@ -379,7 +379,7 @@ async function decisionAudit(id: string) {
 async function threadRuns(threadId: string) {
   return (await database.$client`
     select run_id, status, error, finished_at
-      from copilotkit_thread_runs
+      from openduet_thread_runs
      where thread_id = ${threadId}
      order by started_at
   `) as unknown as {
@@ -405,8 +405,8 @@ async function dumpApprovalEvidence(input: {
   const blocks = {
     approval_requests: await approvalRow(input.approvalId),
     routine_runs: await runsOf(input.routineId),
-    copilotkit_thread_runs: await threadRuns(input.threadId),
-    copilotkit_thread_messages: await threadMessages(input.threadId),
+    openduet_thread_runs: await threadRuns(input.threadId),
+    openduet_thread_messages: await threadMessages(input.threadId),
     "audit_events approval.person_decided": await decisionAudit(
       input.approvalId,
     ),
@@ -508,7 +508,7 @@ afterAll(async () => {
   }
   /* The conversations the HTTP cases opened on the tenant's Bot; their runs, events and messages
    * cascade with them. */
-  await database.$client`delete from copilotkit_threads where id like ${`${prefix}%`}`;
+  await database.$client`delete from openduet_threads where id like ${`${prefix}%`}`;
   await database.$client.close();
   await llm.stop();
 }, 60_000);
@@ -559,7 +559,7 @@ test("a scheduled routine fires and completes its turn in local mode", async () 
     ),
   ).toBe(true);
   console.log(
-    `[e2e] copilotkit_thread_messages read back for ${channel.threadId}: ${JSON.stringify(
+    `[e2e] openduet_thread_messages read back for ${channel.threadId}: ${JSON.stringify(
       messages.map((message) => ({
         role: message.role,
         content: message.content,
@@ -789,7 +789,7 @@ test("a run refused by the thread lock answers 409, not an empty 200", async () 
     const first = runOverHttp(threadId, randomUUID(), "First.");
     await waitFor("the first run to hold the thread lock", async () => {
       const rows = (await database.$client`
-        select run_id from copilotkit_thread_locks
+        select run_id from openduet_thread_locks
          where thread_id = ${threadId} and expires_at > now()
       `) as unknown as { run_id: string }[];
       return rows.length > 0 ? rows : undefined;

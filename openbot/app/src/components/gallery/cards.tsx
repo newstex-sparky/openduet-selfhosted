@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { GalleryComponent } from "@/lib/copilot/gallery-registry";
+import type { GalleryComponent } from "@/lib/chat/gallery-registry";
 import { Badge, GalleryFrame, type Tone } from "./frame";
 
 const tone = z

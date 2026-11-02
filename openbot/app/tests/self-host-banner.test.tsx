@@ -93,15 +93,15 @@ function setup({
   return { client, view };
 }
 
-test("offers self-hosting with a link CopilotKit can tell came from the app", () => {
+test("offers self-hosting with a link AgentRuntime can tell came from the app", () => {
   const { view } = setup();
   expect(
     view.getByText("Self-host OpenDuet for your organization."),
   ).toBeTruthy();
-  const link = view.getByRole("link", { name: "Talk to an engineer" });
+  const link = view.getByRole("link", { name: "Setup guide" });
   expect(link.getAttribute("href")).toBe(SELF_HOST_URL);
   expect(SELF_HOST_URL).toBe(
-    "https://www.copilotkit.ai/talk-to-an-engineer?ref=openduet_app",
+    "https://github.com/newstex-sparky/openduet-selfhosted#quick-start",
   );
   expect(link.getAttribute("target")).toBe("_blank");
   expect(link.getAttribute("rel")).toBe("noopener noreferrer");

@@ -13,13 +13,13 @@ import { cleanup, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import {
   activityProgress,
-  CopilotKit,
+  AgentRuntime,
   generatedDocument,
   generativeUIActivityRenderers,
   OpenGenerativeUIActivityRenderer,
   type OpenGenerativeUIContent,
 } from "@/lib/agui";
-import { activityRenderers } from "@/lib/copilot/activity-renderers";
+import { activityRenderers } from "@/lib/chat/activity-renderers";
 import { settleReactWork } from "./settle-react-work";
 
 /**
@@ -303,12 +303,12 @@ describe("wiring into the activity path", () => {
   });
 
   test("the registry the provider builds finds the renderer for the activity type", () => {
-    const copilotkit = new CopilotKit({
-      runtimeUrl: "/api/copilotkit",
+    const agentRuntime = new AgentRuntime({
+      runtimeUrl: "/api/engine",
       renderActivityMessages: activityRenderers(true),
     });
     expect(
-      copilotkit.activityRendererFor("open-generative-ui", undefined)
+      agentRuntime.activityRendererFor("open-generative-ui", undefined)
         ?.activityType,
     ).toBe("open-generative-ui");
   });
@@ -335,13 +335,13 @@ describe("first-party only", () => {
     "utf8",
   );
   const wiring = readFileSync(
-    new URL("../src/lib/copilot/activity-renderers.ts", import.meta.url),
+    new URL("../src/lib/chat/activity-renderers.ts", import.meta.url),
     "utf8",
   );
 
-  test("the renderer imports no CopilotKit module", () => {
-    expect(source).not.toContain("@copilotkit");
-    expect(wiring).not.toContain("@copilotkit");
+  test("the renderer imports no AgentRuntime module", () => {
+    expect(source).not.toContain("@agentRuntime");
+    expect(wiring).not.toContain("@agentRuntime");
   });
 
   test("the parent page never executes the activity's own source", () => {

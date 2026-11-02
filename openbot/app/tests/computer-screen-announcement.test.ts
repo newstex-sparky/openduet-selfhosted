@@ -3,7 +3,7 @@ import { callComputer } from "@/lib/computers/call";
 import {
   onComputerActivity,
   onComputerActivityWithdrawn,
-} from "@/lib/copilot/computer-activity";
+} from "@/lib/chat/computer-activity";
 
 /**
  * Which computer calls open the live screen, and which take it back.

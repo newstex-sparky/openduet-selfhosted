@@ -4,7 +4,7 @@ import {
   clearActivity,
   recordActivity,
 } from "../src/lib/computers/activity";
-import { outputOf } from "../src/lib/copilot/computer-tools";
+import { outputOf } from "../src/lib/chat/computer-tools";
 
 /**
  * What a Bot did on its computer, other than browse.

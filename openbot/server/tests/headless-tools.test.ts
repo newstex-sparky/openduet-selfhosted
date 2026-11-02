@@ -111,7 +111,7 @@ function turnHarness(
   };
   const run = createTurnRunner({
     admission: serverTurnAdmission,
-    intelligence: {
+    platform: {
       getOrCreateThread: async () => undefined,
       getThreadMessages: async () => ({ messages: [] }),
       acquireThreadLock: async () => {

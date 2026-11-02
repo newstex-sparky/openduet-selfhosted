@@ -2,14 +2,14 @@ import { expect, spyOn, test } from "bun:test";
 import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { EventType, HttpAgent } from "@ag-ui/client";
 import { LLMock } from "../testing/llmock";
-import { BuiltInAgent } from "@openbot/toolkit/copilotkit/engine/agent/index";
+import { BuiltInAgent } from "@openbot/toolkit/platform/engine/agent/index";
 import { z } from "zod";
 import {
   buildAgents,
   type HandoffForRun,
   type RuntimeModel,
   type ToolSelection,
-} from "../src/copilot";
+} from "../src/engine";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { createModelCompleter } from "../src/routing/model";
 

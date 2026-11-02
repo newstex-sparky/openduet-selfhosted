@@ -5,7 +5,7 @@ import {
 } from "@/components/plugins/app-access-action";
 import { PluginLogo } from "@/components/plugins/plugin-logo";
 import { type AppAccess, botAppQueryOptions } from "@/lib/app-access/queries";
-import { useDeclaredBotId } from "@/lib/copilot/active-bot";
+import { useDeclaredBotId } from "@/lib/chat/active-bot";
 import type { ConnectPrompt } from "@openbot/shared/connect-prompt";
 import { ConnectAppCard } from "./connect-app-card";
 

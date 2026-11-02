@@ -1,7 +1,7 @@
 import type { VoiceTranscriptEntry } from "@openbot/shared/voice-session";
 import { PlanModel } from "../agents/plan-model";
 import type { TitlerOptions } from "../channels/titler";
-import type { RuntimeModel } from "../copilot";
+import type { RuntimeModel } from "../engine";
 import { anthropicMessagesUrl, chatCompletionsUrl } from "../routing/model";
 
 export type VoiceSummarizer = (

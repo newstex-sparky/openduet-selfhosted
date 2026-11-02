@@ -14,11 +14,11 @@ import { useCallback, useEffect } from "react";
 import { ChatTranscript } from "@/components/channels/chat-transcript";
 import { Composer } from "@/components/channels/composer";
 import { newId } from "@/lib/new-id";
-import { useCopilotKit } from "./context";
+import { useAgentRuntime } from "./context";
 import { useAgent } from "./hooks";
 import type { Message } from "./types";
 
-export interface CopilotChatProps {
+export interface ChatShellProps {
   /** The agent to talk to. Inside a channel this is the channel's own name for its Bot. */
   agentId: string;
   /** The thread to run in. Absent, the runtime mints one on the first run. */
@@ -38,14 +38,14 @@ export interface CopilotChatProps {
  * `bot.tsx`), so nothing is thrown from here: the composer clears itself on submit, and a throw
  * would leave the words nowhere.
  */
-export function CopilotChat({
+export function ChatShell({
   agentId,
   threadId,
   runtimeAgentId,
   placeholder = "Ask anything",
   className,
-}: CopilotChatProps) {
-  const { copilotkit } = useCopilotKit();
+}: ChatShellProps) {
+  const { agentRuntime } = useAgentRuntime();
   const { agent, isReady } = useAgent({
     agentId,
     runtimeAgentId: runtimeAgentId ?? agentId,
@@ -71,8 +71,8 @@ export function CopilotChat({
    */
   useEffect(() => {
     if (!isReady || threadId === undefined) return;
-    void copilotkit.connectAgent({ agent }).catch(() => undefined);
-  }, [agent, copilotkit, isReady, threadId]);
+    void agentRuntime.connectAgent({ agent }).catch(() => undefined);
+  }, [agent, agentRuntime, isReady, threadId]);
 
   const send = useCallback(
     async (draft: { text: string }) => {
@@ -91,14 +91,14 @@ export function CopilotChat({
       };
       // Appended before the run so the person's words are on screen while the Bot thinks.
       agent.setMessages([...agent.messages, message]);
-      await copilotkit.runAgent({ agent });
+      await agentRuntime.runAgent({ agent });
     },
-    [agent, copilotkit],
+    [agent, agentRuntime],
   );
 
   const stop = useCallback(() => {
-    copilotkit.stopAgent({ agent });
-  }, [agent, copilotkit]);
+    agentRuntime.stopAgent({ agent });
+  }, [agent, agentRuntime]);
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${className ?? ""}`}>

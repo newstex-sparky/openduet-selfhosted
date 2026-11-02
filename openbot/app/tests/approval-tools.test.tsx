@@ -4,8 +4,8 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render } from "@testing-library/react";
 import { z } from "zod";
-import { observeApprovalAgent } from "@/lib/copilot/approval-context";
-import { useFrontendTool } from "@/lib/copilot/approval-tools";
+import { observeApprovalAgent } from "@/lib/chat/approval-context";
+import { useFrontendTool } from "@/lib/chat/approval-tools";
 
 /**
  * The handler the SDK keeps for a computer change.
@@ -25,10 +25,10 @@ import { useFrontendTool } from "@/lib/copilot/approval-tools";
 type Registered = Parameters<typeof ReactCoreV2.useFrontendTool>[0];
 const registered: Registered[] = [];
 const stopped: unknown[] = [];
-const useCopilotKitSpy = spyOn(ReactCoreV2, "useCopilotKit").mockImplementation(
+const useAgentRuntimeSpy = spyOn(ReactCoreV2, "useAgentRuntime").mockImplementation(
   () =>
     ({
-      copilotkit: { stopAgent: (input: unknown) => stopped.push(input) },
+      agentRuntime: { stopAgent: (input: unknown) => stopped.push(input) },
     }) as never,
 );
 function register<T extends Record<string, unknown>>(
@@ -42,7 +42,7 @@ const useFrontendToolSpy = spyOn(
   "useFrontendTool",
 ).mockImplementation(register);
 afterAll(() => {
-  useCopilotKitSpy.mockRestore();
+  useAgentRuntimeSpy.mockRestore();
   useFrontendToolSpy.mockRestore();
 });
 

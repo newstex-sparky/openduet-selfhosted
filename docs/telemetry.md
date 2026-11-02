@@ -1,69 +1,27 @@
-# Intelligence sign-up and OpenDuet usage tracking
+# Telemetry
 
-OpenDuet uses the telemetry the CopilotKit runtime already sends. It adds no events of its own, and
-there is no separate analytics SDK or key to configure.
+This fork sends no usage telemetry.
 
-## What is required
-
-A CopilotKit Intelligence project is required. The server refuses to start without
-`INTELLIGENCE_API_KEY`, and `scripts/start.sh` stops unless the runtime reports a valid licence.
-Intelligence holds threads and memory, so an OpenDuet without it would forget every conversation.
-
-Create or pick the project from the repository root:
+The upstream product's runtime reported its own events to `https://telemetry.copilotkit.ai/ingest`, and
+the server added an `accessibility_title` to them. Both went with the vendor runtime: `server/src/telemetry.ts`
+was deleted in the engine rewrite, and nothing in `openbot/server` or `openbot/app` carries an analytics
+client or an ingest address today. That was checked, not assumed:
 
 ```sh
-npx --yes copilotkit@latest login
-npx --yes copilotkit@latest project select
-bun openbot/scripts/setup-learning.ts
+grep -rln "posthog\|segment\.io\|amplitude\|telemetry\.copilotkit\.ai" openbot/server openbot/app
 ```
 
-`project select` writes two values to `.env`. Keep both, and deploy them together:
+## What still reads the switches
 
-| Variable                   | Purpose                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------- |
-| `CPK_INTELLIGENCE_API_KEY` | The project's server-only key. `setup-learning.ts` copies it to `INTELLIGENCE_API_KEY`, which is what the server reads. |
-| `CPK_TELEMETRY_ID`         | The CLI-issued identity of that project. The runtime sends it with each event, so usage can be tied to the Intelligence account. |
+`OPENBOT_TELEMETRY_DISABLED=true` and `DO_NOT_TRACK=1` are still honoured where a component looks for
+them, so a deployment that set them keeps the behaviour it asked for:
 
-Do not generate a telemetry ID yourself or copy one from another project. An API key alone does not
-give runtime telemetry an identity.
+- `openbot/server/src/learning/ensure-container.ts` passes `OPENBOT_TELEMETRY_DISABLED=1` to the
+  `npx` child it spawns, so the vendor CLI it runs never reports usage either.
 
-## What is sent
+## What this deployment does keep
 
-The runtime sends its own events to `https://telemetry.copilotkit.ai/ingest`. OpenDuet changes two
-things about them, both in `openbot/server/src/telemetry.ts`:
-
-- It adds `accessibility_title: "OpenDuet"`. The value is fixed, not taken from the tenant
-  package's product name, so a renamed fork is still counted as OpenDuet.
-  `OPENBOT_ACCESSIBILITY_DISABLED=true` drops the name.
-- It sets `COPILOTKIT_TELEMETRY_SAMPLE_RATE` to `1` when nothing else has. The SDK's own default is
-  5%, too thin to see one deployment's setup and first use. A value you set wins.
-
-The events:
-
-- `oss.runtime.instance_created`: the server created its runtime handler.
-- `oss.runtime.copilot_request_created`: a request reached the runtime. This is evidence of use,
-  not proof that the model answered.
-- `intelligence_signup`: sent by Intelligence itself when an account is created, not by OpenDuet.
-
-The project key is never put in an event.
-
-## Turning it off
-
-Set either `COPILOTKIT_TELEMETRY_DISABLED=true` or `DO_NOT_TRACK=1`, and restart the server. Both
-accept `true` or `1`.
-
-## How it is tested
-
-`openbot/server/tests/telemetry.test.ts` starts the runtime in a fresh process with `fetch` replaced, so
-nothing leaves the machine. It checks:
-
-- the OpenDuet tag;
-- the CLI-issued identity header;
-- full sampling by default;
-- that an explicit sample rate wins;
-- that both opt-outs stop every event;
-- that turning off the name leaves events unnamed.
-
-These tests prove what the runtime sends from this repository. They do not prove that the events
-arrive or that the identity resolves. To check that, after deploying, run one chat and look for
-events whose `accessibility_title` is `OpenDuet` in CopilotKit's PostHog project.
+Threads, messages, the event log and the run lock are rows in this deployment's own Postgres
+(`openbot/server/src/db/schema/threads.ts`, migration `0068`, renamed in `0070`). No copy of them leaves
+the deployment. Your model provider still receives every message it is asked to answer, as any model
+provider does.

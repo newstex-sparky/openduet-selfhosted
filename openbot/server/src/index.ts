@@ -2,9 +2,9 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
 import { workOwner } from "@openbot/shared/work-owner";
-import type { PostgresThreadPlatform } from "@openbot/toolkit/copilotkit/postgres-platform";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/platform/postgres-platform";
 import { createTurnRunner, type TurnRunner } from "@openbot/toolkit/run-turn";
-import { runAsLocalUser } from "@openbot/toolkit/copilotkit/request-scope";
+import { runAsLocalUser } from "@openbot/toolkit/platform/request-scope";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createActivityStore } from "./activity/activity";
@@ -122,11 +122,11 @@ import { loadConfig } from "./config";
 import {
   type IdentifyActor,
   type IdentifyUser,
-  mountCopilotRuntime,
+  mountAgentRuntime,
   normalizeModelBaseUrls,
   runtimeModelForEnvironment,
   type ToolSelection,
-} from "./copilot";
+} from "./engine";
 import {
   createCredentialAdminService,
   createCredentialStore,
@@ -160,20 +160,6 @@ import { githubCallbackRoutes } from "./identity/github-callback";
 import { retireIdentityLinks, retireOwnedAccounts } from "./identity/retire";
 import { slackCodeRedeemer } from "./identity/slack-redeem";
 import { createIdentityStore } from "./identity/store";
-import {
-  createLearningAutoAssign,
-  probeLearningContainer,
-  withLearningAutoAssign,
-} from "./learning/auto-assign";
-import {
-  cliLoginPresent,
-  ensureLearningContainer,
-  intelligenceApiOrigin,
-  keyIntelligence,
-  learningSetupInstructions,
-} from "./learning/ensure-container";
-import { clearLearningRevisionFallback } from "./learning/runtime";
-import { createLearningSettingsStore } from "./learning/settings";
 import { createMemoryDefaults } from "./memory/defaults";
 import { createMemoryIngestion } from "./memory/ingestion";
 import { createMemoryStore } from "./memory/store";
@@ -286,7 +272,7 @@ import { repeatAfterEach } from "./work/loop";
 import { createWorkQueue, type WorkOfferedListener } from "./work/queue";
 
 /**
- * Who is asking, for a CopilotKit request.
+ * Who is asking, for an engine request.
  *
  * One resolver, because a run has two questions to answer about the same person: whose threads and
  * memory these are, and which coworkers they may run. Answering them from different places is how
@@ -303,13 +289,13 @@ async function resolveRequestActor(request: Request): Promise<{
   const session = await auth?.api.getSession({ headers: request.headers });
   const user = session?.user;
   if (!user) {
-    throw new Error("A CopilotKit run requires a signed-in user.");
+    throw new Error("An engine run requires a signed-in user.");
   }
   const roles = user.role
     ? [user.role]
     : await roleRepository.rolesForUser(user.id);
   if (!roles.includes("admin") && !roles.includes("user")) {
-    throw new Error("A CopilotKit run requires an authorized user.");
+    throw new Error("An engine run requires an authorized user.");
   }
   return {
     id: user.id,
@@ -346,19 +332,12 @@ const identifyActor: IdentifyActor = async (request) => {
 };
 
 const config = loadConfig();
-// The environment seeds local policy once. The SDK fallback must not reapply an old revision
-// after an administrator clears a pin to follow the latest published Skills.
-clearLearningRevisionFallback();
 // Read with the rest of the configuration, where an empty variable is an absent one. See
 // `serverPort` in config.ts for what `process.env.PORT ?? …` did with `PORT=` instead.
 const port = config.port;
 const database = createDatabase(config.databaseUrl);
 // Every dispatch point asks this database whether its person paused the Bot. See agents/lifecycle.ts.
 configureBotLifecycle({ database });
-const learningSettingsStore = createLearningSettingsStore(
-  database,
-  config.learning,
-);
 /*
  * THIS PROCESS'S THREAD PLATFORM, BUILT ONCE.
  *
@@ -369,24 +348,6 @@ const learningSettingsStore = createLearningSettingsStore(
 const localPlatform: PostgresThreadPlatform = localThreadPlatform(config);
 announceLocalMode();
 
-/*
- * Automatic Learning is off, and stays off.
- *
- * It collected Skills inside a CopilotKit Intelligence project, which this fork does not run, so
- * there is nothing to assign a container in and nothing to probe. The settings table and the admin
- * surface still report "off" — see `learning/auto-assign.ts` — but no check is ever started.
- */
-const learningAutoAssign = createLearningAutoAssign({
-  enabled: false,
-  store: learningSettingsStore,
-  probe: async () => "unavailable",
-});
-learningAutoAssign.start();
-// The settings store the admin surface and the learning routes read. Nothing assigns a container.
-const learningSettings = withLearningAutoAssign(
-  learningSettingsStore,
-  learningAutoAssign,
-);
 await initializeDevActorUser(database, config.singleUser);
 // The vault, built before the agent store because a customer's agent may sit behind a key and that
 // key belongs here rather than on the agent row. See agents/auth-header.ts.
@@ -722,7 +683,7 @@ const approvalService = createServerApprovalService({
   actorFor,
   database,
   authoriseQuestion,
-  routineIntelligence: localPlatform,
+  routinePlatform: localPlatform,
   approvalComputerTools,
   review: (prompt, signal) => chooseSkills(prompt, signal),
   // Assigned further down, once delivery is wired.
@@ -1342,20 +1303,6 @@ const memorySweep = repeatAfterEach(async () => {
       }),
     );
   }
-  // Mirror to Intelligence what is out of step: the backfill on the first passes after a deployment
-  // becomes entitled, and afterwards whatever an outage left behind. A no-op without Intelligence.
-  try {
-    await personalMemoryStore.mirrorPending();
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        type: "memory-sweep-error",
-        error: error instanceof Error ? error.name : "UnknownError",
-        context: { operation: "mirrorPending" },
-        timestamp: new Date().toISOString(),
-      }),
-    );
-  }
 }, 60_000);
 // Follow-ups a Bot schedules for itself, on the shared work queue. See agents/wake-up.ts.
 const wakeUpStore = createWakeUpStore(database, { auditStore: bootAuditStore });
@@ -1462,7 +1409,7 @@ const loadInstructionsForActor = (actorId: string) => () =>
  * row is fetched here and the bytes go up inline, so the Bot sees the file the person attached
  * instead of a link it cannot follow.
  *
- * Built per actor and passed to both turn paths — the request path through `mountCopilotRuntime` and
+ * Built per actor and passed to both turn paths — the request path through `mountAgentRuntime` and
  * a routine's turn through `buildAgentFor` — so a routine firing at three in the morning inlines
  * exactly as a person's chat turn does, on exactly the same footing.
  *
@@ -1490,7 +1437,7 @@ const loadAttachmentForActor =
  *
  * Bound per actor and handed to the same two turn paths as the reader above, so a routine's send at
  * three in the morning is recorded exactly as a person's chat turn is. `inlineAttachments`
- * (copilot.ts) calls it with the ids on the message being asked about and no others: history is
+ * (engine.ts) calls it with the ids on the message being asked about and no others: history is
  * replayed on every turn and by whoever is running it, so nothing behind that message is evidence
  * of a send.
  *
@@ -1700,7 +1647,7 @@ const routineAgentRunner = localPlatform.runner;
  * EVERY HEADLESS TURN, WITH LOCAL MODE'S OWNER SCOPE AROUND IT.
  *
  * Local mode scopes thread reads, thread writes and the run lock to the signed-in person, through
- * the `AsyncLocalStorage` in `@openbot/toolkit/copilotkit/request-scope`: that is what makes a
+ * the `AsyncLocalStorage` in `@openbot/toolkit/platform/request-scope`: that is what makes a
  * thread belong to somebody. A routine, a responsibility, a proactive turn, a wake-up, a group
  * continuation and an approval continuation have no browser request behind them to supply that
  * person, so the first firing failed with `Thread … not found` — the turn asked for the owner's
@@ -1718,7 +1665,7 @@ const routineRunner = createRoutineRunner({
   channelStore,
   runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -1737,9 +1684,6 @@ const routineRunner = createRoutineRunner({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
 });
 
@@ -1776,10 +1720,6 @@ const baseAgentResolver = createActorAgentResolver({
   loadInstructionsForActor,
   loadAttachmentForActor,
   markAttachmentsSentForActor,
-  // The runtime owns Learning. Resolve its reader only when a turn is built, after boot wiring.
-  get acquireLearnedSkills() {
-    return copilotRuntime.learning?.acquire;
-  },
   loadPersonalMemoryForActor,
 });
 // Every Bot a person runs learns which OpenDuet channel its run is in. See openduet/run-channel.ts.
@@ -1787,7 +1727,7 @@ const actorAgentResolver = withRunChannels(baseAgentResolver, (owner, thread) =>
   openDuetChannels.ofThread(owner, thread),
 );
 
-const copilotRuntime = mountCopilotRuntime(
+const copilotRuntime = mountAgentRuntime(
   config,
   actorAgentResolver,
   identifyUser,
@@ -1804,7 +1744,7 @@ const copilotRuntime = mountCopilotRuntime(
 const responsibilityEngine = createServerResponsibilityEngine({
   database,
   responsibilityStore,
-  routineIntelligence: localPlatform,
+  routinePlatform: localPlatform,
   routineAgentRunner,
   componentCatalog,
   buildAgentFor,
@@ -1813,7 +1753,6 @@ const responsibilityEngine = createServerResponsibilityEngine({
   agentProfileStore,
   bootAuditStore,
   signInService,
-  copilotRuntime,
   channelStore,
   // Assigned further down, once delivery is wired.
   notify: (scope, input) => deliveryNotifications(scope, input),
@@ -1844,7 +1783,7 @@ const responsibilityAnswerTurn = ({
   });
   return headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),
@@ -1863,9 +1802,6 @@ const responsibilityAnswerTurn = ({
         execute: (args: unknown) => tool.execute(args),
       })),
     ],
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   });
 };
 const responsibilitySweep = repeatAfterEach(async () => {
@@ -1919,15 +1855,12 @@ const executeApprovedAction = createApprovedActionExecutor({
 });
 const approvalContinuationRunner = headlessTurn({
   admission: serverTurnAdmission,
-  intelligence: localPlatform,
+  platform: localPlatform,
   runner: routineAgentRunner,
   components: componentCatalog,
   buildAgentFor,
   toolsForTurn: async ({ ownerUserId, agentId, initiator }) =>
     approvalComputerTools(ownerUserId, agentId, initiator),
-  learningContainerForThread: (input) =>
-    copilotRuntime.learning?.containerForThread(input) ??
-    Promise.resolve(undefined),
 });
 // The drawer's channels, and the Bot's hello in a new one. See openduet/channels.ts.
 const openDuetChannels = createDuetChannelStore({
@@ -1961,7 +1894,7 @@ const groupConversations = createGroupConversations({
   },
   runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -1980,9 +1913,6 @@ const groupConversations = createGroupConversations({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
   caps: config.handoff,
   // The handoff desk's own grant check, read per hop and failing closed.
@@ -2140,14 +2070,11 @@ conversationSaid = (ownerUserId, channelId, activity) => {
  */
 const proactiveRunTurn = headlessTurn({
   admission: serverTurnAdmission,
-  intelligence: localPlatform,
+  platform: localPlatform,
   runner: routineAgentRunner,
   buildAgentFor,
   toolsForTurn: (input) => proactiveEngine.toolsForTurn(input),
   turnTimeoutMs: 3 * 60_000,
-  learningContainerForThread: (input) =>
-    copilotRuntime.learning?.containerForThread(input) ??
-    Promise.resolve(undefined),
 });
 const taskReplyContext = createTaskReplyContext({
   load: (scope, id) =>
@@ -2250,7 +2177,7 @@ const wakeUpRunner = createWakeUpRunner({
   channels: channelStore,
   runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -2269,9 +2196,6 @@ const wakeUpRunner = createWakeUpRunner({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
   notify: (scope, input) => deliveryNotifications(scope, input),
 });
@@ -2621,12 +2545,6 @@ const app = createApp(
       resolveApiKey: resolveRuntimeModelApiKey,
     }),
     channels: channelStore,
-  },
-  {
-    store: learningSettings,
-    autoAssign: learningAutoAssign,
-    status: copilotRuntime.learning?.status,
-    inspect: copilotRuntime.learning?.inspect,
   },
   {
     approvals: approvalService,

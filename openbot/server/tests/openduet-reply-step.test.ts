@@ -7,11 +7,11 @@ import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import { z } from "zod";
 import { currentApprovalContext } from "../src/approvals/types";
-import { buildAgents } from "../src/copilot";
+import { buildAgents } from "../src/engine";
 import { REPLIES_TOOL, replyTools } from "../src/openduet/replies";
 
 /*
- * Reply chips as a real built-in run makes them: the CopilotKit agent, the AI SDK's own step loop,
+ * Reply chips as a real built-in run makes them: the built-in agent, the AI SDK's own step loop,
  * the OpenAI provider, and a scripted model behind aimock. Each script is the model's steps in
  * order; what is asserted is what each `suggest_replies` call answered, which is both what the
  * model is told and what the app draws chips from (a "Refused." answer draws nothing, and anything

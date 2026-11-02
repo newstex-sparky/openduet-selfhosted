@@ -7,7 +7,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@/lib/agui";
+import { AgentProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { CHECK_IN_FRAME, frameCheckIn } from "@openbot/shared/check-in";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,7 +30,7 @@ import {
   useCheckInNotifications,
 } from "@/components/shell/check-in-notifier";
 import { CheckInArrivalContext } from "@/lib/channels/check-in";
-import { OfferTaskTool, readOffer } from "@/lib/copilot/offer-task-tool";
+import { OfferTaskTool, readOffer } from "@/lib/chat/offer-task-tool";
 import { settleReactWork } from "./settle-react-work";
 
 /**
@@ -168,13 +168,13 @@ function Chat({
   });
   return (
     <QueryClientProvider client={queries}>
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <OfferTaskTool />
         <ChatSuggestionProvider bot={BOT}>
           <ConversationView messages={messages} onSubmit={() => {}} />
           {dock ? <ChatSuggestionCard /> : null}
         </ChatSuggestionProvider>
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * The one agent class this app runs: an AG-UI HTTP agent that talks to this deployment's own
- * CopilotKit-compatible runtime.
+ * AgentRuntime-compatible runtime.
  *
  * `@ag-ui/client`'s `HttpAgent` already speaks `POST {url}` + SSE for a run. Two things in this
  * product do not fit its defaults, and both are here rather than in a subclass of a subclass:
@@ -25,7 +25,7 @@ import {
 } from "@ag-ui/client";
 
 export interface RuntimeAgentConfig {
-  /** The runtime's own base URL, such as `/api/copilotkit`. */
+  /** The runtime's own base URL, such as `/api/engine`. */
   runtimeUrl: string;
   /** The agent to address at the runtime, such as a channel's Bot id. */
   runtimeAgentId: string;

@@ -3361,7 +3361,7 @@ mod tests {
     fn desktop_approval_transport_credential_reaches_only_the_server() {
         let secrets = Secrets::from([
             ("OPENBOT_DESKTOP_HOST_TOKEN".into(), "fixture-only".into()),
-            ("INTELLIGENCE_API_KEY".into(), "other-fixture".into()),
+            ("OPENAI_API_KEY".into(), "other-fixture".into()),
         ]);
         for name in ["server", "worker", "app"] {
             let mut command = Command::new("unused");
@@ -3373,7 +3373,7 @@ mod tests {
                 "approval credential exposure to {name}"
             );
             assert_eq!(
-                vars[std::ffi::OsStr::new("INTELLIGENCE_API_KEY")],
+                vars[std::ffi::OsStr::new("OPENAI_API_KEY")],
                 Some(std::ffi::OsStr::new("other-fixture"))
             );
         }
@@ -6643,9 +6643,9 @@ fn main() {
 
     #[test]
     fn a_deployment_directory_pasted_with_a_stray_space_is_the_one_it_names() {
-        // The fifth value on the setup screen that trimming missed. The screen enables Start on
-        // `root.trim() !== ""` and then sends the untrimmed string, which is exactly what the API
-        // URL, the gateway URL, the intelligence key and the model key were rescued from.
+        // The value on the setup screen that trimming missed. The screen enables Start on
+        // `root.trim() !== ""` and then sends the untrimmed string, which is exactly what the model
+        // key was rescued from.
         //
         // A trailing space is a second directory beside the one everything else means: the tray's
         // Stop and the next launch both ask `default_root`, which has no space in it. A leading one

@@ -166,45 +166,6 @@ config:
       issuer: ""
   tenantPackageDir: /app/examples/openduet
 
-  # CopilotKit Intelligence, which OpenBot requires. All four values are needed together: the server
-  # refuses to start on a partial set, deliberately, because a half-configured Intelligence is a
-  # mistake somebody made rather than a deployment that meant to run without one.
-  intelligence:
-    apiUrl: ""
-    gatewayWsUrl: ""
-    # The two secret halves live under `secrets` below, never here.
-  # Learning defaults on; collection and delivery require an existing, assigned container.
-  # With nothing saved in Admin and no containerId below, the server assigns the project's openbot
-  # container on its own once it exists. The runtime key cannot create it, so `setup` below gives the
-  # chart a credential that can; without one, the server log and Admin → Automatic Learning say
-  # exactly what to run (scripts/setup-learning.ts, from a computer that can sign in to Intelligence).
-  # Optional initial defaults; saved Admin → Automatic Learning settings take precedence, including off.
-  learning:
-    containerId: ""
-    revision: ""
-    # false stops the automatic assignment (OPENBOT_LEARNING_AUTO_ASSIGN=false).
-    autoAssign: true
-    # Creating the container. Name either Secret and a Job runs on every install and upgrade that
-    # creates it in the runtime key's project, proves it with that key, and exits; the server then
-    # assigns it. Both Secrets are yours: create them before installing.
-    setup:
-      # A CopilotKit CLI login, for managed Intelligence. Sign in into an empty folder and store the
-      # file it writes (a person's 30-day session, so keep the Secret as tight as that warrants):
-      #   COPILOTKIT_CONFIG_DIR="$(mktemp -d)"; export COPILOTKIT_CONFIG_DIR
-      #   npx --yes copilotkit@latest login
-      #   kubectl create secret generic openbot-copilotkit-cli \
-      #     --from-file=config.json="$COPILOTKIT_CONFIG_DIR/auth/config.json"
-      # The Job reads it once. The server never holds it.
-      cliLoginSecret:
-        name: ""
-        key: config.json
-      # An Intelligence service token, which creates Learning containers on a CopilotKit local
-      # evaluation install only. Requires projectId: the numeric ID of the runtime key's project.
-      # Passed to the server too, so Admin → Automatic Learning can create the container again.
-      serviceTokenSecret:
-        name: ""
-        key: token
-      projectId: ""
   # Memory sources and background research, on by default for each person and Bot (OpenBot turns
   # them on when a person talks to a Bot, and never back on once the person turns one off or removes
   # it). false stops new defaults for the whole deployment; existing settings are left as they are.
@@ -547,7 +508,7 @@ database:
 # connection that outlives the release. It exists so somebody can try OpenBot in one command.
 #
 # A REAL DEPLOYMENT POINTS `database` ABOVE AT A MANAGED DATABASE: RDS, Cloud SQL, Azure Database, or
-# your own server. That is the same line the Intelligence chart draws, and for the same reason.
+# your own server. That is the line the upstream charts draw, and for the same reason.
 postgresql:
   enabled: false
   auth:
@@ -615,15 +576,6 @@ secrets:
   modelApiKey: ""
   computerToken: ""
   supervisorToken: ""
-  # From the CopilotKit CLI: `npx --yes copilotkit@latest project select` prints the runtime key.
-  # The chart refuses to install without it, because there is no mode where this runs with
-  # Intelligence missing.
-  intelligenceApiKey: ""
-  # Optional. Managed Intelligence issues no licence token; set this only for a self-hosted
-  # Intelligence that has one, and it is passed to the server as COPILOTKIT_LICENSE_TOKEN. From a
-  # store, name `license-token` in `externalSecrets.data` instead; it is passed the same way. That
-  # Intelligence needs the licence on its own deployment too, or it refuses memory.
-  licenseToken: ""
   # Optional. One key for the whole deployment, for Composio, the broker holding people's accounts for
   # a few hundred apps (docs/plugins/composio.md). Passed to the server alone as COMPOSIO_API_KEY.
   # From a store, name `composio-api-key` in `externalSecrets.data` instead.
@@ -692,7 +644,8 @@ networkPolicy:
   # Where the API may reach out to. A deployment with a managed database adds its CIDR here.
   #
   # It already reaches HTTP and HTTPS everywhere outside the cluster's private ranges, because that
-  # is where Intelligence, sign-in and the Bots are. This is for anything on the private side.
+  # is where the model provider, sign-in and the Bots are. This is for anything on the private
+  # side.
   extraEgress: []
   extraIngress: []
   # `computers.mode: sandbox` only. The service range the Kubernetes API server answers on, so the

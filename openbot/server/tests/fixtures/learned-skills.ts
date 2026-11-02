@@ -1,4 +1,4 @@
-import type { LearnedSkillsSnapshotResult } from "@openbot/toolkit/copilotkit/engine/learned-skills";
+import type { LearnedSkillsSnapshotResult } from "@openbot/toolkit/platform/engine/learned-skills";
 
 // Synthetic published snapshots with a supporting file; hashes/ZIP manifest use the SDK contract.
 const fixtures = {

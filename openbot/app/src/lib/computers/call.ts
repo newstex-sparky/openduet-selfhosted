@@ -2,7 +2,7 @@ import { tryClient } from "@/lib/client";
 import {
   reportComputerActivity,
   withdrawComputerActivity,
-} from "@/lib/copilot/computer-activity";
+} from "@/lib/chat/computer-activity";
 
 export type ToolOutcome = Record<string, unknown> & { ok: boolean };
 

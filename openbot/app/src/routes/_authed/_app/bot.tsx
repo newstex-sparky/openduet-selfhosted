@@ -1,4 +1,4 @@
-import { CopilotChat } from "@/lib/agui";
+import { ChatShell } from "@/lib/agui";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -14,9 +14,9 @@ import {
   agentListQueryOptions,
 } from "@/lib/agents/queries";
 import { tryClient } from "@/lib/client";
-import { useActiveBot } from "@/lib/copilot/active-bot";
-import { useBotThread } from "@/lib/copilot/bot-thread";
-import { useStoppedTurn } from "@/lib/copilot/stopped-turn";
+import { useActiveBot } from "@/lib/chat/active-bot";
+import { useBotThread } from "@/lib/chat/bot-thread";
+import { useStoppedTurn } from "@/lib/chat/stopped-turn";
 import { searchTextEntry } from "@/lib/search-text";
 
 export const Route = createFileRoute("/_authed/_app/bot")({
@@ -238,14 +238,14 @@ function BotChat({ agentId, name }: { agentId: string; name: string }) {
         ) : null}
         <div className="min-h-0 flex-1">
           {/*
-           * Keyed on the thread as well as the agent. `CopilotChat` binds the agent and thread it
+           * Keyed on the thread as well as the agent. `ChatShell` binds the agent and thread it
            * is given and never writes a thread back, so `startNew` — which changes only the thread
            * while the agent stays put — would otherwise leave the previous conversation on screen
            * under a composer that posts to the new one. A key that names the thread gives each
            * conversation its own agent binding, transcript and staged attachments.
            */}
           {threadId ? (
-            <CopilotChat
+            <ChatShell
               agentId={agentId}
               key={`${agentId}:${threadId}`}
               threadId={threadId}

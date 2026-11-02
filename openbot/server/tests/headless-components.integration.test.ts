@@ -210,7 +210,7 @@ function harness(agent: AbstractAgent, botId: string) {
   };
   const run = createTurnRunner({
     admission: serverTurnAdmission,
-    intelligence: {
+    platform: {
       getOrCreateThread: async () => undefined,
       getThreadMessages: async () => ({ messages: [] }),
       acquireThreadLock: async () => undefined,

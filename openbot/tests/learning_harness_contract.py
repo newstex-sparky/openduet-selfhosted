@@ -18,8 +18,8 @@ import httpx
 CATALOG = "Published skills: refunds — apply the learned refund policy."
 SKILL = "Refund policy: consult supporting.txt before answering."
 SUPPORT = "The approved refund window is 37 days."
-LOAD = "copilotkit_load_skill"
-READ = "copilotkit_read_skill_file"
+LOAD = "openbot_load_skill"
+READ = "openbot_read_skill_file"
 TOOLS = [
     {
         "name": name,
@@ -163,7 +163,6 @@ def assert_learning_delivery(monkeypatch, harness, route="/"):
     }.items():
         monkeypatch.setenv(key, value)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.delenv("CPK_INTELLIGENCE_API_KEY", raising=False)
     try:
         # CrewAI intentionally installs its input projector once at import;
         # its model configuration is resolved at run time. Other harnesses

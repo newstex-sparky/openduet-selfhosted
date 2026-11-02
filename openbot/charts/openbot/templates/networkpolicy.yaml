@@ -9,9 +9,9 @@ deployment that turns this on is saying it knows which of the two it has.
 
 Egress allows DNS, the database, the computers, and HTTP and HTTPS to everywhere that is not the
 cluster's own private network. THAT LAST ONE IS NOT A CONCESSION, it is what this pod does: sign-in
-goes to an identity provider, every conversation goes to Intelligence, and every run goes to a Bot
-at an address somebody registered. All three are hostnames rather than CIDRs, and a NetworkPolicy
-cannot match a hostname, so there is no narrower rule to write. Leaving it out did not fence the API
+goes to an identity provider, every model call goes to the model provider, and every run goes to a
+Bot at an address somebody registered. All three are hostnames rather than CIDRs, and a
+NetworkPolicy cannot match a hostname, so there is no narrower rule to write. Leaving it out did not fence the API
 off, it stopped the product working, and only in `computers.mode: sandbox` did a rule meant for the
 Kubernetes API server quietly cover for it.
 
@@ -71,7 +71,8 @@ spec:
           protocol: TCP
     {{- end }}
     {{- /*
-      Intelligence, the identity provider, and every Bot: all of them, and all outside the cluster.
+      The model provider, the identity provider, and every Bot: all of them, and all outside the
+      cluster.
 
       Written as an exception list rather than as a destination list because the destinations are
       hostnames the deployment configures and a NetworkPolicy matches addresses. The same shape the

@@ -6,7 +6,7 @@ import {
   planMessages,
   planModelForEnvironment,
 } from "../src/agents/plan-model";
-import { buildAgents } from "../src/copilot";
+import { buildAgents } from "../src/engine";
 
 test("a plan-only built-in keeps its identity and instructions", async () => {
   const requests: Record<string, unknown>[] = [];

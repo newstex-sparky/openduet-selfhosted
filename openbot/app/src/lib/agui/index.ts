@@ -3,7 +3,7 @@
  *
  * One module path stands where the vendor SDK's did, so a file that draws a card or binds a
  * conversation names this and nothing else. The wire protocol underneath is `@ag-ui/client`, which
- * is not a CopilotKit package: it is the AG-UI protocol's own client, and it is what the server
+ * is not a AgentRuntime package: it is the AG-UI protocol's own client, and it is what the server
  * speaks on `/agent/:id/run` and `/agent/:id/connect`.
  */
 export {
@@ -19,25 +19,25 @@ export {
   type UseAttachmentsReturn,
   useAttachments,
 } from "./attachments";
-export { CopilotChat, type CopilotChatProps } from "./chat";
+export { ChatShell, type ChatShellProps } from "./chat";
 export {
-  CopilotChatConfigurationProvider,
-  type CopilotChatConfigurationValue,
-  CopilotKitContext,
-  type CopilotKitContextValue,
-  CopilotKitProvider,
-  type CopilotKitProviderProps,
-  useCopilotChatConfiguration,
-  useCopilotKit,
+  ChatConfigurationProvider,
+  type ChatShellConfigurationValue,
+  AgentContext,
+  type AgentContextValue,
+  AgentProvider,
+  type AgentProviderProps,
+  useChatConfiguration,
+  useAgentRuntime,
   useDefaultAgentId,
 } from "./context";
 export {
   type AgentLookup,
   agentKey,
-  CopilotKit,
-  type CopilotKitConfig,
-  type CopilotKitSubscriber,
-  type CopilotKitSubscription,
+  AgentRuntime,
+  type AgentRuntimeConfig,
+  type AgentRuntimeSubscriber,
+  type AgentRuntimeSubscription,
   unansweredToolCalls,
 } from "./core";
 export {

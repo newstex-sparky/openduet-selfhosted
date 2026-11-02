@@ -451,12 +451,12 @@ test("the attachment and config shapes are the card's, field for field", () => {
   ]).toEqual([true, true, true, true, true, true, true]);
 });
 
-test("the first-party layer imports nothing from @copilotkit", () => {
+test("the first-party layer imports nothing from @agentRuntime", () => {
   const layer = join(import.meta.dir, "..", "src", "lib", "agui");
   const offenders = readdirSync(layer)
     .filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"))
     .filter((name) =>
-      readFileSync(join(layer, name), "utf8").includes("@copilotkit"),
+      readFileSync(join(layer, name), "utf8").includes("@agentRuntime"),
     );
   expect(offenders).toEqual([]);
 });

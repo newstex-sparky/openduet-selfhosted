@@ -98,7 +98,7 @@ const OFFICIAL_HOST: Record<Provider, string> = {
  * Whether a base URL sends this provider's calls somewhere other than the provider itself.
  *
  * THE PROVIDER'S OWN ADDRESS, WRITTEN OUT, IS NOT CUSTOM. A base URL set to
- * `https://api.anthropic.com` (with or without `/v1`, which `normalizeModelBaseUrls` in `copilot.ts`
+ * `https://api.anthropic.com` (with or without `/v1`, which `normalizeModelBaseUrls` in `engine.ts`
  * adds anyway) still reaches Anthropic, so the model lookup below answers for it exactly as it does
  * with nothing set. Treating any set value as custom skipped the check, and the setup checklist then
  * said "It uses a custom endpoint, which OpenDuet can't check" about the official API.

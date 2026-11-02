@@ -11,7 +11,7 @@ import {
 import type { Message, RunAgentInput } from "@ag-ui/core";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import {
-  CopilotKitProvider,
+  AgentProvider,
   type ParametersSchema,
   useFrontendTool,
 } from "@/lib/agui";
@@ -268,10 +268,10 @@ function tree(channel: AgentChannel, frontendTools?: readonly TestTool[]) {
   });
   return (
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider runtimeUrl="http://localhost/api/copilotkit">
+      <AgentProvider runtimeUrl="http://localhost/api/engine">
         {frontendTools && <FrontendTools tools={frontendTools} />}
         <ChannelChat channel={channel} runtimeAgentId={BOT} />
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>
   );
 }

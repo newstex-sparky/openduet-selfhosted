@@ -12,7 +12,7 @@ import type { AuditInitiator } from "../audit";
  * it did.
  *
  * NOTHING HAPPENS HERE. The tool checks the replies and says they were shown; drawing them is the
- * app's (app/src/lib/copilot/reply-chips-tool.tsx), and the most a tap can do is send words the
+ * app's (app/src/lib/chat/reply-chips-tool.tsx), and the most a tap can do is send words the
  * person could have typed. So it is a read in every sense the approval gate cares about, and it
  * never meets the gate at all: it runs in this process and calls nothing, and the gate is only
  * asked about connector calls, the computer, host folders and hand-offs. A background run is not

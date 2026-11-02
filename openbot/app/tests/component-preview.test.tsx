@@ -16,7 +16,7 @@ import {
   ComponentPreview,
 } from "@/components/component-preview";
 import { GALLERY as TABLES } from "@/components/gallery/table";
-import * as gallery from "@/lib/copilot/gallery-registry";
+import * as gallery from "@/lib/chat/gallery-registry";
 import type { SandboxedRecord } from "@/lib/sandboxed/queries";
 import { settleReactWork } from "./settle-react-work";
 

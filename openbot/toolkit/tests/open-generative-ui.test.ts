@@ -9,7 +9,7 @@ import { firstValueFrom, Observable, toArray } from "rxjs";
 import {
   ArgsParser,
   OpenGenerativeUIMiddleware,
-} from "../src/copilotkit/engine/open-generative-ui";
+} from "../src/platform/engine/open-generative-ui";
 
 /** A Bot that replays a fixed event list, so the middleware sees exactly what a model streamed. */
 class ReplayAgent extends AbstractAgent {

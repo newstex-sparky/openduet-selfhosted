@@ -86,10 +86,6 @@ import { createHostAccessRoutes } from "./host-access/routes";
 import { identityRoutes } from "./identity/routes";
 import type { IdentityStore } from "./identity/store";
 import { localThreadPlatform } from "./local-mode";
-import {
-  createLearningRoutes,
-  type LearningAdminDependencies,
-} from "./learning/routes";
 import type { MemoryIngestion } from "./memory/ingestion";
 import { createMemoryRoutes } from "./memory/routes";
 import type { MemoryStore } from "./memory/store";
@@ -239,13 +235,13 @@ export function createApp(
   credentialService?: CredentialAdminService,
   packageStatusReader?: PackageStatusReader,
   /**
-   * The CopilotKit endpoint, already built by the caller.
+   * The runtime endpoint, already built by the caller.
    *
    * Passed in rather than constructed here so this module never imports the runtime. The runtime
    * pulls in `eventsource`, which Bun cannot `require()` from a test, so importing it at module
-   * scope broke every server test that touches createApp even though none of them use CopilotKit.
+   * scope broke every server test that touches createApp even though none of them use it.
    */
-  copilotHandler?: HonoApp,
+  engineHandler?: HonoApp,
   /** The single governed computer module: policy, audit trail, transport, and provider lifecycle. */
   computerGateway?: ComputerGateway,
   /** What the gateway enforces, and what an administrator can change while running. */
@@ -405,7 +401,6 @@ export function createApp(
   modelProviderProxy?: ModelProviderProxy,
   userPreferences?: UserPreferencesStore,
   voiceSessions?: VoiceSessionServices,
-  learning?: LearningAdminDependencies,
   coworker?: {
     demonstrations?: {
       store: DemonstrationStore;
@@ -499,9 +494,9 @@ export function createApp(
       webBotAuthDirectory(context.req.raw, webBotAuth),
     );
   }
-  // Projected, never the raw runtime. config.runtime carries the Intelligence contract, including
-  // INTELLIGENCE_API_KEY and the licence token, and this endpoint is reachable by anyone. Returning
-  // the object wholesale would serve deployment secrets to the browser. Add fields here explicitly.
+  // Projected, never the raw config. This endpoint is reachable by anyone, and the wider config
+  // carries deployment secrets, so returning it wholesale would serve those to the browser. Add
+  // fields here explicitly.
   app.get("/api/capabilities", async (context) =>
     context.json({
       mode: config.runtime.mode,
@@ -691,10 +686,6 @@ export function createApp(
       channelStore,
       agentProfileStore,
       voiceSessions,
-      learning?.status
-        ? async (agentId) =>
-            (await learning.status?.(agentId))?.configured ?? false
-        : undefined,
     ),
   );
 
@@ -867,20 +858,6 @@ export function createApp(
 
     return context.json({ instructions: saved });
   });
-  if (learning) {
-    app.route(
-      "/api/admin/learning",
-      createLearningRoutes(
-        learning,
-        requireUser,
-        [
-          ...(config.auth?.trustedOrigins ?? []),
-          ...(config.appUrl ? [config.appUrl] : []),
-        ],
-        auditStore,
-      ),
-    );
-  }
   app.get("/api/admin/status", requireUser, (context) => {
     const denied = requireAdmin(context);
     return denied ?? context.json({ status: "ok" });
@@ -1393,15 +1370,15 @@ export function createApp(
       return context.json({ accepted: true }, 202);
     });
   }
-  // The CopilotKit runtime, behind the same session guard as every other API route. Mounted last so
-  // its own routing under /api/copilotkit cannot shadow an OpenBot route declared above.
-  if (copilotHandler) {
+  // The AG-UI runtime, behind the same session guard as every other API route. Mounted last so
+  // its own routing under /api/engine cannot shadow an OpenBot route declared above.
+  if (engineHandler) {
     // Mounted at the ROOT with the handler carrying its own basePath. Mounting it at
-    // "/api/copilotkit" as well double-prefixes it: Hono strips the prefix before the handler sees
-    // the path, so every route lands at /api/copilotkit/api/copilotkit/* and /info 404s. The browser
+    // "/api/engine" as well double-prefixes it: Hono strips the prefix before the handler sees
+    // the path, so every route lands at /api/engine/api/engine/* and /info 404s. The browser
     // reports that as "Runtime info request failed with status 404" and every run fails before it
     // starts, with nothing at all in the server log.
-    app.route("/", copilotHandler);
+    app.route("/", engineHandler);
   }
 
   /**

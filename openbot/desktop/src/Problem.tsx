@@ -11,7 +11,7 @@ import { ExternalLink } from "./ExternalLink";
 export type Problem = {
   said: string;
   detail?: string | null;
-  connection?: "model" | "intelligence" | "organization" | null;
+  connection?: "model" | "organization" | null;
   database_reset?: string | null;
 };
 

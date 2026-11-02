@@ -131,9 +131,9 @@ for (const [name, keys] of written) {
  * The same question of a key a store syncs in.
  *
  * An ExternalSecret's `data` is the list of keys that will exist in the Secret it creates, so it can
- * be compared just as a rendered Secret is. Only the half above was asked, which is how a licence
- * token synced from a store reached the Secret and never the pod: the server's environment named
- * `license-token` only when `secrets.licenseToken` was a literal, and nothing compared the two.
+ * be compared just as a rendered Secret is. Only the half above was asked, which is how a key
+ * synced from a store reached the Secret and never the pod: the server's environment named it only
+ * when the same value was a literal, and nothing compared the two.
  */
 for (const document of documents) {
   if (!/^kind:\s*ExternalSecret\s*$/m.test(document)) continue;
@@ -155,8 +155,8 @@ for (const document of documents) {
  * A policy that fences the API off from the services it cannot work without.
  *
  * The same question as the Secret one above, asked of the other thing a render can be internally
- * wrong about: this chart requires CopilotKit Intelligence and an identity provider, reaches both
- * over HTTPS at hostnames, and also writes the rule that says where the API may go. Those two had
+ * wrong about: this chart requires an identity provider and a model provider, reaches both over
+ * HTTPS at hostnames, and also writes the rule that says where the API may go. Those two had
  * never been compared. The server's egress named DNS, the database and the computers, so on any
  * cluster that enforces policy nobody could sign in and no conversation ran — and the pod stayed
  * Ready throughout, because `/health` answers from a literal.
@@ -173,7 +173,7 @@ if (serverPolicy) {
   const egress = serverPolicy.split(/^\s{2}egress:\s*$/m)[1] ?? "";
   if (!/port:\s*443\b/.test(egress)) {
     problems.push(
-      "The server's NetworkPolicy has no egress on 443, so the API cannot reach Intelligence or an identity provider. Nothing would report it: /health answers from a literal and every probe reads it.",
+      "The server's NetworkPolicy has no egress on 443, so the API cannot reach the identity provider or a model provider. Nothing would report it: /health answers from a literal and every probe reads it.",
     );
   }
 }
@@ -203,9 +203,8 @@ if (policyComponents.size > 0) {
     )?.[1];
     const name = workload.match(/^\s{2}name:\s*(\S+)/m)?.[1] ?? "a workload";
     if (!component) continue;
-    // The migrations Job runs once at install and is torn down; it is not a standing surface. The
-    // Learning setup Job is the same: once per revision, then gone (templates/learning/setup-job.yaml).
-    if (component === "migrations" || component === "learning-setup") continue;
+    // The migrations Job runs once at install and is torn down; it is not a standing surface.
+    if (component === "migrations") continue;
     if (!policyComponents.has(component)) {
       problems.push(
         `This release has NetworkPolicies but none selects ${name} (component: ${component}), so it is the one pod left unfenced while everything around it is restricted. Give it a policy or say in the chart why it needs none.`,

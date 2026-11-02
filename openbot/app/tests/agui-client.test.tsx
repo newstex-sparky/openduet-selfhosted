@@ -4,12 +4,12 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import {
-  CopilotKit,
-  CopilotKitProvider,
+  AgentRuntime,
+  AgentProvider,
   agentKey,
   useAgent,
   useAttachments,
-  useCopilotKit,
+  useAgentRuntime,
   useFrontendTool,
   useRenderTool,
   useRenderToolCall,
@@ -143,17 +143,17 @@ describe("the registry", () => {
   });
 
   test("gives a threadless lookup and a threaded one the same agent, in either order", () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     const threaded = kit.agentFor({ agentId: "bot", threadId: "t1" });
     expect(kit.agentFor({ agentId: "bot" })).toBe(threaded);
 
-    const fresh = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const fresh = new AgentRuntime({ runtimeUrl: "/api/engine" });
     const bare = fresh.agentFor({ agentId: "bot" });
     expect(fresh.agentFor({ agentId: "bot", threadId: "t1" })).toBe(bare);
   });
 
   test("never writes a second thread over the first", () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     const first = kit.agentFor({ agentId: "bot", threadId: "t1" });
     const second = kit.agentFor({ agentId: "bot", threadId: "t2" });
     expect(second).not.toBe(first);
@@ -162,7 +162,7 @@ describe("the registry", () => {
   });
 
   test("offers the model a JSON Schema built from the tool's zod schema", () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     kit.registerTool({
       name: "read_file",
       description: "Read one file.",
@@ -187,7 +187,7 @@ describe("the registry", () => {
   });
 
   test("tells a subscriber when a card is registered, and stops when it is gone", () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     const seen: number[] = [];
     const subscription = kit.subscribe({
       onRenderToolCallsChanged: () => seen.push(kit.renderToolCalls.length),
@@ -206,14 +206,14 @@ describe("the registry", () => {
 
 describe("the agent on the wire", () => {
   test("starts a run at the agent's own endpoint, with the session cookie", async () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit/" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine/" });
     const recorded = stubRuntime([textTurn("Hello there.")]);
     const agent = kit.agentFor({ agentId: "bot", threadId: "thread-1" });
 
     await kit.runAgent({ agent });
 
     expect(recorded).toHaveLength(1);
-    expect(recorded[0]?.url).toBe("/api/copilotkit/agent/bot/run");
+    expect(recorded[0]?.url).toBe("/api/engine/agent/bot/run");
     expect(recorded[0]?.init.method).toBe("POST");
     expect(recorded[0]?.init.credentials).toBe("include");
     expect(
@@ -226,13 +226,13 @@ describe("the agent on the wire", () => {
   });
 
   test("attaches to a thread at the connect endpoint, and replays it", async () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     const recorded = stubRuntime([textTurn("Replayed.")]);
     const agent = kit.agentFor({ agentId: "bot", threadId: "thread-1" });
 
     await kit.connectAgent({ agent });
 
-    expect(recorded[0]?.url).toBe("/api/copilotkit/agent/bot/connect");
+    expect(recorded[0]?.url).toBe("/api/engine/agent/bot/connect");
     expect(recorded[0]?.init.credentials).toBe("include");
     expect(agent.messages.map((message) => message.content)).toEqual([
       "Replayed.",
@@ -240,7 +240,7 @@ describe("the agent on the wire", () => {
   });
 
   test("runs a browser-side tool between two runs and sends its answer back", async () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     const recorded = stubRuntime([
       toolTurn({ id: "call-1", name: "read_file", args: '{"path":"/a"}' }),
       textTurn("The file says a.", { run: "run-2", message: "msg-2" }),
@@ -271,7 +271,7 @@ describe("the agent on the wire", () => {
   });
 
   test("keeps the sentence a failed run reported", async () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     stubRuntime([
       [
         frame({ type: "RUN_STARTED", threadId: "thread-1", runId: "run-1" }),
@@ -288,7 +288,7 @@ describe("the agent on the wire", () => {
   });
 
   test("stops the run, and stops answering a tool still in flight", async () => {
-    const kit = new CopilotKit({ runtimeUrl: "/api/copilotkit" });
+    const kit = new AgentRuntime({ runtimeUrl: "/api/engine" });
     stubRuntime([toolTurn({ id: "call-1", name: "slow", args: "{}" })]);
     let started: () => void = () => {};
     const handlerRan = new Promise<void>((resolve) => {
@@ -335,9 +335,9 @@ describe("the hooks", () => {
       return <div>{draw({ toolCall })}</div>;
     }
     const screen = render(
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <Surface />
-      </CopilotKitProvider>,
+      </AgentProvider>,
     );
     await waitFor(() =>
       expect(screen.container.textContent).toBe("executing:Paris"),
@@ -353,9 +353,9 @@ describe("the hooks", () => {
       return null;
     }
     render(
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <Surface />
-      </CopilotKitProvider>,
+      </AgentProvider>,
     );
     await waitFor(() => expect(seen.at(-1)).toBe(true));
   });
@@ -372,19 +372,19 @@ describe("the hooks", () => {
       return null;
     }
     function Send() {
-      const { copilotkit } = useCopilotKit();
+      const { agentRuntime } = useAgentRuntime();
       const { agent } = useAgent({ agentId: "bot", threadId: "thread-1" });
       return (
-        <button type="button" onClick={() => void copilotkit.runAgent({ agent })}>
+        <button type="button" onClick={() => void agentRuntime.runAgent({ agent })}>
           send
         </button>
       );
     }
     const screen = render(
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <Surface />
         <Send />
-      </CopilotKitProvider>,
+      </AgentProvider>,
     );
     await waitFor(() => expect(screen.getByText("send")).toBeTruthy());
     fireEvent.click(screen.getByText("send"));
@@ -423,9 +423,9 @@ describe("the hooks", () => {
       );
     }
     const screen = render(
-      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <AgentProvider runtimeUrl="/api/engine">
         <Composer />
-      </CopilotKitProvider>,
+      </AgentProvider>,
     );
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() =>

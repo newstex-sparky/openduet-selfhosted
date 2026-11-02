@@ -1,4 +1,4 @@
-import { GALLERY_COMPONENTS } from "@/lib/copilot/gallery-registry";
+import { GALLERY_COMPONENTS } from "@/lib/chat/gallery-registry";
 import { appConfig } from "@/lib/generated/application-config";
 
 /**

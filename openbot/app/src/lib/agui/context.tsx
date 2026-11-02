@@ -15,33 +15,33 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { CopilotKit } from "./core";
+import { AgentRuntime } from "./core";
 import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
 } from "./types";
 
-export interface CopilotKitContextValue {
+export interface AgentContextValue {
   /** The one registry this app runs on. */
-  copilotkit: CopilotKit;
+  agentRuntime: AgentRuntime;
 }
 
-export const CopilotKitContext = createContext<CopilotKitContextValue | null>(
+export const AgentContext = createContext<AgentContextValue | null>(
   null,
 );
 
 /** The registry, for a component that runs a turn or registers a tool. */
-export function useCopilotKit(): CopilotKitContextValue {
-  const value = useContext(CopilotKitContext);
+export function useAgentRuntime(): AgentContextValue {
+  const value = useContext(AgentContext);
   if (!value) {
     throw new Error(
-      "useCopilotKit needs a CopilotKitProvider above it. See app/src/lib/copilot/provider.tsx.",
+      "useAgentRuntime needs a AgentProvider above it. See app/src/lib/chat/provider.tsx.",
     );
   }
   return value;
 }
 
-export interface CopilotKitProviderProps {
+export interface AgentProviderProps {
   /**
    * The runtime's base URL, relative like every other call in the app so the dev proxy and a
    * single-origin deployment both work. Requests carry the session cookie; see `RuntimeAgent`.
@@ -58,17 +58,17 @@ export interface CopilotKitProviderProps {
  * The registry is made once per provider instance and never rebuilt: it owns the agents, and an
  * agent rebuilt on a render is an agent that has forgotten the conversation it was in.
  */
-export function CopilotKitProvider({
+export function AgentProvider({
   runtimeUrl,
   children,
   renderToolCalls,
   renderActivityMessages,
-}: CopilotKitProviderProps) {
+}: AgentProviderProps) {
   // The lists are read once. Rebuilding the registry for a new array would rebuild every agent.
   const lists = useRef({ renderToolCalls, renderActivityMessages });
-  const copilotkit = useMemo(
+  const agentRuntime = useMemo(
     () =>
-      new CopilotKit({
+      new AgentRuntime({
         runtimeUrl,
         renderToolCalls: lists.current.renderToolCalls,
         renderActivityMessages: lists.current.renderActivityMessages,
@@ -79,7 +79,7 @@ export function CopilotKitProvider({
    * A CARD REGISTERED LATER MUST REACH A CONSUMER THAT NEVER SUBSCRIBED.
    *
    * `useRenderToolCall` and `useRenderTool` watch the registry themselves, but plenty of surfaces
-   * read `copilotkit.renderToolCalls` in their render body and hold no subscription — the vendor
+   * read `agentRuntime.renderToolCalls` in their render body and hold no subscription — the vendor
    * provider re-rendered its subtree when a card arrived, and those surfaces were written against
    * that. This subscription is the re-render: a registration changes the registry's revision, this
    * provider renders again, and a card that mounted after a reply still draws. The value is read
@@ -87,27 +87,27 @@ export function CopilotKitProvider({
    */
   const subscribe = useCallback(
     (onChange: () => void) =>
-      copilotkit.subscribe({ onRenderToolCallsChanged: () => onChange() })
+      agentRuntime.subscribe({ onRenderToolCallsChanged: () => onChange() })
         .unsubscribe,
-    [copilotkit],
+    [agentRuntime],
   );
-  useSyncExternalStore(subscribe, () => copilotkit.renderRevision);
-  const value: CopilotKitContextValue = { copilotkit };
+  useSyncExternalStore(subscribe, () => agentRuntime.renderRevision);
+  const value: AgentContextValue = { agentRuntime };
   return (
-    <CopilotKitContext.Provider value={value}>
+    <AgentContext.Provider value={value}>
       {children}
-    </CopilotKitContext.Provider>
+    </AgentContext.Provider>
   );
 }
 
 /** The agent and thread a nested surface binds to. */
-export interface CopilotChatConfigurationValue {
+export interface ChatShellConfigurationValue {
   agentId: string;
   threadId?: string;
 }
 
 const ChatConfigurationContext =
-  createContext<CopilotChatConfigurationValue | null>(null);
+  createContext<ChatShellConfigurationValue | null>(null);
 
 /**
  * Scope everything below to one agent and thread.
@@ -116,11 +116,11 @@ const ChatConfigurationContext =
  * agent's own thread id is then whatever the runtime minted, and `useAgent` reads it off the
  * instance rather than off this value.
  */
-export function CopilotChatConfigurationProvider({
+export function ChatConfigurationProvider({
   agentId,
   threadId,
   children,
-}: CopilotChatConfigurationValue & { children: ReactNode }) {
+}: ChatShellConfigurationValue & { children: ReactNode }) {
   const value = useMemo(() => ({ agentId, threadId }), [agentId, threadId]);
   return (
     <ChatConfigurationContext.Provider value={value}>
@@ -130,7 +130,7 @@ export function CopilotChatConfigurationProvider({
 }
 
 /** The agent and thread this surface sits in, or null outside a chat. */
-export function useCopilotChatConfiguration(): CopilotChatConfigurationValue | null {
+export function useChatConfiguration(): ChatShellConfigurationValue | null {
   return useContext(ChatConfigurationContext);
 }
 

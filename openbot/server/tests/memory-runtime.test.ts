@@ -105,7 +105,7 @@ test("personal memory retains Automatic Learning catalog and tool authority", as
     content: "approved catalog",
   });
   request.tools.push({
-    name: "copilotkit_load_skill",
+    name: "openbot_load_skill",
     description: "Learned skill",
     parameters: {},
   });

@@ -5,7 +5,7 @@ import {
   normalizeModelBaseUrls,
   resolveRuntimeAgents,
   runtimeModelForEnvironment,
-} from "../src/copilot";
+} from "../src/engine";
 import { encryptSecret, resolveModelApiKey } from "../src/credentials";
 import {
   anthropicMessagesUrl,

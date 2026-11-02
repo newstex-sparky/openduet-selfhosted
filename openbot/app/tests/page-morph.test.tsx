@@ -32,7 +32,7 @@ import {
 } from "@/components/duet/page-sheet";
 import { MakeScreen } from "@/components/shell/make-screen";
 import { agentKeys } from "@/lib/agents/queries";
-import { ConversationPageCard } from "@/lib/copilot/page-card-tool";
+import { ConversationPageCard } from "@/lib/chat/page-card-tool";
 import type { PageSummary } from "@/lib/pages/queries";
 import { searchTextEntry } from "@/lib/search-text";
 import { queryClient } from "@/query-client";

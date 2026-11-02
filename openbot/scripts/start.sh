@@ -183,8 +183,8 @@ identifies_as_openbot() {
   case "$name" in
     # A field of this server's own payload. A stray 200 does not carry it.
     server)
-      curl -fsS --max-time 3 "http://localhost:$port/api/copilotkit/info" 2>/dev/null \
-        | grep -q '"licenseStatus"'
+      curl -fsS --max-time 3 "http://localhost:$port/api/engine/info" 2>/dev/null \
+        | grep -q '"threadEndpoints"'
       ;;
     # The app is static HTML with nothing to interrogate, so a marker in its head is the identity
     # available. Not the title: a fork that renames the product changes the title with it.
@@ -359,19 +359,9 @@ green "  coworker tables migrated"
 # and masks it. So: report what was resolved, and do not re-read the file.
 green "  managed coworker endpoint: $MANAGED_AGENT_AG_UI_URL"
 
-# Automatic Learning collects nothing until a container is assigned. The server assigns this
-# project's `openbot` container on its own once it exists (server/src/learning/auto-assign.ts), but
-# the runtime key it holds cannot create one. A CopilotKit CLI login can, whether or not a project is
-# selected here, and so can INTELLIGENCE_SERVICE_TOKEN on a local evaluation install, so make sure the
-# container exists before the server looks. Never fatal and never interactive: one line, whatever
-# happens, and with nothing that can create it the line says exactly what to run.
-LEARNING_CONTAINER="$(setting CPK_INTELLIGENCE_LEARNING_CONTAINER_ID "")"
-LEARNING_AUTO_ASSIGN="$(setting OPENBOT_LEARNING_AUTO_ASSIGN true)"
-if [ -z "$LEARNING_CONTAINER" ] && [ "$LEARNING_AUTO_ASSIGN" != "false" ] \
-   && [ "$LEARNING_AUTO_ASSIGN" != "0" ] && [ -n "$(setting INTELLIGENCE_API_KEY "")" ]; then
-  LEARNING_LINE="$(bun scripts/setup-learning.ts --non-interactive 2>>"$LOGS/learning-setup.log" | tail -1 || true)"
-  info "  ${LEARNING_LINE:-Automatic Learning: the container check did not run. Log: $LOGS/learning-setup.log}"
-fi
+# Automatic Learning is gone from this fork: there is no Intelligence container to assign, no
+# runtime key that could create one, and nothing to check before the server starts. The block that
+# used to run `scripts/setup-learning.ts --non-interactive` here was removed with the subsystem.
 
 info "2/4  Server"
 require_free_or_ours "$SERVER_PORT" server
@@ -490,26 +480,26 @@ else
 fi
 
 info "3/4  Runtime health"
-INFO="$(curl -fsS --max-time 8 "http://localhost:$SERVER_PORT/api/copilotkit/info")"
+INFO="$(curl -fsS --max-time 8 "http://localhost:$SERVER_PORT/api/engine/info")"
 # Read with Bun, which every run of this script already needs, rather than python3, which not every
 # machine has. On Windows `python3` is usually the Microsoft Store alias, which prints "Python was not
 # found" and exits 49, so the run stopped here with the server and worker up and the app never
 # started.
+#
+# THERE IS NO LICENCE TO READ ANY MORE. This fork's runtime answers `/info` with its version, its
+# Bots and its mode; the `licenseStatus` this stage used to gate on belonged to the vendor's
+# Intelligence runtime and left with it. Reading it here failed every boot with a message about a
+# removed credential, so the gate is the roster check alone.
 bun run - "$INFO" <<'JS'
 const info = JSON.parse(process.argv[2]);
-const status = info.licenseStatus;
 const agents = Object.keys(info.agents ?? {});
-if (status !== "valid") {
-  console.log(`\x1b[31m  licence is '${status}', not 'valid'.\x1b[0m`);
-  console.log("\x1b[31m  Check INTELLIGENCE_API_KEY. From the repository root: npx copilotkit@latest login && npx copilotkit@latest project select && bun openbot/scripts/setup-learning.ts\x1b[0m");
+if (agents.length === 0) {
+  console.log("\x1b[31m  No Bots registered.\x1b[0m");
+  console.log("\x1b[31m  Check the model provider key in .env: OPENAI_API_KEY or the provider you selected.\x1b[0m");
   console.log("\x1b[31m  The Quick start in the repository's README.md has the steps.\x1b[0m");
   process.exit(1);
 }
-if (agents.length === 0) {
-  console.log("\x1b[31m  No Bots registered.\x1b[0m");
-  process.exit(1);
-}
-console.log(`\x1b[32m  licence valid · mode ${info.mode} · Bots: ${agents.join(", ")}\x1b[0m`);
+console.log(`\x1b[32m  runtime ready · mode ${info.mode} · Bots: ${agents.join(", ")}\x1b[0m`);
 JS
 
 info "4/4  App"
