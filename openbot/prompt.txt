@@ -76,12 +76,6 @@ There is no sign-in, no project key and no licence to arrange. That is the whole
 runs in local mode: it keeps threads, messages, the event log and the run lock in the database, and
 contacts nothing outside the deployment except the model endpoint.
 
-Automatic Learning's container provisioning is the one optional path that talks to a hosted
-service. It is a separate helper (`bun scripts/setup-learning.ts`), never part of the server's boot,
-and leaving it unconfigured changes nothing else: chat, memory, routines, approvals and channels all
-work. Do not bring it up unless they ask for Automatic Learning by name. See
-docs/automatic-learning.md.
-
 For the default OpenAI path, put the model key in OPENAI_API_KEY. For Anthropic, set all three lines together:
 
   ANTHROPIC_API_KEY=...

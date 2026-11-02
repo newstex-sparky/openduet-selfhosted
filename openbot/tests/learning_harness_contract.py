@@ -163,7 +163,6 @@ def assert_learning_delivery(monkeypatch, harness, route="/"):
     }.items():
         monkeypatch.setenv(key, value)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.delenv("CPK_INTELLIGENCE_API_KEY", raising=False)
     try:
         # CrewAI intentionally installs its input projector once at import;
         # its model configuration is resolved at run time. Other harnesses

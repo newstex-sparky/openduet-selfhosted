@@ -7,7 +7,6 @@ Start with the [OpenDuet README](../../README.md) at the repository root, then u
 - [Development](development.md): local setup, migrations, ports, and quality checks.
 - [Coworkers](coworkers.md): durable Bot profiles, channels, visibility, deletion, and external AG-UI registration.
 - [Routines](routines.md): standing instructions a Bot runs on a schedule, the worker that fires them, and who they run as.
-- [Automatic Learning](automatic-learning.md): which Bots contribute conversations to a Learning container, and receive its published skills.
 - [Public-web research](web-research.md): search and page reading through Parallel, Exa or Firecrawl.
 - Plugins, one connector per page — what an administrator registers, what each person consents to, and what the failures mean:
   - [Composio](plugins/composio.md): the broker, and so the one page here that is a catalogue of apps rather than a single connector.
