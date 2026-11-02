@@ -7,7 +7,7 @@ import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import { z } from "zod";
 import { currentApprovalContext } from "../src/approvals/types";
-import { buildAgents } from "../src/copilot";
+import { buildAgents } from "../src/engine";
 import { REPLIES_TOOL, replyTools } from "../src/openduet/replies";
 
 /*

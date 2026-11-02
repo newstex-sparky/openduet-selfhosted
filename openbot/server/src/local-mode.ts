@@ -51,7 +51,7 @@ export function announceLocalMode(log: (line: string) => void = console.warn) {
       type: "openduet-local-mode",
       durableHistory: true,
       message:
-        "Running in local mode. Threads, history and run locks are stored in this deployment's Postgres and survive a restart. Automatic Learning, the entitlement check and the self-host banner are off; memory uses OpenBot's own tables.",
+        "Running in local mode. Threads, history and run locks are stored in this deployment's Postgres and survive a restart. The entitlement check and the self-host banner are off; memory uses OpenBot's own tables.",
     }),
   );
 }

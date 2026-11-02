@@ -9,7 +9,7 @@ import {
   type HandoffForRun,
   type RuntimeModel,
   type ToolSelection,
-} from "../src/copilot";
+} from "../src/engine";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
 import { createModelCompleter } from "../src/routing/model";
 

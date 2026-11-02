@@ -2,7 +2,7 @@ import { buildResponsibilityTurn } from "@openbot/shared/responsibility-turn";
 import type { ComponentCatalog } from "@openbot/toolkit/ports";
 import {
   createTurnRunner,
-  type IntelligenceLike,
+  type TurnPlatformLike,
   type RunnerLike,
 } from "@openbot/toolkit/run-turn";
 import { z } from "zod";
@@ -40,7 +40,7 @@ import type { ResponsibilityStore } from "./types";
 export function createServerResponsibilityEngine(deps: {
   database: Database;
   responsibilityStore: ResponsibilityStore;
-  routineIntelligence: IntelligenceLike;
+  routinePlatform: TurnPlatformLike;
   routineAgentRunner: RunnerLike;
   componentCatalog: ComponentCatalog;
   buildAgentFor: Parameters<typeof createTurnRunner>[0]["buildAgentFor"];
@@ -58,7 +58,7 @@ export function createServerResponsibilityEngine(deps: {
   const {
     database,
     responsibilityStore,
-    routineIntelligence,
+    routinePlatform,
     routineAgentRunner,
     componentCatalog,
     buildAgentFor,
@@ -89,7 +89,7 @@ export function createServerResponsibilityEngine(deps: {
         });
         const runner = createTurnRunner({
           admission: serverTurnAdmission,
-          intelligence: routineIntelligence,
+          platform: routinePlatform,
           runner: routineAgentRunner,
           components: componentCatalog,
           buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),

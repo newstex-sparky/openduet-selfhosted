@@ -4,8 +4,8 @@ import { createHash } from "node:crypto";
  * memories and suggesting next steps, with tools restricted to reads.
  *
  * NOT A NEW ORCHESTRATOR. Due settings are offered to the existing work queue and each run is an
- * ordinary headless AG-UI turn through the same turn runner routines use, so governance, audit and
- * Automatic Learning apply unchanged. The restriction is the initiator (see `restriction.ts`), which
+ * ordinary headless AG-UI turn through the same turn runner routines use, so governance and audit
+ * apply unchanged. The restriction is the initiator (see `restriction.ts`), which
  * the turn runner's `buildAgentFor` narrows on; this module adds two tools of its own and nothing
  * that can write outside OpenBot.
  *

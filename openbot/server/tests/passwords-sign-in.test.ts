@@ -789,7 +789,7 @@ describe("an unattended turn that needs a sign-in", () => {
     };
     const run = createTurnRunner({
       admission: serverTurnAdmission,
-      intelligence: {
+      platform: {
         getOrCreateThread: async () => undefined,
         getThreadMessages: async () => ({ messages: [] }),
         acquireThreadLock: async () => undefined,

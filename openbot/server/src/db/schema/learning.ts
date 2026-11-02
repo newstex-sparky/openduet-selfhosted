@@ -2,7 +2,7 @@ import { pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 import { jsonb } from "./json";
 
 /**
- * A saved Automatic Learning configuration.
+ * A saved Learning configuration.
  *
  * The shape lives here rather than in a shared module. The code that read and wrote these tables
  * went with the Intelligence Learning subsystem; the tables stay, because dropping one is a

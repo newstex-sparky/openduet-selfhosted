@@ -445,7 +445,7 @@ function headlessTurn(agentId: string) {
   const runTurn = createTurnRunner({
     admission: serverTurnAdmission,
     // biome-ignore lint/suspicious/noExplicitAny: narrow structural fakes, on purpose.
-    intelligence: intelligence as any,
+    platform: intelligence as any,
     // biome-ignore lint/suspicious/noExplicitAny: narrow structural fakes, on purpose.
     runner: runner as any,
     buildAgentFor: async () => new AnsweringAgent({ agentId }),

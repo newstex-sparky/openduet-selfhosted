@@ -12,7 +12,7 @@ import { z } from "zod";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import { MAX_INLINED_BYTES_PER_RUN } from "../src/channels/attachment-parts";
 import { loadConfig } from "../src/config";
-import type { LoadAttachment } from "../src/copilot";
+import type { LoadAttachment } from "../src/engine";
 import {
   buildAgents,
   builtInAgentConfiguration,
@@ -22,7 +22,7 @@ import {
   resolveRuntimeAgents,
   runtimeModelForEnvironment,
   standingRoleMessage,
-} from "../src/copilot";
+} from "../src/engine";
 import { grantedToolGuidance } from "../src/plugins/tools";
 import { loadTenantPackage } from "../src/tenant-package";
 import { UNTRUSTED_GUIDANCE } from "../src/untrusted-content";

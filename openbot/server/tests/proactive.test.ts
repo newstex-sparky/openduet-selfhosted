@@ -320,7 +320,7 @@ describe("proactive run", () => {
       owner: "worker",
       runTurn: createTurnRunner({
         admission: serverTurnAdmission,
-        intelligence: {
+        platform: {
           getOrCreateThread: async () => undefined,
           getThreadMessages: async () => ({ messages: [] }),
           acquireThreadLock: async () => undefined,

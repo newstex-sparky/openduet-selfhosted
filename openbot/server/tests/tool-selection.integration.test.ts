@@ -17,7 +17,7 @@ import {
   buildAgents,
   type RegisteredAgent,
   type RuntimeModel,
-} from "../src/copilot";
+} from "../src/engine";
 import type { Selection } from "../src/plugins/selection";
 import { createModelCompleter } from "../src/routing/model";
 import { AGUIMock, buildAGUITextResponse } from "../testing/agui-mock";

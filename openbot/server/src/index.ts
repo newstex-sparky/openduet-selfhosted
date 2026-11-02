@@ -683,7 +683,7 @@ const approvalService = createServerApprovalService({
   actorFor,
   database,
   authoriseQuestion,
-  routineIntelligence: localPlatform,
+  routinePlatform: localPlatform,
   approvalComputerTools,
   review: (prompt, signal) => chooseSkills(prompt, signal),
   // Assigned further down, once delivery is wired.
@@ -1665,7 +1665,7 @@ const routineRunner = createRoutineRunner({
   channelStore,
   runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -1744,7 +1744,7 @@ const copilotRuntime = mountAgentRuntime(
 const responsibilityEngine = createServerResponsibilityEngine({
   database,
   responsibilityStore,
-  routineIntelligence: localPlatform,
+  routinePlatform: localPlatform,
   routineAgentRunner,
   componentCatalog,
   buildAgentFor,
@@ -1783,7 +1783,7 @@ const responsibilityAnswerTurn = ({
   });
   return headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),
@@ -1855,7 +1855,7 @@ const executeApprovedAction = createApprovedActionExecutor({
 });
 const approvalContinuationRunner = headlessTurn({
   admission: serverTurnAdmission,
-  intelligence: localPlatform,
+  platform: localPlatform,
   runner: routineAgentRunner,
   components: componentCatalog,
   buildAgentFor,
@@ -1894,7 +1894,7 @@ const groupConversations = createGroupConversations({
   },
   runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -2070,7 +2070,7 @@ conversationSaid = (ownerUserId, channelId, activity) => {
  */
 const proactiveRunTurn = headlessTurn({
   admission: serverTurnAdmission,
-  intelligence: localPlatform,
+  platform: localPlatform,
   runner: routineAgentRunner,
   buildAgentFor,
   toolsForTurn: (input) => proactiveEngine.toolsForTurn(input),
@@ -2177,7 +2177,7 @@ const wakeUpRunner = createWakeUpRunner({
   channels: channelStore,
   runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: localPlatform,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,

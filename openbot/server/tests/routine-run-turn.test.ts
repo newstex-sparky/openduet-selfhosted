@@ -224,7 +224,7 @@ function harness(options: {
   const runTurn = createTurnRunner({
     admission: options.admission ?? serverTurnAdmission,
     // biome-ignore lint/suspicious/noExplicitAny: narrow structural fakes, on purpose.
-    intelligence: intelligence as any,
+    platform: intelligence as any,
     // biome-ignore lint/suspicious/noExplicitAny: narrow structural fakes, on purpose.
     runner: runner as any,
     ...(options.learningContainerId

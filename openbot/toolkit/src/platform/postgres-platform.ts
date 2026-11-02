@@ -1030,8 +1030,7 @@ export function createPostgresThreadPlatform(
     /**
      * The thread if this person may read it; create it if it is not there.
      *
-     * `learningContainerId` is accepted and ignored: Automatic Learning is an Intelligence feature
-     * and local mode has none.
+     * `learningContainerId` is accepted and ignored: local mode opens no Learning container.
      */
     async getOrCreateThread(params: {
       threadId: string;

@@ -411,7 +411,7 @@ describe("a headless turn in local mode", () => {
   test("createTurnRunner runs end to end against the local platform: reply, history, lock released", async () => {
     const platform = createLocalThreadPlatform();
     const runTurn = createTurnRunner({
-      intelligence: platform,
+      platform: platform,
       runner: platform.runner,
       admission: async ({ signal }) => signal ?? new AbortController().signal,
       buildAgentFor: async () =>

@@ -22,7 +22,7 @@
  * `cleanupThreadLock` — plus the runner's URL and token at wiring time in `index.ts`. All of them
  * belong to this repository now: `./platform/thread-lock.ts` names the lock's request and response
  * shapes, and `./platform/local-platform.ts` plus `./platform/postgres-platform.ts` implement
- * them. This file still declares those shapes again in `IntelligenceLike` below rather than
+ * them. This file still declares those shapes again in `TurnPlatformLike` below rather than
  * importing the platform classes, so a test can drive every exit path without a database. A change
  * to the platform that the restatement does not follow is a compile error at the call site in
  * `engine.ts`, which is where the real client is bound. `routine-run-turn.test.ts` pins the
@@ -125,7 +125,7 @@ type ThreadHistoryMessage = {
  * depends on. The real client (`PostgresThreadPlatform`) satisfies it; the shapes are restated
  * here rather than imported so these tests never load a platform class.
  */
-export type IntelligenceLike = {
+export type TurnPlatformLike = {
   getOrCreateThread(params: {
     threadId: string;
     userId: string;
@@ -399,7 +399,7 @@ type Lease = {
 };
 
 async function takeLease(input: {
-  intelligence: IntelligenceLike;
+  platform: TurnPlatformLike;
   threadId: string;
   runId: string;
   userId: string;
@@ -410,7 +410,7 @@ async function takeLease(input: {
   onLost: (error: unknown) => void;
 }): Promise<Lease> {
   const {
-    intelligence,
+    platform,
     threadId,
     runId,
     userId,
@@ -421,7 +421,7 @@ async function takeLease(input: {
     onLost,
   } = input;
   try {
-    await intelligence.acquireThreadLock({
+    await platform.acquireThreadLock({
       threadId,
       runId,
       userId,
@@ -437,7 +437,7 @@ async function takeLease(input: {
   }
 
   const heartbeat = keepLease({
-    renew: () => intelligence.renewThreadLock({ threadId, runId, ttlSeconds }),
+    renew: () => platform.renewThreadLock({ threadId, runId, ttlSeconds }),
     everyMs: heartbeatMs,
     lifetimeMs: ttlSeconds * 1000,
     onLost,
@@ -446,7 +446,7 @@ async function takeLease(input: {
   return {
     stopHeartbeat: heartbeat.stop,
     release: () =>
-      intelligence
+      platform
         .cleanupThreadLock({ threadId, runId })
         .catch(() => undefined),
   };
@@ -610,7 +610,7 @@ async function conclude(
 }
 
 export function createTurnRunner(options: {
-  intelligence: IntelligenceLike;
+  platform: TurnPlatformLike;
   runner: RunnerLike;
   /** Checked before anything else; see `serverTurnAdmission` in agents/turn-admission.ts. */
   admission: TurnAdmission;
@@ -647,7 +647,7 @@ export function createTurnRunner(options: {
   abortGraceMs?: number;
 }): TurnRunner {
   const {
-    intelligence,
+    platform,
     runner,
     admission,
     buildAgentFor,
@@ -714,7 +714,7 @@ export function createTurnRunner(options: {
       agentId,
       userId: ownerUserId,
     });
-    await intelligence.getOrCreateThread({
+    await platform.getOrCreateThread({
       threadId,
       userId: ownerUserId,
       agentId,
@@ -734,7 +734,7 @@ export function createTurnRunner(options: {
      * between a routine that survives one interrupted chat turn and one that never fires again.
      */
     const history = await historyOrEmpty(
-      () => intelligence.getThreadMessages({ threadId, userId: ownerUserId }),
+      () => platform.getThreadMessages({ threadId, userId: ownerUserId }),
       { messages: [] as ThreadHistoryMessage[] },
     );
 
@@ -871,7 +871,7 @@ export function createTurnRunner(options: {
     };
 
     const lease = await takeLease({
-      intelligence,
+      platform,
       threadId,
       runId,
       userId: ownerUserId,

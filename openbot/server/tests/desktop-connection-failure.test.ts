@@ -11,7 +11,7 @@ import {
 } from "../src/desktop-connection-failure";
 
 function clearFailures() {
-  for (const connection of ["model", "intelligence", "organization"] as const)
+  for (const connection of ["model", "organization"] as const)
     clearDesktopConnectionFailure(connection);
 }
 beforeEach(clearFailures);
@@ -46,7 +46,7 @@ test("only the native session token can read typed failures; reads retain no err
   });
 });
 
-test("typed provider failures trigger refresh and successful model output clears only model failure", async () => {
+test("typed provider failures trigger refresh and successful model output clears the model failure", async () => {
   const { read } = endpoint();
   await firstValueFrom(
     observeModelConnection(
@@ -57,10 +57,6 @@ test("typed provider failures trigger refresh and successful model output clears
       }),
     ),
   );
-  recordDesktopConnectionFailure({
-    connection: "intelligence",
-    code: "intelligence_authentication_failed",
-  });
   expect(await (await read()).json()).toMatchObject({ connection: "model" });
   await firstValueFrom(
     observeModelConnection(
@@ -71,9 +67,7 @@ test("typed provider failures trigger refresh and successful model output clears
       }),
     ),
   );
-  expect(await (await read()).json()).toMatchObject({
-    connection: "intelligence",
-  });
+  expect(await (await read()).json()).toBe(null);
 });
 
 function providerError(statusCode: number, cause?: Error) {
