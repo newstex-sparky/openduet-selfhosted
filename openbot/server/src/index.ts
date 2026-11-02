@@ -160,20 +160,6 @@ import { githubCallbackRoutes } from "./identity/github-callback";
 import { retireIdentityLinks, retireOwnedAccounts } from "./identity/retire";
 import { slackCodeRedeemer } from "./identity/slack-redeem";
 import { createIdentityStore } from "./identity/store";
-import {
-  createLearningAutoAssign,
-  probeLearningContainer,
-  withLearningAutoAssign,
-} from "./learning/auto-assign";
-import {
-  cliLoginPresent,
-  ensureLearningContainer,
-  intelligenceApiOrigin,
-  keyIntelligence,
-  learningSetupInstructions,
-} from "./learning/ensure-container";
-import { clearLearningRevisionFallback } from "./learning/runtime";
-import { createLearningSettingsStore } from "./learning/settings";
 import { createMemoryDefaults } from "./memory/defaults";
 import { createMemoryIngestion } from "./memory/ingestion";
 import { createMemoryStore } from "./memory/store";
@@ -346,19 +332,12 @@ const identifyActor: IdentifyActor = async (request) => {
 };
 
 const config = loadConfig();
-// The environment seeds local policy once. The SDK fallback must not reapply an old revision
-// after an administrator clears a pin to follow the latest published Skills.
-clearLearningRevisionFallback();
 // Read with the rest of the configuration, where an empty variable is an absent one. See
 // `serverPort` in config.ts for what `process.env.PORT ?? …` did with `PORT=` instead.
 const port = config.port;
 const database = createDatabase(config.databaseUrl);
 // Every dispatch point asks this database whether its person paused the Bot. See agents/lifecycle.ts.
 configureBotLifecycle({ database });
-const learningSettingsStore = createLearningSettingsStore(
-  database,
-  config.learning,
-);
 /*
  * THIS PROCESS'S THREAD PLATFORM, BUILT ONCE.
  *
@@ -369,24 +348,6 @@ const learningSettingsStore = createLearningSettingsStore(
 const localPlatform: PostgresThreadPlatform = localThreadPlatform(config);
 announceLocalMode();
 
-/*
- * Automatic Learning is off, and stays off.
- *
- * It collected Skills inside a CopilotKit Intelligence project, which this fork does not run, so
- * there is nothing to assign a container in and nothing to probe. The settings table and the admin
- * surface still report "off" — see `learning/auto-assign.ts` — but no check is ever started.
- */
-const learningAutoAssign = createLearningAutoAssign({
-  enabled: false,
-  store: learningSettingsStore,
-  probe: async () => "unavailable",
-});
-learningAutoAssign.start();
-// The settings store the admin surface and the learning routes read. Nothing assigns a container.
-const learningSettings = withLearningAutoAssign(
-  learningSettingsStore,
-  learningAutoAssign,
-);
 await initializeDevActorUser(database, config.singleUser);
 // The vault, built before the agent store because a customer's agent may sit behind a key and that
 // key belongs here rather than on the agent row. See agents/auth-header.ts.
@@ -1342,20 +1303,6 @@ const memorySweep = repeatAfterEach(async () => {
       }),
     );
   }
-  // Mirror to Intelligence what is out of step: the backfill on the first passes after a deployment
-  // becomes entitled, and afterwards whatever an outage left behind. A no-op without Intelligence.
-  try {
-    await personalMemoryStore.mirrorPending();
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        type: "memory-sweep-error",
-        error: error instanceof Error ? error.name : "UnknownError",
-        context: { operation: "mirrorPending" },
-        timestamp: new Date().toISOString(),
-      }),
-    );
-  }
 }, 60_000);
 // Follow-ups a Bot schedules for itself, on the shared work queue. See agents/wake-up.ts.
 const wakeUpStore = createWakeUpStore(database, { auditStore: bootAuditStore });
@@ -1737,9 +1684,6 @@ const routineRunner = createRoutineRunner({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
 });
 
@@ -1776,10 +1720,6 @@ const baseAgentResolver = createActorAgentResolver({
   loadInstructionsForActor,
   loadAttachmentForActor,
   markAttachmentsSentForActor,
-  // The runtime owns Learning. Resolve its reader only when a turn is built, after boot wiring.
-  get acquireLearnedSkills() {
-    return copilotRuntime.learning?.acquire;
-  },
   loadPersonalMemoryForActor,
 });
 // Every Bot a person runs learns which OpenDuet channel its run is in. See openduet/run-channel.ts.
@@ -1813,7 +1753,6 @@ const responsibilityEngine = createServerResponsibilityEngine({
   agentProfileStore,
   bootAuditStore,
   signInService,
-  copilotRuntime,
   channelStore,
   // Assigned further down, once delivery is wired.
   notify: (scope, input) => deliveryNotifications(scope, input),
@@ -1863,9 +1802,6 @@ const responsibilityAnswerTurn = ({
         execute: (args: unknown) => tool.execute(args),
       })),
     ],
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   });
 };
 const responsibilitySweep = repeatAfterEach(async () => {
@@ -1925,9 +1861,6 @@ const approvalContinuationRunner = headlessTurn({
   buildAgentFor,
   toolsForTurn: async ({ ownerUserId, agentId, initiator }) =>
     approvalComputerTools(ownerUserId, agentId, initiator),
-  learningContainerForThread: (input) =>
-    copilotRuntime.learning?.containerForThread(input) ??
-    Promise.resolve(undefined),
 });
 // The drawer's channels, and the Bot's hello in a new one. See openduet/channels.ts.
 const openDuetChannels = createDuetChannelStore({
@@ -1980,9 +1913,6 @@ const groupConversations = createGroupConversations({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
   caps: config.handoff,
   // The handoff desk's own grant check, read per hop and failing closed.
@@ -2145,9 +2075,6 @@ const proactiveRunTurn = headlessTurn({
   buildAgentFor,
   toolsForTurn: (input) => proactiveEngine.toolsForTurn(input),
   turnTimeoutMs: 3 * 60_000,
-  learningContainerForThread: (input) =>
-    copilotRuntime.learning?.containerForThread(input) ??
-    Promise.resolve(undefined),
 });
 const taskReplyContext = createTaskReplyContext({
   load: (scope, id) =>
@@ -2269,9 +2196,6 @@ const wakeUpRunner = createWakeUpRunner({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
   notify: (scope, input) => deliveryNotifications(scope, input),
 });
@@ -2621,12 +2545,6 @@ const app = createApp(
       resolveApiKey: resolveRuntimeModelApiKey,
     }),
     channels: channelStore,
-  },
-  {
-    store: learningSettings,
-    autoAssign: learningAutoAssign,
-    status: copilotRuntime.learning?.status,
-    inspect: copilotRuntime.learning?.inspect,
   },
   {
     approvals: approvalService,

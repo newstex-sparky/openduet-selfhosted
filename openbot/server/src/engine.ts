@@ -18,7 +18,6 @@ import type { PostgresThreadPlatform } from "@openbot/toolkit/platform/postgres-
 import { runAsLocalUser } from "@openbot/toolkit/platform/request-scope";
 import { createThreadLock } from "@openbot/toolkit/platform/thread-lock";
 import type { GrantedTool } from "@openbot/toolkit/granted-tool";
-import { parametersFor } from "@openbot/toolkit/granted-tool";
 import { HeadlessToolsMiddleware } from "@openbot/toolkit/headless-tools";
 import { sanitizeSeededHistory } from "@openbot/toolkit/history-sanitize";
 import { isLockConflict } from "@openbot/toolkit/lease";
@@ -52,13 +51,6 @@ import type { DeploymentConfig } from "./config";
 import { AG_UI_HEARTBEAT_MS } from "./delivery/opentag";
 import { observeModelConnection } from "./desktop-connection-failure";
 import { desktopTelemetryProperties } from "./desktop-telemetry";
-import { RemoteLearnedSkillsMiddleware } from "./learning/remote";
-import {
-  type AcquireLearnedSkills,
-  LEARNED_SKILL_TOOL_NAMES,
-  type LearnedSkillInvocation,
-  type LearningRuntime,
-} from "./learning/runtime";
 import { localThreadPlatform } from "./local-mode";
 import {
   type LoadPersonalMemory,
@@ -89,7 +81,7 @@ import { UNTRUSTED_GUIDANCE } from "./untrusted-content";
  * with no framework adapter here: LangGraph, Pydantic-AI, CrewAI, Mastra, ADK, or a hand-written
  * server.
  *
- * Threads, memory and learning used to live in a hosted service, and this function used to
+ * Threads and memory used to live in a hosted service, and this function used to
  * mount that instead. This fork is local-only by product decision: `mountLocalAgentRuntime` (bottom
  * of this file) runs the same runtime in SSE mode on the process's Postgres thread platform, so a
  * restart keeps every conversation. See `RuntimeCapabilities`.
@@ -403,7 +395,6 @@ export function builtInAgentConfiguration(
    */
   standingInstructions?: string | null,
   planModel?: PlanModel,
-  learnedSkills?: LearnedSkillInvocation,
 ): BuiltInAgentConfiguration {
   if (!apiKey && !planModel) {
     return {
@@ -418,15 +409,7 @@ export function builtInAgentConfiguration(
   }
 
   const standing = standingInstructionsGuidance(standingInstructions);
-  const allTools = [
-    ...tools,
-    ...(learnedSkills?.tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: parametersFor(tool.parameters),
-      execute: (args: unknown) => learnedSkills.execute(tool.name, args),
-    })) ?? []),
-  ];
+  const allTools = [...tools];
 
   return {
     /*
@@ -470,7 +453,6 @@ export function builtInAgentConfiguration(
         ? [grantedToolGuidance(tools, connectedVendors)]
         : []),
       ...(computerGuidance ? [computerGuidance] : []),
-      ...(learnedSkills?.catalog ? [learnedSkills.catalog] : []),
     ].join("\n\n"),
     ...(planModel ? {} : { apiKey: apiKey ?? undefined }),
     /*
@@ -575,7 +557,6 @@ export async function buildAgents(
    * `loadAttachment` for the positional reason it gives. Absent means nothing is recorded.
    */
   markAttachmentsSent?: MarkAttachmentsSent,
-  acquireLearnedSkills?: AcquireLearnedSkills,
   loadPersonalMemory?: LoadPersonalMemory,
 ): Promise<Record<string, AbstractAgent>> {
   let vendors: readonly string[] = [];
@@ -632,7 +613,6 @@ export async function buildAgents(
           initiator,
           loadAttachment,
           markAttachmentsSent,
-          acquireLearnedSkills,
         );
         if (loadPersonalMemory)
           built.use(new PersonalMemoryMiddleware(agent.id, loadPersonalMemory));
@@ -894,7 +874,6 @@ async function buildAgent(
   loadAttachment?: LoadAttachment,
   /** How this run records that those files were sent. See {@link buildAgents}. */
   markAttachmentsSent?: MarkAttachmentsSent,
-  acquireLearnedSkills?: AcquireLearnedSkills,
 ): Promise<AbstractAgent> {
   if (agent.type === "unavailable") {
     return new UnavailableAgent(agent);
@@ -995,7 +974,6 @@ async function buildAgent(
       narrowing ? offeredFor : undefined,
       loadAttachment,
       markAttachmentsSent,
-      acquireLearnedSkills,
       handoff,
       initiator,
     );
@@ -1010,7 +988,6 @@ async function buildAgent(
     tools: GrantedTool[],
     input?: RunAgentInput,
     signal?: AbortSignal,
-    learnedSkills?: LearnedSkillInvocation,
   ) =>
     new BuiltInAgentWithSaneHistory(
       builtInAgentConfiguration(
@@ -1030,7 +1007,6 @@ async function buildAgent(
               signal,
             )
           : undefined,
-        learnedSkills,
       ),
       {
         // The run's own events also tell the reply-chips guard what was written before each call.
@@ -1050,25 +1026,12 @@ async function buildAgent(
     );
 
   const whole = withTools(granted);
-  if (!narrowing && !handoff && !model.plan && !acquireLearnedSkills)
-    return whole;
+  if (!narrowing && !handoff && !model.plan) return whole;
 
   return new RunBuiltAgent(
     { agentId: agent.id, description: agent.name },
     whole,
     async (input, signal) => {
-      const learnedSkills = await acquireLearnedSkills?.(agent.id, signal);
-      signal.throwIfAborted();
-      if (
-        learnedSkills &&
-        [...granted, ...input.tools].some((tool) =>
-          LEARNED_SKILL_TOOL_NAMES.has(tool.name),
-        )
-      ) {
-        throw new Error(
-          "Learned Skill tool names are reserved by Automatic Learning.",
-        );
-      }
       const offered = narrowing ? await offeredFor(input, signal) : granted;
       signal.throwIfAborted();
       /*
@@ -1085,11 +1048,10 @@ async function buildAgent(
       // Nothing added and nothing narrowed means nothing to rebuild, and reusing the agent already
       // built for this request keeps that path allocation-for-allocation what it was.
       return !model.plan &&
-        !learnedSkills &&
         tools.length === granted.length &&
         passing.length === 0
         ? whole
-        : withTools(tools, input, signal, learnedSkills);
+        : withTools(tools, input, signal);
     },
   );
 }
@@ -1309,7 +1271,6 @@ function remoteAgentWithStandingRole(
   loadAttachment?: LoadAttachment,
   /** How this run records that those files were sent. See {@link buildAgents}. */
   markAttachmentsSent?: MarkAttachmentsSent,
-  acquireLearnedSkills?: AcquireLearnedSkills,
   coordination?: HandoffForRun,
   initiator?: AuditInitiator,
 ) {
@@ -1528,10 +1489,6 @@ function remoteAgentWithStandingRole(
         );
       return owned ? observeModelConnection(stream) : stream;
     });
-    if (acquireLearnedSkills)
-      target.use(
-        new RemoteLearnedSkillsMiddleware(agent.id, acquireLearnedSkills),
-      );
   });
 }
 
@@ -1541,7 +1498,6 @@ const RESERVED_MASTRA_CONTEXT_DESCRIPTIONS = new Set([
   "OpenBot Bot id",
   "OpenBot deployment tools",
   "OpenBot signed run assertion",
-  "OpenBot learned skills",
 ]);
 
 function callerMastraContext(context: AgentContext[]): AgentContext[] {
@@ -1638,7 +1594,6 @@ export async function resolveRuntimeAgents(
    * same positional reason. Absent means nothing is recorded.
    */
   markAttachmentsSent?: MarkAttachmentsSent,
-  acquireLearnedSkills?: AcquireLearnedSkills,
   loadPersonalMemory?: LoadPersonalMemory,
 ): Promise<Record<string, AbstractAgent>> {
   const all = await loadAgents();
@@ -1674,7 +1629,6 @@ export async function resolveRuntimeAgents(
     initiator,
     loadAttachment,
     markAttachmentsSent,
-    acquireLearnedSkills,
     loadPersonalMemory,
   );
 }
@@ -1989,8 +1943,6 @@ function mountLocalAgentRuntime(input: {
 
   return {
     handler,
-    // Automatic Learning is an Intelligence feature. Absent here, which every caller already allows.
-    learning: undefined as LearningRuntime | undefined,
     runnerConnection: (): never => {
       throw new Error(
         "Local mode has no Intelligence runner socket; use handoffRunner().",

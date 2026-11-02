@@ -13,7 +13,6 @@ import {
   type SignRun,
   type ToolSelection,
 } from "../engine";
-import type { AcquireLearnedSkills } from "../learning/runtime";
 import type { LoadPersonalMemory } from "../memory/tools";
 import type { AgentActor } from "./profile-types";
 
@@ -67,7 +66,6 @@ export type ActorAgentResolverDependencies = {
   loadInstructionsForActor?: (actorId: string) => LoadInstructions;
   loadAttachmentForActor?: (actorId: string) => LoadAttachment;
   markAttachmentsSentForActor?: (actorId: string) => MarkAttachmentsSent;
-  acquireLearnedSkills?: AcquireLearnedSkills;
   loadPersonalMemoryForActor?: (actorId: string) => LoadPersonalMemory;
 };
 
@@ -110,7 +108,6 @@ export function createActorAgentResolver(
       context?.initiator,
       deps.loadAttachmentForActor?.(actor.id),
       deps.markAttachmentsSentForActor?.(actor.id),
-      deps.acquireLearnedSkills,
       deps.loadPersonalMemoryForActor?.(actor.id),
     );
 

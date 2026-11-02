@@ -86,10 +86,6 @@ import { createHostAccessRoutes } from "./host-access/routes";
 import { identityRoutes } from "./identity/routes";
 import type { IdentityStore } from "./identity/store";
 import { localThreadPlatform } from "./local-mode";
-import {
-  createLearningRoutes,
-  type LearningAdminDependencies,
-} from "./learning/routes";
 import type { MemoryIngestion } from "./memory/ingestion";
 import { createMemoryRoutes } from "./memory/routes";
 import type { MemoryStore } from "./memory/store";
@@ -405,7 +401,6 @@ export function createApp(
   modelProviderProxy?: ModelProviderProxy,
   userPreferences?: UserPreferencesStore,
   voiceSessions?: VoiceSessionServices,
-  learning?: LearningAdminDependencies,
   coworker?: {
     demonstrations?: {
       store: DemonstrationStore;
@@ -499,9 +494,9 @@ export function createApp(
       webBotAuthDirectory(context.req.raw, webBotAuth),
     );
   }
-  // Projected, never the raw runtime. config.runtime carries the Intelligence contract, including
-  // INTELLIGENCE_API_KEY and the licence token, and this endpoint is reachable by anyone. Returning
-  // the object wholesale would serve deployment secrets to the browser. Add fields here explicitly.
+  // Projected, never the raw config. This endpoint is reachable by anyone, and the wider config
+  // carries deployment secrets, so returning it wholesale would serve those to the browser. Add
+  // fields here explicitly.
   app.get("/api/capabilities", async (context) =>
     context.json({
       mode: config.runtime.mode,
@@ -691,10 +686,6 @@ export function createApp(
       channelStore,
       agentProfileStore,
       voiceSessions,
-      learning?.status
-        ? async (agentId) =>
-            (await learning.status?.(agentId))?.configured ?? false
-        : undefined,
     ),
   );
 
@@ -867,20 +858,6 @@ export function createApp(
 
     return context.json({ instructions: saved });
   });
-  if (learning) {
-    app.route(
-      "/api/admin/learning",
-      createLearningRoutes(
-        learning,
-        requireUser,
-        [
-          ...(config.auth?.trustedOrigins ?? []),
-          ...(config.appUrl ? [config.appUrl] : []),
-        ],
-        auditStore,
-      ),
-    );
-  }
   app.get("/api/admin/status", requireUser, (context) => {
     const denied = requireAdmin(context);
     return denied ?? context.json({ status: "ok" });

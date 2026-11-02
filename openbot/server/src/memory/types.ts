@@ -83,12 +83,8 @@ export type MemoryRecord = MemoryInput & {
   externalId: string | null;
   importDigest: string | null;
   reviewState: "unreviewed" | "confirmed" | "edited";
-  /**
-   * Who formed it. `intelligence` is a memory CopilotKit Intelligence holds for this person that no
-   * OpenBot row describes, formed by another app on the same project or by Intelligence itself. It
-   * is never stored in OpenBot's table, only read back from Intelligence.
-   */
-  formedBy: "person" | "import" | "bot" | "intelligence";
+  /** Who formed it. Every memory this deployment holds has a row, so there is no fourth value. */
+  formedBy: "person" | "import" | "bot";
   formedByAgentId: string | null;
   sourceApp: string | null;
   sourceRef: string | null;

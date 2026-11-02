@@ -49,7 +49,6 @@ export function createServerResponsibilityEngine(deps: {
   agentProfileStore: AgentProfileStore;
   bootAuditStore: AuditStore;
   signInService: Parameters<typeof createHeadlessComputerTools>[0]["signIn"];
-  copilotRuntime: Pick<ReturnType<typeof mountAgentRuntime>, "learning">;
   channelStore: ChannelStore;
   notify: (
     scope: DeliveryScope,
@@ -68,7 +67,6 @@ export function createServerResponsibilityEngine(deps: {
     agentProfileStore,
     bootAuditStore,
     signInService,
-    copilotRuntime,
     channelStore,
   } = deps;
   const responsibilityQueue = createWorkQueue(database);
@@ -126,9 +124,6 @@ export function createServerResponsibilityEngine(deps: {
               })),
             ];
           },
-          learningContainerForThread: (input) =>
-            copilotRuntime.learning?.containerForThread(input) ??
-            Promise.resolve(undefined),
         });
         const saved = context.continuation;
         const snapshot = saved
