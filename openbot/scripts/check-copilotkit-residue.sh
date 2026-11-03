@@ -59,6 +59,7 @@ disposition() {
 	openbot/biome.json | .gitignore | openbot/bun.lock) echo inert-compat ;;
 	openbot/server/src/openduet/setup.ts | openbot/server/src/plugins/catalogue.ts) echo upstream-coordinate ;;
 	openbot/server/tests/*) echo negative-assertion ;;
+	openbot/scripts/check-copilotkit-residue.sh) echo negative-assertion ;;
 	openbot/server/src/* | openbot/agent-mastra/* | openbot/agent-langgraph/*) echo removal-prose ;;
 	openbot/desktop/PROVIDER_OAUTH.md) echo removal-prose ;;
 	openbot/desktop/src-tauri/src/harness.rs | openbot/desktop/src-tauri/src/stack.rs) echo removal-prose ;;
