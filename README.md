@@ -135,7 +135,47 @@ Once it is running, try the parts that work today:
 - Choose what it must ask you about first in `/settings/approvals`.
 - Ask it to do something on a schedule. You will find it in `/routines`.
 
-Sign-in for a team, and Slack and Teams, are OpenBot's: see [openbot/docs](openbot/docs/README.md). A hosted or deploy guide for OpenDuet is not published yet, and neither is an OpenDuet image, so the Quick start above is the supported way to run it today. The Docker and Helm guides in `openbot/docs` deploy plain OpenBot from OpenBot's own image, not OpenDuet.
+Sign-in for a team, and Slack and Teams, are OpenBot's: see [openbot/docs](openbot/docs/README.md). The Compose recipe above is the supported way to run OpenDuet as containers. The Docker and Helm guides in `openbot/docs` deploy plain OpenBot from OpenBot's own image, not OpenDuet.
+
+### Run it with one Docker Compose file
+
+[`openbot/docker-compose.selfhosted.yml`](openbot/docker-compose.selfhosted.yml) runs the whole companion as one Compose project. Its only external dependency is your model endpoint. It needs no Intelligence or Postgres account, no CopilotKit account, no hosted runtime, no telemetry endpoint, no OAuth app, and no mail server.
+
+```sh
+cd openbot
+export OPENAI_API_KEY=sk-...
+docker compose -f docker-compose.selfhosted.yml up -d --build
+```
+
+Then open <http://127.0.0.1:3001>.
+
+| Service     | What it is                                                                     |
+| ----------- | ------------------------------------------------------------------------------ |
+| `postgres`  | The only datastore: threads, messages, the event log and the per-thread run lock. |
+| `migrate`   | The server's own migrator. Runs once, then exits.                              |
+| `keys`      | Generates the at-rest encryption key once and keeps it on the `keys-data` volume. |
+| `companion` | The API and the built web app in one image, on one origin.                     |
+| `scheduler` | Runs the routine sweep on a loop, so a due routine fires without an external cron. |
+
+Ports: `127.0.0.1:3001` is the only published port, and it is loopback. Change it with `OPENBOT_PORT`. Postgres is not published at all; the other services reach it over the Compose network. Put a TLS terminator in front for anything other than local use.
+
+Volume: `postgres-data` holds the database and `keys-data` holds `KEY_ENCRYPTION_KEY`, the key the server uses to encrypt provider keys at rest. Keep `keys-data`: losing it loses the stored provider keys, not the conversations.
+
+Environment: `OPENAI_API_KEY` is the only value you must supply. These are optional:
+
+- `OPENAI_BASE_URL` and `BOT_MODEL` move the deployment to any endpoint that speaks OpenAI's `/v1/chat/completions`.
+- `OPENBOT_PORT` changes the published port. The default is 3001.
+- `KEY_ENCRYPTION_KEY` brings your own at-rest key instead of the generated one.
+- `COMPANION_IMAGE` names the image. The default is `openduet-companion:local`.
+
+Do not set `BETTER_AUTH_SECRET` or `BETTER_AUTH_URL`. Both belong to the OAuth sign-in path, and the server refuses to start with either set and no identity provider configured.
+
+Teardown:
+
+```sh
+docker compose -f docker-compose.selfhosted.yml down      # keeps the volumes
+docker compose -f docker-compose.selfhosted.yml down -v   # deletes them
+```
 
 ### Connect Gmail and Google Calendar
 
