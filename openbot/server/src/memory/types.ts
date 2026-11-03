@@ -41,11 +41,11 @@ export class MemoryRefusedError extends Error {
     this.name = "MemoryRefusedError";
   }
 }
-/** Intelligence holds this memory and cannot be reached right now. The local store cannot stand in. */
+/** This deployment's own store holds this memory and cannot be reached right now. */
 export class MemoryUnavailableError extends Error {
   constructor() {
     super(
-      "This memory is kept in CopilotKit Intelligence, which cannot be reached right now. Try again.",
+      "This memory is kept in this deployment's database, which cannot be reached right now. Try again.",
     );
     this.name = "MemoryUnavailableError";
   }

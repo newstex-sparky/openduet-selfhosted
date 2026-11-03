@@ -597,7 +597,7 @@ export function App() {
           </h1>
           <p className="lede">
             {installationReady
-              ? "OpenBot’s local software is ready. Next, connect your AI and CopilotKit accounts."
+              ? "OpenBot’s local software is ready. Next, connect your AI account."
               : "Install the software OpenBot needs on this computer. This can take a few minutes. You’ll sign in after installation finishes."}
           </p>
           {!installationReady && engine?.responding && (
