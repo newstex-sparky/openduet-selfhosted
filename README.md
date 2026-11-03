@@ -177,6 +177,13 @@ docker compose -f docker-compose.selfhosted.yml down      # keeps the volumes
 docker compose -f docker-compose.selfhosted.yml down -v   # deletes them
 ```
 
+To check what the running deployment actually carries, run both residue reports. The first reads the source tree, the second reads the built image and the web app the browser downloads:
+
+```sh
+sh openbot/scripts/check-copilotkit-residue.sh
+sh openbot/scripts/check-artifact-residue.sh openduet-selfhosted-companion-1
+```
+
 ### Connect Gmail and Google Calendar
 
 Gmail and Calendar need a Google OAuth client, which an administrator registers once. Each person then connects their own account under **Connections**. With the default `.env` you are the administrator. **Settings → Setup** in the app shows which of these steps is still open and links to each page. [openbot/docs/plugins/google-workspace.md](openbot/docs/plugins/google-workspace.md) has the Google Cloud steps: the two APIs to enable, the consent screen, and the OAuth client.
