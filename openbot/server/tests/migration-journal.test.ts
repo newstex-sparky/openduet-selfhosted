@@ -360,6 +360,150 @@ const everyIndexName = (snapshot: Snapshot) =>
     ),
   );
 
+test("a rename is read as one name moving, not as a create and a drop", () => {
+  const before: Snapshot = {
+    tables: {
+      "public.copilotkit_threads": {
+        name: "copilotkit_threads",
+        columns: { id: { name: "id" } },
+        indexes: { copilotkit_threads_pkey: { name: "copilotkit_threads_pkey" } },
+        checkConstraints: {},
+      },
+    },
+  };
+  const after: Snapshot = {
+    tables: {
+      "public.openduet_threads": {
+        name: "openduet_threads",
+        columns: { id: { name: "id" } },
+        indexes: { openduet_threads_pkey: { name: "openduet_threads_pkey" } },
+        checkConstraints: {},
+      },
+    },
+  };
+  const sql = `ALTER TABLE "copilotkit_threads" RENAME TO "openduet_threads";--> statement-breakpoint
+ALTER INDEX "copilotkit_threads_pkey" RENAME TO "openduet_threads_pkey";`;
+
+  expect(disagreements(sql, before, after)).toEqual([]);
+  // And the rename is not a free pass: a snapshot that moves a name the SQL never mentions is
+  // still a disagreement, which is the whole reason the pairs are read in both directions.
+  expect(disagreements("", before, after).length).toBe(2);
+});
+
+/**
+ * The names a migration moves, read from its `RENAME` statements.
+ *
+ * A RENAME IS NOT A CREATE AND A DROP, and the snapshot pair records it as one: `0070` renames the
+ * five thread tables, their indexes and their constraints off the vendor's prefix, and the snapshot
+ * after it adds `openduet_*` while the one before it still holds `copilotkit_*`. Read as plain SQL
+ * verbs that is a table nobody created and five nobody dropped, which is what this file reported
+ * before it understood the statement. Read through here, the two snapshots describe one schema
+ * under two spellings of the same names, which is what the database does.
+ */
+type Renames = {
+  tables: Map<string, string>;
+  /** Index names are global, so these are keyed by the name alone. */
+  indexes: Map<string, string>;
+  /** Constraint names are per table, so these are keyed `table.name`. */
+  constraints: Map<string, string>;
+};
+
+const renamesIn = (sql: string): Renames => ({
+  tables: new Map(
+    quoted(sql, /ALTER TABLE "([^"]+)" RENAME TO "([^"]+)"/gi).map(
+      ([from, to]) => [from!, to!] as [string, string],
+    ),
+  ),
+  indexes: new Map(
+    quoted(sql, /ALTER INDEX "([^"]+)" RENAME TO "([^"]+)"/gi).map(
+      ([from, to]) => [from!, to!] as [string, string],
+    ),
+  ),
+  constraints: new Map(
+    quoted(
+      sql,
+      /ALTER TABLE "([^"]+)" RENAME CONSTRAINT "([^"]+)" TO "([^"]+)"/gi,
+    ).map(([table, from, to]) => [`${table}.${from}`, to!] as [string, string]),
+  ),
+});
+
+/**
+ * The previous snapshot with the migration's renames applied to it.
+ *
+ * Every name a table carries is part of the snapshot: its own, its indexes', its constraints' and
+ * the foreign keys' `tableFrom`/`tableTo`. A CHECK's predicate names its table too — postgres
+ * rewrites the stored expression when the table is renamed — so the substitution reaches inside the
+ * value as well. Anything the migration does not rename is left exactly as it was, which is what
+ * lets the checks below still report a snapshot that moved a name the SQL never mentions.
+ */
+const renamed = (snapshot: Snapshot, names: Renames): Snapshot => {
+  const tables: NonNullable<Snapshot["tables"]> = {};
+
+  for (const [key, table] of Object.entries(snapshot.tables ?? {})) {
+    const name = names.tables.get(table.name) ?? table.name;
+    const loose = table as unknown as Record<string, unknown>;
+
+    const entries = (value: unknown, kind: "index" | "constraint") => {
+      const out: Record<string, unknown> = {};
+      for (const entry of Object.values(
+        (value ?? {}) as Record<string, Record<string, unknown>>,
+      )) {
+        const from = String(entry.name);
+        const to =
+          (kind === "constraint"
+            ? (names.constraints.get(`${table.name}.${from}`) ??
+              names.constraints.get(`${name}.${from}`))
+            : names.indexes.get(from)) ?? from;
+        out[to] = { ...entry, name: to };
+      }
+      return out;
+    };
+
+    const checkConstraints: Record<string, { name: string; value: string }> = {};
+    for (const check of Object.values(table.checkConstraints ?? {})) {
+      // A migration renames the table first, so its later `RENAME CONSTRAINT` statements name the
+      // table by its NEW name while the snapshot still files the constraint under the old one.
+      const to =
+        names.constraints.get(`${table.name}.${check.name}`) ??
+        names.constraints.get(`${name}.${check.name}`) ??
+        check.name;
+      checkConstraints[to] = {
+        name: to,
+        value: check.value.replaceAll(`"${table.name}"`, `"${name}"`),
+      };
+    }
+
+    const foreignKeys: Record<string, unknown> = {};
+    for (const foreignKey of Object.values(
+      (loose.foreignKeys ?? {}) as Record<string, Record<string, unknown>>,
+    )) {
+      const from = String(foreignKey.name);
+      const to =
+        names.constraints.get(`${table.name}.${from}`) ??
+        names.constraints.get(`${name}.${from}`) ??
+        from;
+      foreignKeys[to] = {
+        ...foreignKey,
+        name: to,
+        tableFrom: names.tables.get(String(foreignKey.tableFrom)) ?? foreignKey.tableFrom,
+        tableTo: names.tables.get(String(foreignKey.tableTo)) ?? foreignKey.tableTo,
+      };
+    }
+
+    tables[`${key.slice(0, key.length - table.name.length)}${name}`] = {
+      ...table,
+      name,
+      checkConstraints,
+      indexes: entries(table.indexes, "index"),
+      foreignKeys,
+      compositePrimaryKeys: entries(loose.compositePrimaryKeys, "constraint"),
+      uniqueConstraints: entries(loose.uniqueConstraints, "constraint"),
+    } as unknown as NonNullable<Snapshot["tables"]>[string];
+  }
+
+  return { ...snapshot, tables };
+};
+
 /**
  * What the SQL says it does, against what the two snapshots say happened.
  *
@@ -368,8 +512,13 @@ const everyIndexName = (snapshot: Snapshot) =>
  * next migration against a schema the database was never in. So every table, column and index the
  * snapshot pair moves has to be named by a statement in the file, and every statement in the file
  * has to show up in the snapshot pair.
+ *
+ * Renames are the one statement that moves a name without creating or dropping anything, so the
+ * previous snapshot is read through them first: see {@link renamed}.
  */
-const disagreements = (sql: string, before: Snapshot, after: Snapshot) => {
+const disagreements = (sql: string, previous: Snapshot, after: Snapshot) => {
+  const renames = renamesIn(sql);
+  const before = renamed(previous, renames);
   const created = quoted(
     sql,
     /CREATE TABLE (?:IF NOT EXISTS )?"([^"]+)"/gi,

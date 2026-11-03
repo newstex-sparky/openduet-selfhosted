@@ -589,7 +589,7 @@ function appWith(input: {
      * Positions 4-34 are the other stores; `coworker` is 35. Every parameter from 4 on is optional,
      * so a wrong count is a silent type-check pass: see onboarding-routes.test.ts.
      */
-    ...(Array.from({ length: 31 }) as never[]),
+    ...(Array.from({ length: 30 }) as never[]),
     { openduet: { pages: {} as PageStore, setup } } as never,
   );
   return Object.assign(app, { asked, counts });

@@ -42,7 +42,7 @@ describe("the capabilities endpoint", () => {
 
   // createApp takes its services positionally. The banner is the 36th, followed by the identity
   // store and the GitHub sign-in callback, so it is no longer the last of them.
-  const SELF_HOST_BANNER_ARG = 35;
+  const SELF_HOST_BANNER_ARG = 34;
   function appWith(banner: ReturnType<typeof createSelfHostBanner>) {
     const args: unknown[] = new Array(createApp.length).fill(undefined);
     args[0] = config;

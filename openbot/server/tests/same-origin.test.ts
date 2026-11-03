@@ -418,7 +418,7 @@ describe("the assembled app", () => {
       },
     } as unknown as ApprovalService;
     const args: unknown[] = [loadConfig(singleUserEnvironment(), {})];
-    args[34] = { approvals };
+    args[33] = { approvals };
     return {
       created,
       app: (
