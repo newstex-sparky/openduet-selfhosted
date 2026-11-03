@@ -1,0 +1,46 @@
+[
+  {
+    "proof": "1",
+    "ok": true,
+    "at": "2026-11-03T13:08:41-0500",
+    "screenshot": "01-chat-turn.png",
+    "prompt": "Reply with exactly this line and nothing else: PHASE8B REAL MODEL OK",
+    "reply_occurrences": 4,
+    "seconds": 5.8,
+    "run_posts": [
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3101/api/engine/agent/openduet/connect"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3101/api/engine/agent/openduet/connect"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3101/api/engine/agent/openduet/run"
+      }
+    ],
+    "note": "reply text is the model's own answer to the prompt; it appears as the user's line and as the Bot's reply"
+  },
+  {
+    "proof": "2-before",
+    "ok": true,
+    "at": "2026-11-03T13:09:00-0500",
+    "screenshot": "02a-before-restart.png",
+    "token": "RESTART8B-1793729333",
+    "occurrences": 2
+  },
+  {
+    "proof": "2-after",
+    "ok": true,
+    "at": "2026-11-03T13:09:31-0500",
+    "screenshots": [
+      "02b-after-restart.png",
+      "02c-after-restart-reload.png"
+    ],
+    "token": "RESTART8B-1793729333",
+    "occurrences_after_restart": 2,
+    "occurrences_after_reload": 2
+  }
+]
