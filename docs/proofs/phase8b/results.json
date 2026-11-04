@@ -122,5 +122,34 @@
       }
     ],
     "resumed_text_tail": "e that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nRoutine ran. ROUTINE8B fired turn: post the standup summary\n\nROUTINE8B scheduled turn ran at 2026-11-04T01:20:13.870Z with nobody typing.\n\nAPPROVAL8B submit the form on the page\nUsed the browser\n\u25b8\n\nAPPROVAL8B the form was submitted.\n\nScroll to end\nMessage OpenDuet\nChat\nTasks\nMake"
+  },
+  {
+    "proof": "6",
+    "ok": true,
+    "at": "2026-11-03T20:22:44-0500",
+    "screenshot": "06-sse-idle-survived.png",
+    "run_streams": 1,
+    "seconds_the_stream_stayed_open": 14.01,
+    "previous_timeout_seconds": 10.0,
+    "elapsed_to_reply": 17.6,
+    "run_detail": {
+      "1769712.75": {
+        "url": "http://127.0.0.1:3102/api/engine/agent/openduet/run",
+        "frames": 5,
+        "total_data_bytes": 28310,
+        "first_frame_s": 0.0,
+        "last_frame_s": 14.01,
+        "frame_offsets_s": [
+          0.0,
+          5.0,
+          10.0,
+          14.0,
+          14.01
+        ]
+      }
+    },
+    "model_request_count_before": 7,
+    "model_request_count_after": 8,
+    "note": "one POST /run kept receiving bytes after a single silence longer than Bun's 10s idle timeout"
   }
 ]
