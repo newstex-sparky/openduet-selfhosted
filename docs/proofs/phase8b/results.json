@@ -1,0 +1,155 @@
+[
+  {
+    "proof": "1",
+    "ok": true,
+    "at": "2026-11-03T13:08:41-0500",
+    "screenshot": "01-chat-turn.png",
+    "prompt": "Reply with exactly this line and nothing else: PHASE8B REAL MODEL OK",
+    "reply_occurrences": 4,
+    "seconds": 5.8,
+    "run_posts": [
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3101/api/engine/agent/openduet/connect"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3101/api/engine/agent/openduet/connect"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3101/api/engine/agent/openduet/run"
+      }
+    ],
+    "note": "reply text is the model's own answer to the prompt; it appears as the user's line and as the Bot's reply"
+  },
+  {
+    "proof": "2-before",
+    "ok": true,
+    "at": "2026-11-03T13:09:00-0500",
+    "screenshot": "02a-before-restart.png",
+    "token": "RESTART8B-1793729333",
+    "occurrences": 2
+  },
+  {
+    "proof": "2-after",
+    "ok": true,
+    "at": "2026-11-03T13:09:31-0500",
+    "screenshots": [
+      "02b-after-restart.png",
+      "02c-after-restart-reload.png"
+    ],
+    "token": "RESTART8B-1793729333",
+    "occurrences_after_restart": 2,
+    "occurrences_after_reload": 2
+  },
+  {
+    "proof": "3",
+    "ok": true,
+    "at": "2026-11-03T19:48:39-0500",
+    "screenshots": [
+      "03-lock-409-second-tab.png",
+      "03b-lock-409-second-tab-after-the-refusal.png",
+      "03c-lock-409-holder-tab.png"
+    ],
+    "click_gap_seconds": 0.07,
+    "holder_run_statuses": [
+      200
+    ],
+    "rival_run_statuses": [
+      409
+    ],
+    "http_409": [
+      {
+        "at": "2026-11-03T19:48:38-0500",
+        "status": 409,
+        "url": "http://127.0.0.1:3102/api/engine/agent/openduet/run",
+        "body": "{\"error\":\"Thread lock denied\"}"
+      }
+    ],
+    "second_tab_text_tail": "ith what I can do for you now.\n\nno rule matched: This is your first conversation with this person: they have just opened the app no rule matched: This is your first conversation with this person: they have just opened the app\n\nLOCK8B hold this thread while I try something else\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B hold this thread while I try something else\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B probe holder\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B hold this thread while I try something else\n\nSeen\n\nScroll to end\nMessage OpenDuet\nChat\nTasks\nMake"
+  },
+  {
+    "proof": "4",
+    "ok": true,
+    "at": "2026-11-03T20:20:14-0500",
+    "screenshots": [
+      "04a-routine-created.png",
+      "04b-routines-page.png",
+      "04c-routine-fired-live.png"
+    ],
+    "created_at": "2026-11-03T20:18:23-0500",
+    "fired_after_seconds": 104.5,
+    "interactions_while_waiting": {
+      "pointer": 0,
+      "keys": 0
+    },
+    "routines_page_shows_schedule": true,
+    "routines_page_text_tail": "Self-host OpenDuet for your organization.\n\nSetup guide\n\nRoutines\n\nRoutines\n\nWhat a Bot does on a schedule, without being asked each time. Made and changed by talking to a Bot \u2014 this page only shows what is standing, and lets you stop one.\n\nEvery day at 01:20\nUTC\n\nROUTINE8B fired turn: post the standup summary\n\nOpenDuet\nHasn't run yet\nNext in 2 minutes\nRun now\nHistory\nDelete"
+  },
+  {
+    "proof": "5",
+    "ok": true,
+    "at": "2026-11-03T20:22:09-0500",
+    "screenshots": [
+      "05a-paused-waiting-for-approval.png",
+      "05b-resumed-after-allow-once.png"
+    ],
+    "paused_at": "2026-11-03T20:20:38-0500",
+    "decision_posts": [
+      {
+        "status": 202,
+        "url": "http://127.0.0.1:3102/api/approvals/computer/openduet"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3102/api/approvals/61abba82-4b3d-4603-b6c7-f66fe5fe8e99/decision"
+      }
+    ],
+    "computer_clicks_before_allow": 0,
+    "computer_clicks_after_allow": 1,
+    "click_evidence": [
+      {
+        "at": 1793755240076,
+        "atIso": "2026-11-04T01:20:40.076Z",
+        "path": "/click",
+        "botId": "openduet",
+        "tokenPresent": true,
+        "body": {
+          "ref": "e1",
+          "snapshotId": 1
+        }
+      }
+    ],
+    "resumed_text_tail": "e that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nRoutine ran. ROUTINE8B fired turn: post the standup summary\n\nROUTINE8B scheduled turn ran at 2026-11-04T01:20:13.870Z with nobody typing.\n\nAPPROVAL8B submit the form on the page\nUsed the browser\n\u25b8\n\nAPPROVAL8B the form was submitted.\n\nScroll to end\nMessage OpenDuet\nChat\nTasks\nMake"
+  },
+  {
+    "proof": "6",
+    "ok": true,
+    "at": "2026-11-03T20:22:44-0500",
+    "screenshot": "06-sse-idle-survived.png",
+    "run_streams": 1,
+    "seconds_the_stream_stayed_open": 14.01,
+    "previous_timeout_seconds": 10.0,
+    "elapsed_to_reply": 17.6,
+    "run_detail": {
+      "1769712.75": {
+        "url": "http://127.0.0.1:3102/api/engine/agent/openduet/run",
+        "frames": 5,
+        "total_data_bytes": 28310,
+        "first_frame_s": 0.0,
+        "last_frame_s": 14.01,
+        "frame_offsets_s": [
+          0.0,
+          5.0,
+          10.0,
+          14.0,
+          14.01
+        ]
+      }
+    },
+    "model_request_count_before": 7,
+    "model_request_count_after": 8,
+    "note": "one POST /run kept receiving bytes after a single silence longer than Bun's 10s idle timeout"
+  }
+]
