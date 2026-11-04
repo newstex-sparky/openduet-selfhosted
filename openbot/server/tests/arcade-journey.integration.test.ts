@@ -503,7 +503,7 @@ function build() {
   args[12] = auditStore;
   args[14] = pluginStore;
   args[29] = { broker, provider: "arcade" } as never;
-  args[34] = { shared: { modes, use } } as never;
+  args[33] = { shared: { modes, use } } as never;
   return createApp(...args);
 }
 

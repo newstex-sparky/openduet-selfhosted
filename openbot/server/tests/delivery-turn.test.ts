@@ -48,7 +48,7 @@ test("verified inbound person message keeps canonical run ID and persists exact 
   };
   const turn = createTurnRunner({
     admission: serverTurnAdmission,
-    intelligence,
+    platform: intelligence,
     runner,
     buildAgentFor: async (input) => {
       initiators.push(input.initiator);
