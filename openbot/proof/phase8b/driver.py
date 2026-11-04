@@ -97,14 +97,45 @@ def open_chat(page, base: str, timeout_ms: int = 45_000):
     return page
 
 
-def send(page, text: str) -> None:
-    box = page.locator(COMPOSER).first
-    box.click()
-    page.wait_for_timeout(200)
-    page.keyboard.type(text, delay=6)
-    page.wait_for_timeout(250)
-    page.locator(SEND).first.click()
-    print(f"  sent: {text[:90]}")
+def send(page, text: str, wait_s: int = 180) -> None:
+    """Type a message and send it, waiting first if the thread still has a run in flight.
+
+    A tab whose thread has a run streaming into it shows `Stop the Bot` where `Send message`
+    was, so a proof that starts right after another one has to wait that run out rather than
+    crash on a missing button. Re-typing is safe: nothing has been sent yet.
+    """
+    deadline = time.time() + wait_s
+    while True:
+        try:
+            page.wait_for_selector(COMPOSER, timeout=5000, state="visible")
+            box = page.locator(COMPOSER).first
+            box.click(timeout=5000)
+            page.wait_for_timeout(150)
+            page.keyboard.type(text, delay=4)
+            page.wait_for_timeout(300)
+            if page.locator(SEND).first.is_visible():
+                page.locator(SEND).first.click()
+                print(f"  sent: {text[:90]}")
+                return
+        except Exception:
+            pass
+        if time.time() > deadline:
+            raise SystemExit(
+                f"FAILED: could not send after {wait_s}s; the thread never freed up"
+            )
+        print("  thread busy, waiting for the run to finish before typing again")
+        page.wait_for_timeout(3000)
+
+
+def wait_until_idle(page, timeout_s: int = 150) -> None:
+    """Wait for the tab to stop offering `Stop the Bot`: the run it was watching has ended."""
+    stop = '[aria-label="Stop the Bot"]'
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if page.locator(stop).count() == 0:
+            return
+        page.wait_for_timeout(1000)
+    print(f"  warning: {stop} was still on the page after {timeout_s}s")
 
 
 def compose(page, text: str, wait_s: int = 120) -> None:
@@ -372,6 +403,9 @@ def proof_3(ev: Evidence, browser, args) -> None:
         http_409=refusals,
         second_tab_text_tail=body(rival_tab)[-600:],
     )
+    # The holder's run is still streaming when the 409 lands (the mock holds it for 45 s on
+    # purpose). Let it end here so the next proof starts with a free thread.
+    wait_until_idle(rival_tab)
     ctx.close()
 
 

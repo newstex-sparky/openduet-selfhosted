@@ -156,18 +156,37 @@ services:
       context: .
       dockerfile: server/Dockerfile
     image: ${COMPANION_IMAGE:-openduet-companion:local}
+    # The sweep reads the same config the server does, and that config refuses to start without
+    # KEY_ENCRYPTION_KEY. It used to be left out because a sweep stores no provider key, and the
+    # result was a scheduler that exited on every start: every routine, however correctly set,
+    # silently never fired. So it reads the key the `keys` service wrote, exactly as the companion
+    # does, and a deployment that brings its own keeps it.
     command:
       - sh
       - -c
-      - "while true; do bun scripts/fire-routines.ts; sleep ${SWEEP_SECONDS:-30}; done"
+      - |
+        set -eu
+        if [ -z "$${KEY_ENCRYPTION_KEY:-}" ]; then
+          KEY_ENCRYPTION_KEY="$$(cat /keys/encryption)"
+          export KEY_ENCRYPTION_KEY
+        fi
+        while true; do bun scripts/fire-routines.ts; sleep ${SWEEP_SECONDS:-30}; done
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-openbot}:${POSTGRES_PASSWORD:-openbot}@postgres:5432/${POSTGRES_DB:-openbot}
+      KEY_ENCRYPTION_KEY: ${KEY_ENCRYPTION_KEY:-}
+      # Same reason the companion sets it: the config refuses to start without either an identity
+      # provider or this, and a scheduler that cannot load its config never fires a routine.
+      OPENBOT_SINGLE_USER: "true"
       WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:-openduet-selfhosted-worker-secret}
       SERVER_INTERNAL_URL: http://companion:3001
+    volumes:
+      - keys-data:/keys:ro
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      keys:
         condition: service_completed_successfully
       companion:
         condition: service_started
