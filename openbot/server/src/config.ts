@@ -1,12 +1,11 @@
 /**
- * What the runtime can do. There is exactly one answer because CopilotKit Intelligence is required
- * for durable threads and memory. Configuration the product cannot function without belongs at the
- * boot boundary.
+ * What the runtime can do. One answer: this fork is local-only. The runtime runs in SSE mode on a
+ * runner of our own, and threads, history, the event log and the per-thread run lock live in this
+ * deployment's Postgres (`@openbot/toolkit/platform/postgres-platform`, migration 0068). DURABLE:
+ * a restart keeps every conversation, and a second replica sees the same ones. Memory uses OpenBot's
+ * own tables. Configuration the product cannot function without belongs at the boot boundary; see
+ * runtimeCapabilities.
  */
-import {
-  isLearningContainerId,
-  type LearningTarget,
-} from "@openbot/shared/learning";
 import {
   LISTEN_HOST_VARIABLE,
   type ListenHost,
@@ -28,23 +27,13 @@ import { type VoiceConfig, voiceConfig } from "./voice/config";
 import { type WebBotAuth, webBotAuthFromEnv } from "./web-bot-auth";
 
 export type RuntimeCapabilities = {
-  mode: "intelligence";
+  /**
+   * The only mode this fork has. Threads, history, the event log and the per-thread run lock live in
+   * this deployment's Postgres; there is no second mode to choose between, so nothing branches on
+   * this value — it is reported on `/api/capabilities` and nowhere else.
+   */
+  mode: "local";
   durableHistory: true;
-  intelligence: IntelligenceSettings;
-};
-
-/**
- * The Intelligence contract. Three values are required; see runtimeCapabilities.
- *
- * `licenseToken` is optional. Managed Intelligence derives entitlement from the project key, and
- * `@copilotkit/runtime` declares `licenseToken` optional with a `COPILOTKIT_LICENSE_TOKEN` fallback
- * of its own. A deployment that still holds one keeps passing it; nothing here requires it.
- */
-export type IntelligenceSettings = {
-  apiUrl: string;
-  gatewayWsUrl: string;
-  apiKey: string;
-  licenseToken?: string;
 };
 
 export type DockerComputerConfig = {
@@ -178,26 +167,6 @@ export type HandoffCaps = {
 };
 
 export type DeploymentConfig = {
-  /** Optional environment default. A saved Admin setting takes precedence. */
-  learning?: LearningTarget;
-  /**
-   * Whether OpenBot assigns the Intelligence project's `openbot` Learning container as the default
-   * when nobody has chosen one (learning/auto-assign.ts). On unless OPENBOT_LEARNING_AUTO_ASSIGN is
-   * "false" or "0", and off whenever CPK_INTELLIGENCE_LEARNING_CONTAINER_ID names a container. It
-   * never overrides a saved Admin setting. It creates the container only with a credential that can
-   * (see `learningSetup`), never with the runtime key.
-   */
-  learningAutoAssign: boolean;
-  /**
-   * A credential that can create Learning containers, for a deployment whose operator supplied one.
-   *
-   * The runtime key cannot: Intelligence creates containers for a person's session, a CopilotKit CLI
-   * login, or, on a CopilotKit local evaluation install only, a service token. The server holds
-   * neither of the first two, so this is the service token, sent as `x-copilotkit-ei-service-token`
-   * to `/api/learning/projects/:projectId/containers` with the project it belongs to. Both or
-   * neither: a token without its project is refused at startup.
-   */
-  learningSetup?: { serviceToken: string; projectId: string };
   /**
    * Memory sources and background research OpenBot switches on for each person (memory/defaults.ts).
    * Both on unless OPENBOT_MEMORY_SOURCE_DEFAULTS or OPENBOT_PROACTIVE_DEFAULTS is "false" or "0".
@@ -976,45 +945,17 @@ function oktaAuth(
 }
 
 /**
- * Resolve the Intelligence contract, or refuse to start.
+ * What this deployment's runtime can do: local mode, always.
  *
- * The three addressing values are required together. A partial set is the more dangerous shape than
- * none at all: it means somebody intended to configure Intelligence and got it wrong, so failing on
- * the partial set alone (as this did) let a completely unconfigured deployment through as if that
- * were a choice.
- *
- * COPILOTKIT_LICENSE_TOKEN IS NO LONGER ONE OF THEM. Managed Intelligence issues a single project
- * key and derives entitlement from it, and requiring a second credential here sent people hunting
- * for a token the platform had stopped handing out. It is still read and still forwarded when a
- * deployment sets one, which is what a self-hosted Intelligence with its own licence needs.
+ * There used to be two answers here, CopilotKit Intelligence or an opt-in local mode, and the
+ * variable that chose between them. This fork is local-only by product decision, so the choice, the
+ * variable and the Intelligence settings it read are gone: a deployment boots into local mode or it
+ * does not boot. `INTELLIGENCE_*` variables are ignored rather than refused, because a leftover
+ * `.env` from a managed deployment is not a deployment asking for the other mode — there is no
+ * other mode to ask for.
  */
-function runtimeCapabilities(environment: Environment): RuntimeCapabilities {
-  const settings = {
-    apiUrl: url(environment, "INTELLIGENCE_API_URL"),
-    gatewayWsUrl: url(environment, "INTELLIGENCE_GATEWAY_WS_URL"),
-    apiKey: optional(environment, "INTELLIGENCE_API_KEY"),
-    licenseToken: optional(environment, "COPILOTKIT_LICENSE_TOKEN"),
-  };
-
-  const missing = Object.entries({
-    INTELLIGENCE_API_URL: settings.apiUrl,
-    INTELLIGENCE_GATEWAY_WS_URL: settings.gatewayWsUrl,
-    INTELLIGENCE_API_KEY: settings.apiKey,
-  })
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-
-  if (missing.length > 0) {
-    throw new Error(
-      `CopilotKit Intelligence is required and is not configured. Missing: ${missing.join(", ")}`,
-    );
-  }
-
-  return {
-    mode: "intelligence",
-    durableHistory: true,
-    intelligence: settings as IntelligenceSettings,
-  };
+export function runtimeCapabilities(): RuntimeCapabilities {
+  return { mode: "local", durableHistory: true };
 }
 
 /**
@@ -1409,10 +1350,7 @@ export function loadConfig(
     )?.replace(/\/+$/, ""),
     tenantPackageDirectory:
       optional(environment, "TENANT_PACKAGE_DIR") ?? "../examples/openduet",
-    runtime: runtimeCapabilities(environment),
-    learning: learningDefault(environment),
-    learningAutoAssign: learningAutoAssignEnabled(environment),
-    ...learningSetupCredential(environment),
+    runtime: runtimeCapabilities(),
     memoryDefaults: {
       sources: switchedOn(environment, "OPENBOT_MEMORY_SOURCE_DEFAULTS"),
       research: switchedOn(environment, "OPENBOT_PROACTIVE_DEFAULTS"),
@@ -1497,52 +1435,8 @@ function appOriginsFrom(environment: Environment): string[] {
   ];
 }
 
-/**
- * Same rule as generated interfaces: on unless explicitly "false" or "0". A container named in the
- * environment is a choice, so there is nothing to assign.
- */
-function learningAutoAssignEnabled(environment: Environment): boolean {
-  if (optional(environment, "CPK_INTELLIGENCE_LEARNING_CONTAINER_ID"))
-    return false;
-  const value = optional(environment, "OPENBOT_LEARNING_AUTO_ASSIGN");
-  return value !== "false" && value !== "0";
-}
-
 /** On unless the variable is "false" or "0", the rule every default-on switch here follows. */
 function switchedOn(environment: Environment, name: string): boolean {
   const value = optional(environment, name);
   return value !== "false" && value !== "0";
-}
-
-/** The service token and its project, both or neither. See `DeploymentConfig.learningSetup`. */
-function learningSetupCredential(environment: Environment): {
-  learningSetup?: { serviceToken: string; projectId: string };
-} {
-  const serviceToken = optional(environment, "INTELLIGENCE_SERVICE_TOKEN");
-  const projectId = optional(environment, "INTELLIGENCE_PROJECT_ID");
-  if (!serviceToken && !projectId) return {};
-  if (!serviceToken || !projectId)
-    throw new Error(
-      "INTELLIGENCE_SERVICE_TOKEN and INTELLIGENCE_PROJECT_ID go together: the token creates the openbot Learning container in that project. Set both, or neither.",
-    );
-  if (!/^[1-9][0-9]{0,15}$/.test(projectId))
-    throw new Error(
-      "INTELLIGENCE_PROJECT_ID must be the Intelligence project's numeric ID.",
-    );
-  return { learningSetup: { serviceToken, projectId } };
-}
-
-/** Optional container default; the enabled preference alone does not collect or deliver. */
-function learningDefault(environment: Environment): LearningTarget | undefined {
-  const containerId = optional(
-    environment,
-    "CPK_INTELLIGENCE_LEARNING_CONTAINER_ID",
-  );
-  if (!containerId) return undefined;
-  if (!isLearningContainerId(containerId))
-    throw new TypeError(
-      "CPK_INTELLIGENCE_LEARNING_CONTAINER_ID must use 1–64 lowercase letters, numbers, and single hyphens.",
-    );
-  const revision = optional(environment, "CPK_INTELLIGENCE_SKILLS_REVISION");
-  return { containerId, ...(revision ? { revision } : {}) };
 }

@@ -240,7 +240,8 @@ if (mode !== undefined) {
     expect(result).toEqual({
       mode: "setup-error",
       llmStopStatus: "fulfilled",
-      remoteStopStatus: "rejected",
+      // Idempotent by design in the in-repo mocks: stopping one that never started is safe.
+      remoteStopStatus: "fulfilled",
       fixtureListenerStopped: true,
     });
   };

@@ -15,7 +15,7 @@ import {
   type BriefItem,
   MorningBriefCard,
 } from "@/components/duet/morning-brief-card";
-import { ReplyChips } from "@/lib/copilot/reply-chips-tool";
+import { ReplyChips } from "@/lib/chat/reply-chips-tool";
 import { settleReactWork } from "./settle-react-work";
 
 beforeAll(() => GlobalRegistrator.register({ url: "http://localhost/" }));

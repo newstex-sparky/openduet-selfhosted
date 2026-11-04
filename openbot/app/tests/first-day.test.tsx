@@ -51,7 +51,7 @@ import { settleReactWork } from "./settle-react-work";
  */
 
 /*
- * The conversation itself is not under test here, and drawing it needs a whole CopilotKit runtime.
+ * The conversation itself is not under test here, and drawing it needs a whole AgentRuntime runtime.
  * A namespace spy, restorable in `afterAll`, stands in for it and says which channel it was opened
  * on; `takeFirstMessage` then reads what Chat handed it to send, as the real one does on mount.
  */

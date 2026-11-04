@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { GalleryComponent } from "@/lib/copilot/gallery-registry";
+import type { GalleryComponent } from "@/lib/chat/gallery-registry";
 import { GalleryFrame } from "./frame";
 
 export const QuoteCardProps = z.object({

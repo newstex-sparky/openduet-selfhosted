@@ -16,7 +16,7 @@ import {
   readBrief,
   StartableBrief,
   startRequest,
-} from "@/lib/copilot/morning-brief-tool";
+} from "@/lib/chat/morning-brief-tool";
 
 beforeAll(() => GlobalRegistrator.register({ url: "http://localhost/" }));
 afterEach(() => cleanup());

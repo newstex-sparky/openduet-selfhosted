@@ -57,7 +57,7 @@ the deployment, with an administrator approving who may use it through each Bot.
 
 ## Channels
 
-Starting a channel creates a new conversation and Intelligence thread. Two channels with the same coworker stay separate.
+Starting a channel creates a new conversation and its own thread. Two channels with the same coworker stay separate.
 
 Each channel routes through a channel-local proxy agent id, pinned to that channel's thread id, then forwards to the coworker runtime id.
 

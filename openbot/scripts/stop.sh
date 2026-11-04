@@ -77,8 +77,8 @@ identifies_as_openbot() {
   local port="$1" name="$2"
   case "$name" in
     server)
-      curl -fsS --max-time 3 "http://localhost:$port/api/copilotkit/info" 2>/dev/null \
-        | grep -q '"licenseStatus"'
+      curl -fsS --max-time 3 "http://localhost:$port/api/engine/info" 2>/dev/null \
+        | grep -q '"threadEndpoints"'
       ;;
     app)
       curl -fsS --max-time 3 "http://localhost:$port/" 2>/dev/null \

@@ -2,7 +2,7 @@ import { buildResponsibilityTurn } from "@openbot/shared/responsibility-turn";
 import type { ComponentCatalog } from "@openbot/toolkit/ports";
 import {
   createTurnRunner,
-  type IntelligenceLike,
+  type TurnPlatformLike,
   type RunnerLike,
 } from "@openbot/toolkit/run-turn";
 import { z } from "zod";
@@ -18,7 +18,7 @@ import type { AuditInitiator, AuditStore } from "../audit";
 import type { ChannelStore } from "../channels/routes";
 import type { ComputerGateway } from "../computer/gateway";
 import { createHeadlessComputerTools } from "../computer/headless-tools";
-import type { mountCopilotRuntime } from "../copilot";
+import type { mountAgentRuntime } from "../engine";
 import type { Database } from "../db/client";
 import type { DeliveryScope } from "../delivery/types";
 import { markUntrusted } from "../untrusted-content";
@@ -40,7 +40,7 @@ import type { ResponsibilityStore } from "./types";
 export function createServerResponsibilityEngine(deps: {
   database: Database;
   responsibilityStore: ResponsibilityStore;
-  routineIntelligence: IntelligenceLike;
+  routinePlatform: TurnPlatformLike;
   routineAgentRunner: RunnerLike;
   componentCatalog: ComponentCatalog;
   buildAgentFor: Parameters<typeof createTurnRunner>[0]["buildAgentFor"];
@@ -49,7 +49,6 @@ export function createServerResponsibilityEngine(deps: {
   agentProfileStore: AgentProfileStore;
   bootAuditStore: AuditStore;
   signInService: Parameters<typeof createHeadlessComputerTools>[0]["signIn"];
-  copilotRuntime: Pick<ReturnType<typeof mountCopilotRuntime>, "learning">;
   channelStore: ChannelStore;
   notify: (
     scope: DeliveryScope,
@@ -59,7 +58,7 @@ export function createServerResponsibilityEngine(deps: {
   const {
     database,
     responsibilityStore,
-    routineIntelligence,
+    routinePlatform,
     routineAgentRunner,
     componentCatalog,
     buildAgentFor,
@@ -68,7 +67,6 @@ export function createServerResponsibilityEngine(deps: {
     agentProfileStore,
     bootAuditStore,
     signInService,
-    copilotRuntime,
     channelStore,
   } = deps;
   const responsibilityQueue = createWorkQueue(database);
@@ -91,7 +89,7 @@ export function createServerResponsibilityEngine(deps: {
         });
         const runner = createTurnRunner({
           admission: serverTurnAdmission,
-          intelligence: routineIntelligence,
+          platform: routinePlatform,
           runner: routineAgentRunner,
           components: componentCatalog,
           buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),
@@ -126,9 +124,6 @@ export function createServerResponsibilityEngine(deps: {
               })),
             ];
           },
-          learningContainerForThread: (input) =>
-            copilotRuntime.learning?.containerForThread(input) ??
-            Promise.resolve(undefined),
         });
         const saved = context.continuation;
         const snapshot = saved

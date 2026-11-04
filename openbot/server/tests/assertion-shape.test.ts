@@ -793,7 +793,10 @@ const ALLOW: Allowed[] = [
   },
   {
     file: "server/tests/tool-selection.integration.test.ts",
-    line: 834,
+    // Re-keyed twice: 834 -> 843 by the in-repo-mock fix's injected teardown fault, then 843 -> 870
+    // by the Phase 6b engine handler swap on this file. The offence is the same one and is re-keyed
+    // rather than re-found.
+    line: 870,
     shape: "b",
     finding: "NEW (round 2 did not find this)",
     why: "expect(run?.forwardedProps?.openbotRun).toBeUndefined();",

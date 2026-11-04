@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, renderHook } from "@testing-library/react";
-import { CopilotKitContext } from "@copilotkit/react-core/v2/context";
+import { AgentContext } from "@/lib/agui/context";
 import type { ReactNode } from "react";
 import type { VisibleChatItem } from "../src/components/channels/chat-messages";
 import {
@@ -42,7 +42,7 @@ const search = (id = "search", result = '"Results"') =>
   call(id, "mcp__exa__web_search_exa", { query: "top 5 GDP 2025" }, result);
 const fetch = (urls: string[], id = "fetch") =>
   call(id, "mcp__exa__web_fetch_exa", { urls }, '"Page text"');
-// The names this app draws itself, as CopilotKit's renderer registry would list them.
+// The names this app draws itself, as AgentRuntime's renderer registry would list them.
 const drawn = (name: string) =>
   name === "showBarChart" || name === "computer_request_help";
 const text = (id: string): VisibleChatItem => ({
@@ -186,12 +186,12 @@ test("a summary never says a send happened before it did, or after it was refuse
   expect(summarise(failed)).toBe("Search your email");
 });
 
-test("the tools CopilotKit has a renderer for are the ones the app draws", () => {
+test("the tools AgentRuntime has a renderer for are the ones the app draws", () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <CopilotKitContext.Provider
+    <AgentContext.Provider
       value={
         {
-          copilotkit: {
+          agentRuntime: {
             renderToolCalls: [{ name: "showBarChart" }],
             subscribe: () => ({ unsubscribe() {} }),
           },
@@ -199,7 +199,7 @@ test("the tools CopilotKit has a renderer for are the ones the app draws", () =>
       }
     >
       {children}
-    </CopilotKitContext.Provider>
+    </AgentContext.Provider>
   );
   const { result } = renderHook(() => useDrawnTool(), { wrapper });
   expect(result.current("showBarChart")).toBe(true);

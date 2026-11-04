@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import type { GalleryComponent } from "@/lib/copilot/gallery-registry";
+import type { GalleryComponent } from "@/lib/chat/gallery-registry";
 import { Badge, GalleryFrame } from "./frame";
 
 /**

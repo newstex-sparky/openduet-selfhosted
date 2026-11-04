@@ -168,9 +168,9 @@ if [[ "$args" == *"/internal/routines/run"* ]]; then
   printf '${status}'
   exit 0
 fi
-if [[ "$args" == *"/api/copilotkit/info"* ]]; then
+if [[ "$args" == *"/api/engine/info"* ]]; then
   if [ -f "$SERVER_STOPPED" ] && [ ! -f "$SERVER_STARTED" ]; then exit 7; fi
-  printf '{"licenseStatus":"valid","mode":"test","agents":{"analyst":{}}}'
+  printf '{"version":"1","mode":"test","agents":{"analyst":{}},"threadEndpoints":{"list":true}}'
   exit 0
 fi
 if [[ "$args" == *"http://localhost:3010/"* ]]; then
@@ -263,10 +263,9 @@ fi
   );
   // The runtime health check is a script piped into `bun run -`, so that one invocation is the real
   // Bun: it is what decides whether the run carries on. Everything else Bun would start is faked.
-  // The Learning container check answers with one line, which start.sh relays.
   await writeExecutable(
     join(fakeBin, "bun"),
-    '#!/usr/bin/env bash\nif [[ "$2" == *server/src/production-entry.ts ]]; then printf "%s" "$COMPUTER_TOKEN" > "$SERVER_COMPUTER_TOKEN"; printf "%s\\n" "$*" > "$SERVER_STARTED"; fi\nif [[ "$1" == *worker/src/index.ts ]]; then printf "%s\\n" "$*" > "$WORKER_STARTED"; fi\nif [ "$1" = run ] && [ "$2" = - ]; then exec "$REAL_BUN" "$@"; fi\nif [ "$1" = scripts/setup-learning.ts ]; then echo "noise"; echo "LEARNING-CHECK $*"; fi\nexit 0\n',
+    '#!/usr/bin/env bash\nif [[ "$2" == *server/src/production-entry.ts ]]; then printf "%s" "$COMPUTER_TOKEN" > "$SERVER_COMPUTER_TOKEN"; printf "%s\\n" "$*" > "$SERVER_STARTED"; fi\nif [[ "$1" == *worker/src/index.ts ]]; then printf "%s\\n" "$*" > "$WORKER_STARTED"; fi\nif [ "$1" = run ] && [ "$2" = - ]; then exec "$REAL_BUN" "$@"; fi\nexit 0\n',
   );
   // What `python3` is on a stock Windows machine: the Microsoft Store alias, which runs nothing. A
   // script that still needed it would stop at the health check in every test in this file.
@@ -594,14 +593,19 @@ describe("stop.sh deployment ownership", () => {
 
 describe("start.sh runtime health", () => {
   /**
-   * THE LICENCE IS CHECKED WITHOUT PYTHON.
+   * THE RUNTIME IS INTERROGATED WITHOUT PYTHON, AND ASKS FOR NO LICENCE.
    *
    * The check used to be a `python3` heredoc. On Windows `python3` is usually the Microsoft Store
    * alias, which exits 49, so `set -e` ended the run at "3/4 Runtime health" with the server and
    * worker already up and the app never started. The fake `python3` beside this file's other fakes
    * is that alias; the line below is only printed if the check ran, in Bun, and passed.
+   *
+   * The line names the roster, not a licence: the `licenseStatus` gate this stage used to read
+   * belonged to the vendor's Intelligence runtime and left with it (Phase 7b-3). A licence check
+   * here would fail every boot of the fork, so the assertion follows the sentence the script now
+   * prints rather than the one it printed before that removal.
    */
-  test("checks the licence and names the Bots without python3", async () => {
+  test("names the Bots without python3, and needs no licence", async () => {
     const result = await runStartWithStaleServerProbe(401);
 
     expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({
@@ -609,7 +613,7 @@ describe("start.sh runtime health", () => {
       stderr: "",
     });
     expect(result.stdout).toContain(
-      "licence valid · mode test · Bots: analyst",
+      "runtime ready · mode test · Bots: analyst",
     );
   });
 });
@@ -729,47 +733,6 @@ describe("start.sh one computer each", () => {
         "compose up -d --build postgres supervisor agent-computer agent-bot agent-langgraph",
       );
     }
-  });
-});
-
-describe("start.sh Learning container check", () => {
-  /**
-   * The server assigns `openbot` once it exists, but its runtime key cannot create it. start.sh asks
-   * the setup helper, without a browser or a prompt, to make sure it exists, and relays its last line.
-   */
-  test("runs the non-interactive check when a key is set and nothing is assigned", async () => {
-    const result = await runStartWithStaleServerProbe(401, {
-      settings: { INTELLIGENCE_API_KEY: "cpk-synthetic" },
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "LEARNING-CHECK scripts/setup-learning.ts --non-interactive",
-    );
-    expect(result.stdout).not.toContain("noise");
-  });
-
-  test.each([
-    [
-      "a container is named",
-      { CPK_INTELLIGENCE_LEARNING_CONTAINER_ID: "mine" },
-    ],
-    ["it is switched off", { OPENBOT_LEARNING_AUTO_ASSIGN: "false" }],
-    ["it is switched off with 0", { OPENBOT_LEARNING_AUTO_ASSIGN: "0" }],
-  ])("is skipped when %s", async (_, settings) => {
-    const result = await runStartWithStaleServerProbe(401, {
-      settings: { INTELLIGENCE_API_KEY: "cpk-synthetic", ...settings },
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain("LEARNING-CHECK");
-  });
-
-  test("is skipped without a runtime key", async () => {
-    const result = await runStartWithStaleServerProbe(401);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain("LEARNING-CHECK");
   });
 });
 

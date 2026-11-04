@@ -1,0 +1,197 @@
+# The self-hosted OpenDuet companion: one Compose project, one model key, no accounts.
+#
+# What this file stands up:
+#
+#   postgres   the only datastore: threads, messages, the event log and the per-thread run lock
+#   migrate    the server's own migrator, run once and then gone
+#   keys       generates the at-rest encryption key once and keeps it on a volume
+#   companion  the API and the built web app in ONE image, served on one origin
+#   scheduler  runs the routine sweep on a loop, so a due routine fires with no external cron
+#
+# What it does NOT need: a CopilotKit account, an Intelligence entitlement, a hosted runtime, a
+# telemetry endpoint, an OAuth app, a mail server, or a reverse proxy. The only credential YOU
+# supply is the model endpoint's key (`OPENAI_API_KEY`); everything else this stack needs it
+# generates itself and keeps on a named volume.
+#
+#   mkdir -p ~/openduet && cd ~/openduet
+#   git clone https://github.com/newstex-sparky/openduet-selfhosted.git repo
+#   cd repo/openbot
+#   export OPENAI_API_KEY=sk-...
+#   docker compose -f docker-compose.selfhosted.yml up -d --build
+#   # then open http://127.0.0.1:3001
+#
+# Point it at any endpoint that speaks OpenAI's `/v1/chat/completions`: set OPENAI_BASE_URL as
+# well and the whole deployment moves. Nothing in this stack talks to *.copilotkit.ai.
+#
+# Teardown, including the data volume:
+#   docker compose -f docker-compose.selfhosted.yml down -v
+name: openduet-selfhosted
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    # Tuned down from the image defaults on purpose. The server opens a pool per process and the
+    # suites open more, but this stack serves one person: 60 connections and a 64 MiB shared
+    # buffer is far more than it uses, and a small shared-memory request is what lets it start on
+    # a host running with vm.overcommit_memory=2, where a 150 MiB request is refused outright
+    # ("could not map anonymous shared memory: Cannot allocate memory").
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=60
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openbot}
+      POSTGRES_USER: ${POSTGRES_USER:-openbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openbot}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openbot} -d ${POSTGRES_DB:-openbot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: ${COMPANION_IMAGE:-openduet-companion:local}
+    command: ["bun", "scripts/migrate.ts"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-openbot}:${POSTGRES_PASSWORD:-openbot}@postgres:5432/${POSTGRES_DB:-openbot}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # A release step, not a start step: two replicas starting together would race, and a failed
+    # migration must stop the deploy rather than leave a half-migrated database serving.
+    restart: "no"
+
+  # The one secret this file makes for you. The server refuses the public example key in
+  # production, and a key regenerated on every start would fail to decrypt what the last start
+  # wrote, so it is generated once and kept on a volume. Root only for the chown: everything else
+  # here runs as uid 1001.
+  keys:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: ${COMPANION_IMAGE:-openduet-companion:local}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        if [ ! -s /keys/encryption ]; then
+          head -c 32 /dev/urandom | base64 | tr -d '\n' > /keys/encryption
+        fi
+        chown -R 1001:1001 /keys
+    volumes:
+      - keys-data:/keys
+    restart: "no"
+
+  companion:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: ${COMPANION_IMAGE:-openduet-companion:local}
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-openbot}:${POSTGRES_PASSWORD:-openbot}@postgres:5432/${POSTGRES_DB:-openbot}
+      # base64 of 32 bytes, used to encrypt provider keys at rest. The `keys` service generates it on
+      # the first `up` and keeps it on a volume, so a restart or an upgrade still decrypts what it
+      # encrypted. Set KEY_ENCRYPTION_KEY yourself to bring your own, and keep it: losing it loses
+      # the stored provider keys, not the conversations.
+      KEY_ENCRYPTION_KEY: ${KEY_ENCRYPTION_KEY:-}
+      # NO BETTER_AUTH_SECRET AND NO BETTER_AUTH_URL HERE, ON PURPOSE. Both belong to the OAuth
+      # sign-in path (Google/Microsoft/Okta), and the server refuses to boot with either set and no
+      # identity provider configured: "BETTER_AUTH_SECRET or BETTER_AUTH_URL is set but no identity
+      # provider is". A single-user stack has no sign-in to sign, so it sets neither.
+      # One person, no sign-up, no invite, no admin console behind a second account.
+      OPENBOT_SINGLE_USER: "true"
+      # The routine sweep below authenticates its hand-off to this server with this secret, and the
+      # server refuses a hand-off it cannot verify. Same value on both services.
+      WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:-openduet-selfhosted-worker-secret}
+      # Every interface INSIDE the container. A single-user server otherwise listens on loopback,
+      # and a container's loopback is its own: the published port below would answer nothing.
+      OPENBOT_HOST: 0.0.0.0
+      # The one external dependency this stack has.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY to your model endpoint's key}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      BOT_MODEL: ${BOT_MODEL:-}
+    # The key from the `keys` service, read at start rather than baked into this file, so an
+    # operator who brings their own KEY_ENCRYPTION_KEY keeps theirs.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        if [ -z "$${KEY_ENCRYPTION_KEY:-}" ]; then
+          KEY_ENCRYPTION_KEY="$$(cat /keys/encryption)"
+          export KEY_ENCRYPTION_KEY
+        fi
+        exec bun src/production-entry.ts
+    volumes:
+      - keys-data:/keys:ro
+    ports:
+      # Loopback only. Put a TLS terminator in front for anything else; this file makes no claim
+      # to be an internet-facing deployment.
+      - "127.0.0.1:${OPENBOT_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keys:
+        condition: service_completed_successfully
+    # Migrations ran in their own service; this one must not race them on a restart.
+    restart: unless-stopped
+
+  # A due routine has to be noticed by SOMETHING, and the API deliberately is not that something:
+  # a timer inside every replica makes each replica decide the 09:00 summary is due and post it
+  # once per replica. Upstream that is a Kubernetes CronJob; here it is one long-lived service
+  # running the same script on a loop, which is the only extra process this stack needs.
+  scheduler:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: ${COMPANION_IMAGE:-openduet-companion:local}
+    # The sweep reads the same config the server does, and that config refuses to start without
+    # KEY_ENCRYPTION_KEY. It used to be left out because a sweep stores no provider key, and the
+    # result was a scheduler that exited on every start: every routine, however correctly set,
+    # silently never fired. So it reads the key the `keys` service wrote, exactly as the companion
+    # does, and a deployment that brings its own keeps it.
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        if [ -z "$${KEY_ENCRYPTION_KEY:-}" ]; then
+          KEY_ENCRYPTION_KEY="$$(cat /keys/encryption)"
+          export KEY_ENCRYPTION_KEY
+        fi
+        while true; do bun scripts/fire-routines.ts; sleep ${SWEEP_SECONDS:-30}; done
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-openbot}:${POSTGRES_PASSWORD:-openbot}@postgres:5432/${POSTGRES_DB:-openbot}
+      KEY_ENCRYPTION_KEY: ${KEY_ENCRYPTION_KEY:-}
+      # Same reason the companion sets it: the config refuses to start without either an identity
+      # provider or this, and a scheduler that cannot load its config never fires a routine.
+      OPENBOT_SINGLE_USER: "true"
+      WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:-openduet-selfhosted-worker-secret}
+      SERVER_INTERNAL_URL: http://companion:3001
+    volumes:
+      - keys-data:/keys:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keys:
+        condition: service_completed_successfully
+      companion:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  keys-data:

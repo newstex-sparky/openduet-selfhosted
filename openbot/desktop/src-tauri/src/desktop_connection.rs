@@ -43,9 +43,6 @@ pub fn poll(client: &Client, port: u16, token: &str) -> Result<Option<Connection
         None => Ok(None),
         Some(Failure { connection, code }) => match (connection.as_str(), code.as_str()) {
             ("model", "provider_authentication_failed") => Ok(Some(Connection::Model)),
-            ("intelligence", "intelligence_authentication_failed") => {
-                Ok(Some(Connection::Intelligence))
-            }
             ("organization", "organization_authentication_failed") => {
                 Ok(Some(Connection::Organization))
             }
@@ -68,11 +65,6 @@ mod tests {
                 200,
                 r#"{"connection":"model","code":"provider_authentication_failed"}"#,
                 Ok(Some(Connection::Model)),
-            ),
-            (
-                200,
-                r#"{"connection":"intelligence","code":"intelligence_authentication_failed"}"#,
-                Ok(Some(Connection::Intelligence)),
             ),
             (
                 200,

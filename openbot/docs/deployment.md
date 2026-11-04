@@ -67,7 +67,7 @@ second container of this image started with `--entrypoint sh` (without it the co
 [Migrations](#migrations)) — with `SERVER_INTERNAL_URL` and
 `WORKER_SHARED_SECRET` set **on top of this server's whole environment**, not instead of it. That
 sweep builds the same configuration the API server does before it looks for a due routine, so it
-refuses to start without the encryption key, the Intelligence values and an identity provider,
+refuses to start without the encryption key and an identity provider,
 exactly as the server does: give it the same env file and add those two. Until something does, a
 routine is stored, its next run time is computed, the Routines page shows it, and it never fires.
 See [routines.md](routines.md).
@@ -124,8 +124,6 @@ and the fix would not be available.
 | an identity provider | `GOOGLE_OAUTH_*`, `MICROSOFT_OAUTH_*` or `OKTA_OAUTH_*`, with `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` and `INITIAL_ADMIN_EMAILS`. See the README |
 | `EMBEDDED_POSTGRES` | `on` to run the database inside the container. Off by default |
 | `KEY_ENCRYPTION_KEY` | base64 32 bytes. `openssl rand -base64 32`. The example key is refused in production |
-| `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY` | CopilotKit Intelligence. A free plan is available and it can be self-hosted |
-| `COPILOTKIT_LICENSE_TOKEN` | optional. Managed Intelligence issues none; set it for a self-hosted Intelligence, which needs the same licence on its own deployment too |
 | a model key | `OPENAI_API_KEY`, or the provider you configured |
 
 `COMPUTER_TOKEN` is generated at start if you do not set one. Both processes that need it are inside

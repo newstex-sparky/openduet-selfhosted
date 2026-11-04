@@ -1,5 +1,5 @@
 import type { Message } from "@ag-ui/core";
-import type { Attachment } from "@copilotkit/react-core/v2";
+import type { Attachment } from "@/lib/agui";
 import { text } from "prompt-area/helpers";
 import {
   type ReactNode,
@@ -115,7 +115,7 @@ export function ConversationView({
    * silently disappears is a worse answer than a send button that will not go.
    *
    * The other place somebody talks to a Bot, the direct `/bot` chat, does not get this either, and
-   * not by a decision made here: that screen draws CopilotKit's own chat rather than this composer,
+   * not by a decision made here: that screen draws AgentRuntime's own chat rather than this composer,
    * so there is nothing on it for this flag to reach. Giving it the same affordance means either
    * moving it onto this composer or asking for it upstream, and neither is a queue.
    */

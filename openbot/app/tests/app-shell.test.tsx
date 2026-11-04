@@ -628,7 +628,7 @@ test.each(["drawer", "sidebar"])(
     global.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.startsWith("/api/copilotkit/threads/")) {
+        if (url.startsWith("/api/engine/threads/")) {
           reads.push(url);
           return Response.json({
             messages: resolved
@@ -713,9 +713,7 @@ test.each(["drawer", "sidebar"])(
       );
       expect(reads).toHaveLength(3);
       expect(new Set(reads)).toEqual(
-        new Set([
-          "/api/copilotkit/threads/old-0-thread/messages?agentId=openduet",
-        ]),
+        new Set(["/api/engine/threads/old-0-thread/messages?agentId=openduet"]),
       );
       await visible(false);
       await visible(true);

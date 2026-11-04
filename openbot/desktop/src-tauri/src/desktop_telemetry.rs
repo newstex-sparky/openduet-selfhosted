@@ -13,15 +13,21 @@ pub struct DesktopTelemetry {
 pub fn initialize<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let initialized = (|| {
         let context = context(&app.package_info().version.to_string())?;
+        /*
+         * Off unless this deployment names a collector of its own. The fork has no vendor to send
+         * setup events to: a self-hosted companion talks to the model endpoint and nothing else, so
+         * there is no default endpoint and no default egress. An operator running their own
+         * receiver sets OPENBOT_TELEMETRY_URL, and only then does the emitter open.
+         */
+        let endpoint = std::env::var("OPENBOT_TELEMETRY_URL")
+            .ok()
+            .filter(|value| !value.trim().is_empty());
         let emitter = telemetry::Telemetry::open(
             app.path().app_local_data_dir().ok()?.join("telemetry"),
             context,
             telemetry::Config {
-                enabled: true,
-                endpoint: Some(
-                    std::env::var("COPILOTKIT_TELEMETRY_URL")
-                        .unwrap_or_else(|_| "https://telemetry.copilotkit.ai/ingest".into()),
-                ),
+                enabled: endpoint.is_some(),
+                endpoint,
                 max_queue: 256,
             },
         )

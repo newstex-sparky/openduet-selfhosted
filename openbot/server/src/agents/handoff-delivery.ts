@@ -12,7 +12,7 @@
  * the work over, the second says it answered, and no row anywhere agrees.
  */
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
-import { THREAD_LOCK_TTL_SECONDS } from "@openbot/toolkit/copilotkit/thread-lock";
+import { THREAD_LOCK_TTL_SECONDS } from "@openbot/toolkit/platform/thread-lock";
 import { keepLease } from "@openbot/toolkit/lease";
 import type { ThreadLock, TurnAdmission } from "@openbot/toolkit/ports";
 import type { Observable } from "rxjs";

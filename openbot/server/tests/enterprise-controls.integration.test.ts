@@ -150,13 +150,13 @@ function appFor(actor: { id: string; email: string; role: "admin" | "user" }) {
     context.json({ ok: true }),
   );
   app.patch("/api/agents/:id", (context) => context.json({ saved: true }));
-  // Mounted the way app.ts mounts the CopilotKit runtime: a basePath sub-app that takes every path
+  // Mounted the way app.ts mounts the engine runtime: a basePath sub-app that takes every path
   // under it. The runtime then matches a run by its TRAILING segments (fetch-router `matchSegments`:
   // `.../agent/<id>/run` anywhere under the base), so this stub answers whatever path reaches it.
   app.route(
     "/",
     new Hono()
-      .basePath("/api/copilotkit")
+      .basePath("/api/engine")
       .all("*", (context) => context.json({ ran: true })),
   );
   return app;
@@ -292,7 +292,7 @@ describe("models", () => {
     await put(asAdmin, "/api/admin/enterprise/settings/modelAllowlist", {
       value: { enabled: true, models: ["anthropic/claude-test"] },
     });
-    const refused = await asMember.request(`/api/copilotkit/agent/${bot}/run`, {
+    const refused = await asMember.request(`/api/engine/agent/${bot}/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ threadId: "t", runId: "r" }),
@@ -302,7 +302,7 @@ describe("models", () => {
     await put(asAdmin, "/api/admin/enterprise/settings/modelAllowlist", {
       value: { enabled: true, models: ["openai/gpt-test"] },
     });
-    const ran = await asMember.request(`/api/copilotkit/agent/${bot}/run`, {
+    const ran = await asMember.request(`/api/engine/agent/${bot}/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ threadId: "t", runId: "r2" }),
@@ -359,12 +359,12 @@ describe("the gate cannot be stepped around", () => {
     await setCapability("useBots", false);
     try {
       for (const path of [
-        `/api/copilotkit/agent/${bot}/run`,
-        `/api/copilotkit/x/agent/${bot}/run`,
-        `/api/copilotkit/x/agent/${bot}/connect`,
+        `/api/engine/agent/${bot}/run`,
+        `/api/engine/x/agent/${bot}/run`,
+        `/api/engine/x/agent/${bot}/connect`,
         // Suggestions run the Bot's model too, with whatever messages the caller sends.
-        `/api/copilotkit/agent/${bot}/suggest`,
-        `/api/copilotkit/x/agent/${bot}/suggest`,
+        `/api/engine/agent/${bot}/suggest`,
+        `/api/engine/x/agent/${bot}/suggest`,
       ]) {
         const response = await asMember.request(path, {
           method: "POST",
@@ -385,7 +385,7 @@ describe("the gate cannot be stepped around", () => {
     try {
       for (const action of ["run", "suggest"]) {
         const response = await asMember.request(
-          `/api/copilotkit/x/agent/${bot}/${action}`,
+          `/api/engine/x/agent/${bot}/${action}`,
           {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -417,16 +417,13 @@ function headlessTurn(agentId: string) {
   const intelligence = {
     getOrCreateThread: async () => ({ thread: { id: "t" }, created: false }),
     getThreadMessages: async () => ({ messages: [] }),
-    ɵacquireThreadLock: async (params: {
-      threadId: string;
-      runId: string;
-    }) => ({
+    acquireThreadLock: async (params: { threadId: string; runId: string }) => ({
       threadId: params.threadId,
       runId: params.runId,
       joinToken: "j",
     }),
-    ɵrenewThreadLock: async () => ({ ttlSeconds: 20 }),
-    ɵcleanupThreadLock: async () => undefined,
+    renewThreadLock: async () => ({ ttlSeconds: 20 }),
+    cleanupThreadLock: async () => undefined,
   };
   const runner = {
     run: (request: { agent: AbstractAgent }) => ({
@@ -445,7 +442,7 @@ function headlessTurn(agentId: string) {
   const runTurn = createTurnRunner({
     admission: serverTurnAdmission,
     // biome-ignore lint/suspicious/noExplicitAny: narrow structural fakes, on purpose.
-    intelligence: intelligence as any,
+    platform: intelligence as any,
     // biome-ignore lint/suspicious/noExplicitAny: narrow structural fakes, on purpose.
     runner: runner as any,
     buildAgentFor: async () => new AnsweringAgent({ agentId }),

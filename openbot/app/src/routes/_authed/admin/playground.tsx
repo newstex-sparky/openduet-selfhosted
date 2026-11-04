@@ -1,4 +1,4 @@
-import { OpenGenerativeUIActivityRenderer } from "@copilotkit/react-core/v2";
+import { OpenGenerativeUIActivityRenderer } from "@/lib/agui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useId, useState } from "react";

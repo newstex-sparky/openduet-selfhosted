@@ -13,7 +13,7 @@ import { channelHistoryNotice } from "../src/components/channels/channel-chat";
 import {
   readThreadMessages,
   type StoredThread,
-} from "../src/lib/copilot/thread-messages";
+} from "../src/lib/chat/thread-messages";
 
 function HistoryNoticeProbe({
   lastMessageAt,
@@ -63,7 +63,7 @@ afterEach(() => cleanup());
 afterAll(() => GlobalRegistrator.unregister());
 
 describe("channel history notice", () => {
-  test("failed history retrieval does not claim the CopilotKit project changed", () => {
+  test("failed history retrieval does not claim the AgentRuntime project changed", () => {
     const notice = channelHistoryNotice({
       restoring: false,
       messageCount: 0,
@@ -73,7 +73,7 @@ describe("channel history notice", () => {
     });
 
     expect(notice).toContain("Couldn't load earlier messages");
-    expect(notice).not.toContain("different CopilotKit project");
+    expect(notice).not.toContain("different AgentRuntime project");
     expect(notice).not.toContain("fresh history");
   });
 
@@ -87,7 +87,7 @@ describe("channel history notice", () => {
     });
 
     expect(notice).toContain("One earlier message couldn't be read");
-    expect(notice).not.toContain("different CopilotKit project");
+    expect(notice).not.toContain("different AgentRuntime project");
   });
 
   test("a malformed successful history response renders the unavailable notice", async () => {
@@ -103,7 +103,7 @@ describe("channel history notice", () => {
         expect((await view.findByRole("status")).textContent).toContain(
           "Couldn't load earlier messages",
         );
-        expect(view.queryByText(/different CopilotKit project/)).toBeNull();
+        expect(view.queryByText(/different AgentRuntime project/)).toBeNull();
       },
     );
   });
@@ -135,7 +135,7 @@ describe("channel history notice", () => {
     });
 
     expect(notice).toContain("Couldn't load earlier messages");
-    expect(notice).not.toContain("different CopilotKit project");
+    expect(notice).not.toContain("different AgentRuntime project");
   });
 
   test("valid empty history in a used channel has no project-change notice", () => {

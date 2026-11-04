@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { GalleryComponent } from "@/lib/copilot/gallery-registry";
+import type { GalleryComponent } from "@/lib/chat/gallery-registry";
 import { Badge, GalleryFrame } from "./frame";
 
 const Field = z

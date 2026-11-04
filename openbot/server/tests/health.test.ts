@@ -40,7 +40,7 @@ describe("runtime capabilities", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      mode: "intelligence",
+      mode: "local",
       durableHistory: true,
       // Default-on. The browser reads this to decide whether to offer the tool that generates an
       // interface, so it has to be here and not only in the runtime.

@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 import { AppAccessCard } from "@/components/channels/app-access-card";
 import { ServerToolLine } from "@/components/channels/chat-transcript";
 import type { AppAccess } from "@/lib/app-access/queries";
-import { ActiveBotProvider, useActiveBot } from "@/lib/copilot/active-bot";
+import { ActiveBotProvider, useActiveBot } from "@/lib/chat/active-bot";
 import { REFUSAL_MARKER } from "@/lib/plugins/tool-result";
 import {
   type ConnectPrompt,

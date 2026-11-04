@@ -111,14 +111,14 @@ function turnHarness(
   };
   const run = createTurnRunner({
     admission: serverTurnAdmission,
-    intelligence: {
+    platform: {
       getOrCreateThread: async () => undefined,
       getThreadMessages: async () => ({ messages: [] }),
-      ɵacquireThreadLock: async () => {
+      acquireThreadLock: async () => {
         lockCalls.push("acquire");
       },
-      ɵrenewThreadLock: async () => undefined,
-      ɵcleanupThreadLock: async () => {
+      renewThreadLock: async () => undefined,
+      cleanupThreadLock: async () => {
         lockCalls.push("cleanup");
       },
     },

@@ -1,4 +1,4 @@
-//! Employee identity from the customer's OpenBot authority. Intelligence credentials are separate.
+//! Employee identity from the customer's OpenBot authority.
 use crate::problem::{Connection, Problem};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;

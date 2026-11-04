@@ -12,9 +12,8 @@ Built on [OpenBot](https://github.com/CopilotKit/openbot) and [CopilotKit](https
 
  **Each agent has a computer of its own. Use it on the web, on mobile, in Slack, or in Microsoft Teams.**
 
-Host OpenDuet yourself and choose your own model. Requires a free [CopilotKit Intelligence](https://docs.copilotkit.ai) project for threads and memory. Everything that makes it OpenDuet lives in [one folder](#make-it-your-own), so copy it and make it your own.
+Host OpenDuet yourself and choose your own model. Threads and memory live in the Postgres this repository starts, so OpenDuet needs no hosted service of its own. Everything that makes it OpenDuet lives in [one folder](#make-it-your-own), so copy it and make it your own.
 
-[**Building on OpenDuet? Talk to a CopilotKit engineer →**](https://www.copilotkit.ai/talk-to-an-engineer?ref=openduet_readme)
 
 </div>
 
@@ -69,7 +68,7 @@ Everything below works today when you run this repository.
 | A computer of its own        | Keeps working in its own browser, `/workspace`, and shell while you are away. |
 | Asks before it acts          | A reviewer checks every action that changes something, and the ones that matter pause for **Refuse**, **Allow once**, or **Always allow**. A message to other people always asks, once, showing who it goes to and what it says. Anything you type while it carries an action out waits its turn and is answered after. Every action is checked against policy and recorded. |
 | Never sees your passwords    | Logins go through a masked secret box. Saved credentials are encrypted and write-only. |
-| Memory                       | Threads and memory carry over through CopilotKit Intelligence. |
+| Memory                       | Threads and memory live in this install's own Postgres, so conversations survive a restart and what it has learned about you carries over. |
 | Skills                       | Reusable instructions you write once and call with `/`. |
 | Gmail and Google Calendar    | Each person connects their own account. OpenDuet reads mail and today's calendar, and sends a reply only after you answer. |
 | Connected apps               | Governed MCP connectors, including Google Drive and Notion. |
@@ -78,7 +77,7 @@ Everything below works today when you run this repository.
 | What needs you, what can wait | Sorts new mail into what needs you and what can wait, with a one-line reason for each. Measured on a labelled set in [`evals/triage`](evals/triage). |
 | Morning brief                | The first time you open Chat each day after your first, it is already there: what needs you and why, what can wait, today's calendar, and anything it could not check, posted once a day however many tabs or devices you open. You can also ask for it any time. **Start** on a row that needs you hands that email to OpenDuet. |
 | Tasks                        | One tab for what needs you, answered right there, what OpenDuet suggests from its background research, and what it is working on. Its newest suggestion also waits above Chat's composer, with **Start** and **Hide**. A suggestion you start stays in view: under **Working** while OpenDuet works, then **Ready for review** or **Needs input** with OpenDuet's next step, opening at its own message. Answer it in Chat, on its card or by deciding its approval, and it goes back to **Working** until OpenDuet replies. A run that fails says why, with **Try again** where running it again can help. Check one off and it folds into **Resolved**. |
-| Setup checklist              | Onboarding asks you to connect Gmail and Calendar and to turn on notifications, each with **Not now**, then ends on a list of what OpenDuet depends on: Intelligence, the model key, Google, your Gmail and Calendar, notifications, and the optional extras. Each is **Ready**, **Not checked** or **Needs setup**, from the real answer, with how to fix it. **Check again** asks Intelligence and the model provider again. **Settings → Setup** opens it again. |
+| Setup checklist              | Onboarding asks you to connect Gmail and Calendar and to turn on notifications, each with **Not now**, then ends on a list of what OpenDuet depends on: the model key, Google, your Gmail and Calendar, notifications, and the optional extras. Each is **Ready**, **Not checked** or **Needs setup**, from the real answer, with how to fix it. **Check again** asks the model provider and Google again. **Settings → Setup** opens it again. |
 | Gets to know you             | On your first day it speaks first: it greets you, reads your recent mail and this week's calendar, then answers in three short bubbles (who you are, three ways it can help, and an invitation to correct it), with **Sounds right** and **Something's off** to tap. With Gmail and Calendar not connected, it promises no mail: it says what it can do now and shows the card to connect them. |
 | Make                         | Ask for a design system, a design, a dashboard, slides, a doc or a web page, or pick one from the **+** on the Make tab, and OpenDuet makes it. A card in Chat opens it, and Make keeps everything it made as thumbnails you can filter by kind. |
 | Channels                     | Make a channel for a piece of work: a name, an icon in a colour, and what it is for. OpenDuet says hello there and offers three things it could start on, keeps the work there about that purpose, and the tasks it starts there wear the channel's colour. Everything stays your one thread, and the menu lists your channels with Archived folded under them. |
@@ -88,26 +87,16 @@ Everything below works today when you run this repository.
 
 ## Quick start
 
-You will need Docker, [Bun](https://bun.sh) 1.3 or newer, Node (for `npx`, which runs the CopilotKit CLI), a model key, and a CopilotKit Intelligence project. **Intelligence is required**: it keeps OpenDuet's threads and memory, and the server will not start without its key. The free Developer plan is enough.
+You will need Docker, [Bun](https://bun.sh) 1.3 or newer, and a model key. Threads, memory and the one-run-at-a-time lock are kept in the Postgres this repository starts, so the server needs no hosted service and no key beyond your model provider's.
 
 Run every command in this section from the repository root.
 
 ```sh
-git clone https://github.com/CopilotKit/OpenDuet.git
-cd OpenDuet
+git clone https://github.com/newstex-sparky/openduet-selfhosted.git
+cd openduet-selfhosted
 cp .env.example .env
 bun install
 ```
-
-Sign in and pick an Intelligence project:
-
-```sh
-npx --yes copilotkit@latest login
-npx --yes copilotkit@latest project select
-bun openbot/scripts/setup-learning.ts
-```
-
-`project select` writes the project's key to `.env` as `CPK_INTELLIGENCE_API_KEY`, its telemetry ID as `CPK_TELEMETRY_ID`, and your choice to `.copilotkit/project.json`. The server reads `INTELLIGENCE_API_KEY`, not `CPK_INTELLIGENCE_API_KEY`, so the last command finishes the job. It makes sure the project has an `openbot` Learning container, creating one if it does not (see [Automatic Learning](openbot/docs/automatic-learning.md)), then copies the key to `INTELLIGENCE_API_KEY` and sets `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=openbot`. It reads `.env` and `.copilotkit/` from the directory it runs in, which is why it runs here and not from `openbot/`. If `.env` already has an `INTELLIGENCE_API_KEY`, it keeps it and only checks that the container exists.
 
 Put your model key in `.env`. The OpenDuet Bot runs OpenAI's `gpt-5.6-terra`, set in `openbot/examples/openduet/model.yaml`, so by default that is:
 
@@ -134,11 +123,11 @@ If port 5432 is already taken on your machine, set `POSTGRES_PORT` in `.env` to 
 
 For a shared Bot computer, set `OPENBOT_ONE_COMPUTER_EACH=false`, leave `COMPUTER_SUPERVISOR_URL` empty, and point `AGENT_COMPUTER_URL` at `http://localhost:<COMPUTER_PORT>` (4100 by default). The API and the `agent-computer` Compose service must use the same nonempty `COMPUTER_TOKEN`. Start through `bash scripts/start.sh` to keep them in agreement; it writes the resolved token into `.env` so a later direct Bun restart keeps it. If you change the token, rerun the start script and restart any API processes launched manually. For a computer per Bot, keep `OPENBOT_ONE_COMPUTER_EACH=true`: the supervisor owns those containers and their assigned ports; do not point `AGENT_COMPUTER_URL` at a remembered random port.
 
-To run a second install beside another on one machine, give it its own `COMPOSE_PROJECT_NAME`, `COMPUTER_NAMESPACE`, image tags (`COMPUTER_IMAGE` and the other `*_IMAGE` settings), and a value for every `*_PORT`. Change the addresses built from those ports to match: `DATABASE_URL`, `AGENT_COMPUTER_URL`, `MANAGED_AGENT_AG_UI_URL`, `OPENBOT_PUBLIC_URL` and `TRUSTED_ORIGINS`. If both use the same Intelligence project, give it its own `DEPLOYMENT_ID` too. [openbot/docs/configuration.md](openbot/docs/configuration.md#ports) lists them. Two installs can instead share one computer, if they use the same token.
+To run a second install beside another on one machine, give it its own `COMPOSE_PROJECT_NAME`, `COMPUTER_NAMESPACE`, image tags (`COMPUTER_IMAGE` and the other `*_IMAGE` settings), and a value for every `*_PORT`. Change the addresses built from those ports to match: `DATABASE_URL`, `AGENT_COMPUTER_URL`, `MANAGED_AGENT_AG_UI_URL`, `OPENBOT_PUBLIC_URL` and `TRUSTED_ORIGINS`. [openbot/docs/configuration.md](openbot/docs/configuration.md#ports) lists them. Two installs can instead share one computer, if they use the same token.
 
 To diagnose a 401, inspect container names and port mappings with `docker ps`, then compare `COMPUTER_TOKEN` by equality without printing either value. The setup checklist authenticates against the provider and checks network-policy delivery; a configured URL alone no longer means Ready. A sleeping computer reads Not checked until it is running and **Check again** succeeds.
 
-The CopilotKit runtime sends usage telemetry to CopilotKit, tagged OpenDuet. Set `COPILOTKIT_TELEMETRY_DISABLED=true` or `DO_NOT_TRACK=1` to turn it off. [What is sent](docs/telemetry.md).
+This fork sends no usage telemetry. The runtime is in this repository (`openbot/server/src/engine.ts`) and reports to nothing outside it; the vendor telemetry the upstream product had went with the vendor runtime. `OPENBOT_TELEMETRY_DISABLED` and `DO_NOT_TRACK` are still honoured wherever a component reads them. [What is sent](docs/telemetry.md).
 
 Once it is running, try the parts that work today:
 
@@ -146,7 +135,54 @@ Once it is running, try the parts that work today:
 - Choose what it must ask you about first in `/settings/approvals`.
 - Ask it to do something on a schedule. You will find it in `/routines`.
 
-Sign-in for a team, and Slack and Teams, are OpenBot's: see [openbot/docs](openbot/docs/README.md). A hosted or deploy guide for OpenDuet is not published yet, and neither is an OpenDuet image, so the Quick start above is the supported way to run it today. The Docker and Helm guides in `openbot/docs` deploy plain OpenBot from OpenBot's own image, not OpenDuet.
+Sign-in for a team, and Slack and Teams, are OpenBot's: see [openbot/docs](openbot/docs/README.md). The Compose recipe above is the supported way to run OpenDuet as containers. The Docker and Helm guides in `openbot/docs` deploy plain OpenBot from OpenBot's own image, not OpenDuet.
+
+### Run it with one Docker Compose file
+
+[`openbot/docker-compose.selfhosted.yml`](openbot/docker-compose.selfhosted.yml) runs the whole companion as one Compose project. Its only external dependency is your model endpoint. It needs no Intelligence or Postgres account, no CopilotKit account, no hosted runtime, no telemetry endpoint, no OAuth app, and no mail server.
+
+```sh
+cd openbot
+export OPENAI_API_KEY=sk-...
+docker compose -f docker-compose.selfhosted.yml up -d --build
+```
+
+Then open <http://127.0.0.1:3001>.
+
+| Service     | What it is                                                                     |
+| ----------- | ------------------------------------------------------------------------------ |
+| `postgres`  | The only datastore: threads, messages, the event log and the per-thread run lock. |
+| `migrate`   | The server's own migrator. Runs once, then exits.                              |
+| `keys`      | Generates the at-rest encryption key once and keeps it on the `keys-data` volume. |
+| `companion` | The API and the built web app in one image, on one origin.                     |
+| `scheduler` | Runs the routine sweep on a loop, so a due routine fires without an external cron. |
+
+Ports: `127.0.0.1:3001` is the only published port, and it is loopback. Change it with `OPENBOT_PORT`. Postgres is not published at all; the other services reach it over the Compose network. Put a TLS terminator in front for anything other than local use.
+
+Volume: `postgres-data` holds the database and `keys-data` holds `KEY_ENCRYPTION_KEY`, the key the server uses to encrypt provider keys at rest. Keep `keys-data`: losing it loses the stored provider keys, not the conversations.
+
+Environment: `OPENAI_API_KEY` is the only value you must supply. These are optional:
+
+- `OPENAI_BASE_URL` and `BOT_MODEL` move the deployment to any endpoint that speaks OpenAI's `/v1/chat/completions`.
+- `OPENBOT_PORT` changes the published port. The default is 3001.
+- `KEY_ENCRYPTION_KEY` brings your own at-rest key instead of the generated one.
+- `COMPANION_IMAGE` names the image. The default is `openduet-companion:local`.
+
+Do not set `BETTER_AUTH_SECRET` or `BETTER_AUTH_URL`. Both belong to the OAuth sign-in path, and the server refuses to start with either set and no identity provider configured.
+
+Teardown:
+
+```sh
+docker compose -f docker-compose.selfhosted.yml down      # keeps the volumes
+docker compose -f docker-compose.selfhosted.yml down -v   # deletes them
+```
+
+To check what the running deployment actually carries, run both residue reports. The first reads the source tree, the second reads the built image and the web app the browser downloads:
+
+```sh
+sh openbot/scripts/check-copilotkit-residue.sh
+sh openbot/scripts/check-artifact-residue.sh openduet-selfhosted-companion-1
+```
 
 ### Connect Gmail and Google Calendar
 
@@ -210,7 +246,7 @@ You: web · Slack / Microsoft Teams
         │                             ▲
         │ asks, answers, approvals    │ morning brief, "this needs you"
         ▼                             │
-OpenDuet server   (OpenBot: Hono + CopilotKit runtime)
+OpenDuet server   (OpenBot: Hono + OpenDuet's own engine)
   ├── triage          what needs you / what can wait
   ├── approvals       Allow once · Always allow · Refuse
   └── gateway         policy → audit record → act
@@ -221,14 +257,14 @@ Agent   (any AG-UI agent, on a framework or hand-written)
         ▼
 Its own computer   Chromium · /workspace · shell
 
-CopilotKit Intelligence   threads and memory
+Its own PostgreSQL         threads, memory and the run lock
 PostgreSQL + pgvector     policy, approvals, audit, encrypted credentials
 MCP connectors            Google Drive, Notion, and more through Composio
 ```
 
 **Channels.** You reach OpenDuet where you already are: the web app, Slack, or Microsoft Teams, all of which OpenBot supports today.
 
-**Server.** OpenBot's server hosts the CopilotKit runtime and sends each turn to the agent over [AG-UI](https://github.com/ag-ui-protocol/ag-ui). OpenDuet adds two pieces in front of it: a triage step that decides what needs you and what can wait, and a morning brief built from it. Both build on OpenBot's routines, which give an agent scheduled turns that run as you.
+**Server.** OpenBot's server hosts OpenDuet's own engine (`openbot/server/src/engine.ts`, built on the toolkit in `openbot/toolkit/src/platform`) and sends each turn to the agent over [AG-UI](https://github.com/ag-ui-protocol/ag-ui). OpenDuet adds two pieces in front of it: a triage step that decides what needs you and what can wait, and a morning brief built from it. Both build on OpenBot's routines, which give an agent scheduled turns that run as you.
 
 **Agent.** Any endpoint that speaks AG-UI can be the agent, whether it is built with LangGraph, Mastra, CrewAI, Pydantic AI, Google ADK, or written by hand. OpenDuet is not tied to one framework or one model.
 
@@ -240,7 +276,7 @@ MCP connectors            Google Drive, Notion, and more through Composio
 
 **What leaves.** OpenBot treats any tool it cannot positively classify as a read as a write, and redacts secrets from its audit trail. A message to other people always asks first, showing who it goes to and what it says.
 
-**Memory.** Threads and memory live in [CopilotKit Intelligence](https://docs.copilotkit.ai), so conversations survive restarts and what it has learned about you carries over. You can see what it remembers about you, and tell it facts directly.
+**Memory.** Threads and memory live in this deployment's own Postgres (`openbot/toolkit/src/platform/postgres-platform.ts`), so conversations survive restarts, a second replica sees the same ones, and nothing leaves the deployment to keep them. You can see what it remembers about you, and tell it facts directly.
 
 **Skills and connectors.** Skills are instructions you write once and call with `/`. Connected apps are governed MCP servers: Google Drive and Notion ship in OpenBot's catalogue, and Composio brokers more. A connector is granted to an agent before it can be used.
 
@@ -254,7 +290,6 @@ OpenDuet is built and maintained by [CopilotKit](https://www.copilotkit.ai), the
 
 It is CopilotKit's open-source take on the proactive-agent category: assistants that reach out first, such as Claude Duet. OpenDuet is an independent project and is not affiliated with or endorsed by Anthropic.
 
-**Rolling it out at your company?** [Talk to a CopilotKit engineer.](https://www.copilotkit.ai/talk-to-an-engineer?ref=openduet_readme)
 
 - [copilotkit.ai/openduet](https://www.copilotkit.ai/openduet): OpenDuet's page
 - [Discord](https://discord.gg/6dffbvGU3D): ask a question or share what you are building

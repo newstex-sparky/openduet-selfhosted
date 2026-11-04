@@ -92,7 +92,7 @@ function build(options: { shared: boolean }) {
   args[2] = { rolesForUser: async () => ["admin"] } as never;
   args[12] = auditStore;
   args[14] = pluginStore;
-  args[34] = options.shared ? { shared: { modes, use } } : {};
+  args[33] = options.shared ? { shared: { modes, use } } : {};
   return createApp(...args);
 }
 

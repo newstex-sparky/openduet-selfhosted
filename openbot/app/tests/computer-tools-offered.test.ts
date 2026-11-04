@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { computerToolsOffered } from "@/lib/copilot/computer-available";
+import { computerToolsOffered } from "@/lib/chat/computer-available";
 
 /**
  * Which computer tools a Bot is given in this conversation.

@@ -152,7 +152,7 @@ fn byo_remote_ag_ui_url(value: &str) -> Result<String, String> {
 /// It reads as a harness like any other because the difference ends at the transport: a Mastra Bot
 /// arrives as the same `AbstractAgent` and is governed by the same wrapper as an AG-UI one. What
 /// this list still refuses is writing that translation by hand, which is what mounting
-/// `registerCopilotKit` in the harness amounted to: that route serves the CopilotKit Runtime
+/// the vendor's `registerCopilotKit` in the harness amounted to: that route serves its Runtime
 /// protocol, not AG-UI, and a run reached it and came back asking for a `method` field.
 pub fn catalogue() -> Vec<Harness> {
     /*
@@ -604,11 +604,6 @@ mod tests {
             .expect("BYO endpoint should be valid")
             .expect("BYO endpoint should register a harness");
         let env = crate::env::compose(
-            &crate::env::Intelligence {
-                api_url: "https://api.example".into(),
-                gateway_ws_url: "wss://realtime.example".into(),
-                api_key: "key".into(),
-            },
             &crate::env::Model::default(),
             &crate::engine::EngineStatus {
                 engine: None,

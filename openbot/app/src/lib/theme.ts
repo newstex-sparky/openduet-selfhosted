@@ -70,7 +70,7 @@ export function applyTheme(theme: ResolvedTheme, effects: ThemeEffects) {
  * the app's `dark` class, and `prefers-color-scheme` inside it follows the phone, not the person's
  * choice, so it asks with `SANDBOX_THEME_ASK` and the app answers with `SANDBOX_THEME_MESSAGE`, and
  * sends that again to every frame whenever the theme changes. The prompt that tells a Bot how to
- * draw (`lib/copilot/generative-ui.ts`) gives it the script that does the asking.
+ * draw (`lib/chat/generative-ui.ts`) gives it the script that does the asking.
  */
 export const SANDBOX_THEME_ASK = "openduet:theme?";
 export const SANDBOX_THEME_MESSAGE = "openduet:theme";

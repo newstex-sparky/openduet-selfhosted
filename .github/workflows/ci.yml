@@ -206,21 +206,6 @@ jobs:
       # question: every secret key a container demands has to be one the chart actually writes.
       # Getting that wrong is invisible until a pod starts, and every shipped target had it wrong.
       - run: bun scripts/check-rendered-chart.ts rendered.yaml
-      # No target names a Learning credential, so the setup Job renders nowhere above. Render it with
-      # one of each, and hold it to the same coherence check.
-      - name: Learning setup Job renders
-        run: |
-          helm template ci charts/openbot \
-            --values charts/openbot/ci/${{ matrix.target }}-values.yaml \
-            --set-string secrets.keyEncryptionKey="$(openssl rand -base64 32)" \
-            --api-versions agents.x-k8s.io/v1beta1/Sandbox \
-            --api-versions extensions.agents.x-k8s.io/v1beta1/SandboxTemplate \
-            --set-string config.learning.setup.cliLoginSecret.name=openbot-copilotkit-cli \
-            --set-string config.learning.setup.serviceTokenSecret.name=intelligence-service-token \
-            --set-string config.learning.setup.projectId=7 \
-            > rendered-learning.yaml
-          grep -q 'app.kubernetes.io/component: learning-setup' rendered-learning.yaml
-          bun scripts/check-rendered-chart.ts rendered-learning.yaml
       # And that the refusals are load-bearing rather than decorative. A chart full of `fail`
       # messages nothing ever triggers is a chart that has never been shown to refuse anything, and
       # every one of these describes a state that shipped in a values file at some point.
@@ -283,8 +268,6 @@ jobs:
             --set config.opentag.enabled=true
           refuses "SCIM switched on with no bearer token" \
             --set config.scim.enabled=true
-          refuses "a Learning service token with no project to create the container in" \
-            --set-string config.learning.setup.serviceTokenSecret.name=intelligence-service-token
           # The rest are refusals the server makes at boot, mirrored so the value is named at install.
           refuses "an OpenTag URL with the pairing switched off" \
             --set-string config.opentag.url=https://opentag.example.com
@@ -589,20 +572,15 @@ jobs:
           # meant it. This was `OPENBOT_DEV_NO_AUTH=1` before, which the code never accepted at all,
           # since it compares against the exact string "true"; it did nothing and nothing noticed.
           #
-          # Placeholders, not secrets. `loadConfig` refuses to start without Intelligence and a
-          # licence configured, but it only checks that they are present and well-formed; nothing is
-          # contacted at start-up and /api/capabilities reads config alone. So this proves the image
-          # boots and serves without needing a licence, which is the part CI cannot have: a licence
-          # is bound to the machine it was issued for. Whether Intelligence actually answers is what
-          # the smoke journey checks, on a real deployment.
+          # NOTHING FROM OUTSIDE THIS MACHINE. No vendor credential is required to start: the
+          # embedded database, an encryption key and `singleUser` are the whole environment, and
+          # /api/capabilities reads config alone. A model provider key is set per Bot, not here, so
+          # this is the configuration a self-hoster has, which is the point of the fork.
           docker run -d --name openbot-ci -p 3001:3001 \
             -e EMBEDDED_POSTGRES=on \
             -e KEY_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
             -e TRUSTED_ORIGINS=http://localhost:3001 \
-             -e OPENBOT_SINGLE_USER=true \
-             -e INTELLIGENCE_API_URL=https://api.intelligence.copilotkit.ai \
-            -e INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.copilotkit.ai \
-            -e INTELLIGENCE_API_KEY=ci-not-a-real-key \
+            -e OPENBOT_SINGLE_USER=true \
             openbot:ci
           for attempt in $(seq 1 150); do
             if curl -fsS http://localhost:3001/api/capabilities >/dev/null 2>&1; then

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@openbot/toolkit/platform/engine/agent/index";
 import { createActorAgentResolver } from "../src/agents/agent-resolver";
 import type { AuditInitiator } from "../src/audit";
 

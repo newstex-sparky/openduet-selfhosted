@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { HeadlessTool } from "@openbot/toolkit/headless-tools";
-import type { IntelligenceLike } from "@openbot/toolkit/run-turn";
+import type { TurnPlatformLike } from "@openbot/toolkit/run-turn";
 import { type RunAssertion, readRunAssertion } from "../agents/callback-token";
 import type { AgentProfileStore } from "../agents/profile-store";
 import type { AgentActor } from "../agents/profile-types";
@@ -31,7 +31,7 @@ export function createServerApprovalService(deps: {
   actorFor: (ownerUserId: string) => Promise<AgentActor>;
   database: Database;
   authoriseQuestion: (question: PersonQuestion) => Promise<void>;
-  routineIntelligence: Pick<IntelligenceLike, "getThreadMessages">;
+  routinePlatform: Pick<TurnPlatformLike, "getThreadMessages">;
   approvalComputerTools: (
     ownerUserId: string,
     agentId: string,
@@ -51,7 +51,7 @@ export function createServerApprovalService(deps: {
     actorFor,
     database,
     authoriseQuestion,
-    routineIntelligence,
+    routinePlatform,
     approvalComputerTools,
   } = deps;
   return createApprovalService(
@@ -120,10 +120,10 @@ export function createServerApprovalService(deps: {
         throw new ApprovalRefusedError(
           "That conversation is no longer available to this Bot and person.",
         );
-      // Intelligence saves a streaming run's messages a moment behind the stream, and the browser runs
+      // The platform saves a streaming run's messages a moment behind the stream, and the browser runs
       // the tool as soon as the call arrives. A call that is not saved yet is waited for briefly; one
       // that never appears is refused below.
-      let history = await routineIntelligence.getThreadMessages({
+      let history = await routinePlatform.getThreadMessages({
         threadId: snapshot.threadId,
         userId: ownerUserId,
       });
@@ -133,7 +133,7 @@ export function createServerApprovalService(deps: {
           .find((call) => call.id === snapshot.toolCallId);
       for (let attempt = 0; !findCall() && attempt < 10; attempt++) {
         await Bun.sleep(500);
-        history = await routineIntelligence.getThreadMessages({
+        history = await routinePlatform.getThreadMessages({
           threadId: snapshot.threadId,
           userId: ownerUserId,
         });

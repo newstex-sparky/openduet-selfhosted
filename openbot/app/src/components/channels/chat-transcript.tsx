@@ -1,9 +1,6 @@
 import type { ActivityMessage, Message } from "@ag-ui/core";
-import type { Attachment } from "@copilotkit/react-core/v2";
-import {
-  useRenderActivityMessage,
-  useRenderToolCall,
-} from "@copilotkit/react-core/v2";
+import type { Attachment } from "@/lib/agui";
+import { useRenderActivityMessage, useRenderToolCall } from "@/lib/agui";
 import {
   readConnectPrompt,
   SHOW_APP_ACCESS_TOOL,
@@ -60,7 +57,7 @@ import { readMorningBrief } from "@/lib/channels/morning-brief";
 import { readResponsibilityTurn } from "@/lib/channels/responsibility-turn";
 import { readFiring } from "@/lib/channels/routine-firing";
 import { readTaskBrief } from "@/lib/channels/task-brief";
-import { ReplyChips } from "@/lib/copilot/reply-chips-tool";
+import { ReplyChips } from "@/lib/chat/reply-chips-tool";
 import { markdownComponents } from "@/lib/markdown";
 import { EASE_OUT, ENTRANCE_SECONDS } from "@/lib/motion";
 import { personToolLabel, readToolName } from "@/lib/plugins/tool-name";
@@ -1308,7 +1305,7 @@ function SentAttachmentTile({ attachment }: { attachment: SentAttachment }) {
    *
    * `toVisibleChatItems` passes on whatever a `url` source carried, and nothing between here and
    * the wire narrows it. A sent message only ever carries the relative form — `shared/attachments.ts`
-   * says the url "is never fetched by a provider", and `copilot.ts` swaps the source for the bytes
+   * says the url "is never fetched by a provider", and `engine.ts` swaps the source for the bytes
    * as the run is built — so an absolute url arriving here did not come from this app's composer,
    * and putting it in `src` would have the reader's browser fetch a third party the instant the
    * transcript drew, announcing to whoever owns it that this person opened this channel.
@@ -1688,7 +1685,7 @@ const TranscriptToolCall = memo(function TranscriptToolCall({
  * Named from the reader's side: what was done, against which server, with the server's own words
  * behind a disclosure. The identifier the model was offered never reaches the screen.
  *
- * Exported for its tests, which draw it without the CopilotKit provider `TranscriptToolCall` needs.
+ * Exported for its tests, which draw it without the AgentRuntime provider `TranscriptToolCall` needs.
  */
 export function ServerToolLine({
   name,

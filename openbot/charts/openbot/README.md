@@ -5,7 +5,7 @@ only difference between them is values.
 
 ## What a cluster needs first
 
-Four things this chart assumes and does not create.
+Three things this chart assumes and does not create.
 
 **An image the cluster can pull.** A release publishes `ghcr.io/copilotkit/openbot:vX.Y.Z`
 publicly, and that tag is what `image.tag` wants. It is built for **`linux/amd64` only**, so an
@@ -18,24 +18,10 @@ architecture you have and push it somewhere the cluster can reach. Check before 
 docker manifest inspect ghcr.io/copilotkit/openbot:v0.0.9 | grep architecture
 ```
 
-**Intelligence credentials.** OpenBot requires CopilotKit Intelligence and the chart refuses to
-install without `secrets.intelligenceApiKey`. It comes from the CLI, on any machine with a browser:
-
-```sh
-npx --yes copilotkit@latest login           # browser sign-in
-npx --yes copilotkit@latest project select  # prints the cpk-... runtime key
-```
-
-That key is the only Intelligence credential a managed install needs; the free plan is enough.
-`secrets.licenseToken` is optional and exists for a self-hosted Intelligence that issues its own
-licence. `npx --yes copilotkit@latest license --print` prints one without writing it to a local
-`.env`, which is what you want for something you are about to paste into a Secret. With
-`externalSecrets`, name `license-token` in its `data` and the server receives it the same way.
-
-**A self-hosted Intelligence needs that licence too, on its own deployment.** Its chart takes it as
-`appApi.licenseSecret` or `externalSecrets.secrets.license`. Without it Intelligence answers every
-entitlement read with `RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED` and refuses memory, while
-conversations carry on; OpenBot logs `intelligence-entitlement-not-ready` at boot when it does.
+**A model provider key.** OpenBot talks to one model provider and to nothing else, so
+`secrets.modelApiKey` is the whole of what it needs from outside the cluster. The chart reads it
+from a value you pass, or from key `model-api-key` of an existing Secret or of a store through
+`externalSecrets`.
 
 **A default StorageClass**, or a named one. Both a Bot's computer and the bundled database ask for
 a volume, and a fresh cluster often has no class marked default. See
@@ -349,8 +335,8 @@ installing on somebody's bare-metal cluster.
 The chart fails the install, naming the value to change, when: there is no database or two of them;
 nobody could sign in or nobody would be an administrator; an identity provider is configured without
 `secrets.betterAuthSecret` or `config.publicUrl`; `singleUser` is combined with a public URL or a
-public LoadBalancer; the Intelligence URLs or `secrets.intelligenceApiKey` are missing;
-`secrets.keyEncryptionKey` is not a base64 32-byte value, or is the public example key; there is no
+public LoadBalancer; `secrets.keyEncryptionKey` is not a base64 32-byte value, or is the public
+example key; there is no
 `secrets.computerToken`; `computers.mode` is `external` with no `computers.url`, or `sandbox` on a
 cluster with no Sandbox CRD; both an Ingress and an HTTPRoute are enabled; both `externalSecrets` and
 an existing Secret are named; a Bot endpoint is named with no token to call it with; a browser is
@@ -386,38 +372,6 @@ Left empty, this deployment has the Bots its tenant package declares as built-in
 somebody creates in the app without an endpoint runs here on its role description. A package entry
 pointing at an endpoint that resolves to nothing is dropped rather than registered as a coworker
 nobody can talk to.
-
-## Automatic Learning
-
-Learning is on by default, and it needs a container in the Intelligence project before it collects or
-delivers anything. With nothing saved in Admin and no `config.learning.containerId`, the server
-assigns the project's `openbot` container as the default by itself once it exists. The runtime key
-cannot create it, so give the chart a credential that can and a setup Job creates it on install and
-every upgrade:
-
-- Managed Intelligence: a CopilotKit CLI login. Sign in into an empty folder and store the file it
-  writes, then set `config.learning.setup.cliLoginSecret.name: openbot-copilotkit-cli`:
-
-  ```sh
-  COPILOTKIT_CONFIG_DIR="$(mktemp -d)"; export COPILOTKIT_CONFIG_DIR
-  npx --yes copilotkit@latest login
-  kubectl create secret generic openbot-copilotkit-cli \
-    --from-file=config.json="$COPILOTKIT_CONFIG_DIR/auth/config.json"
-  ```
-
-  It is a person's 30-day session; only the Job reads it, never the server.
-- A CopilotKit local evaluation install: a service token Secret in
-  `config.learning.setup.serviceTokenSecret` with the project's numeric ID in
-  `config.learning.setup.projectId`. The server gets it too, so Admin can create the container again.
-
-Without either, create it once with `bun scripts/setup-learning.ts` from a computer that can sign in
-to Intelligence, or in Intelligence itself; the server log and Admin → Automatic Learning say exactly
-that. `config.learning.autoAssign: false` turns the automatic assignment off.
-`config.learning.containerId` sets the initial default container
-(`CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`) and `config.learning.revision` the skills revision
-(`CPK_INTELLIGENCE_SKILLS_REVISION`). Both are only starting values: settings saved in Admin →
-Automatic Learning take precedence, including switching it off. See
-[docs/automatic-learning.md](../../docs/automatic-learning.md).
 
 ## Memory and background research
 

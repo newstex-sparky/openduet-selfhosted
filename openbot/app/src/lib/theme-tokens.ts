@@ -1,7 +1,7 @@
 /**
  * OpenDuet's colour tokens as data, for what cannot read the stylesheet: the interface a Bot writes
  * runs in a sandboxed frame with no access to `styles.css`, so the prompt that tells it how to look
- * (`lib/copilot/generative-ui.ts`) is built from these.
+ * (`lib/chat/generative-ui.ts`) is built from these.
  *
  * The values are the stylesheet's own. `tests/visual-system.test.ts` reads `src/styles.css` and
  * fails when any value here differs from the `--duet-<name>` it stands for, so the two cannot drift.

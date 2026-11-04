@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { MCPMock, type MCPToolDefinition } from "@copilotkit/aimock/mcp";
+import { MCPMock, type MCPToolDefinition } from "../testing/mcp-mock";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { catalogueEntry, classifyTool } from "../src/plugins/catalogue";
 import { listTools } from "../src/plugins/mcp";

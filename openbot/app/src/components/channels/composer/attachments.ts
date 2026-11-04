@@ -1,27 +1,14 @@
-import type { AttachmentsConfig } from "@copilotkit/react-core/v2";
+import type {
+  AttachmentsConfig,
+  AttachmentUploadError,
+  AttachmentUploadResult,
+} from "@/lib/agui";
 import {
   ACCEPTED_IMAGE_MIME,
   ACCEPTED_TEXT_MIME,
   attachmentUrl,
   MAX_IMAGE_BYTES,
 } from "@/lib/channels/attachments";
-
-/**
- * Uploads a picked file to this deployment and hands the composer a link to it, never the bytes.
- *
- * Neither `AttachmentUploadResult` nor `AttachmentUploadError` is exported by anything installed
- * here: `@copilotkit/shared` declares both, but it is not a dependency of `app/` — the only
- * installed CopilotKit package in this workspace is `react-core`, and its `v2` entry point does
- * not re-export these two. They are derived instead from `AttachmentsConfig["onUpload"]` /
- * `["onUploadFailed"]`, the one signature that IS public, so they can never drift from what the
- * SDK actually calls.
- */
-type AttachmentUploadResult = Awaited<
-  ReturnType<NonNullable<AttachmentsConfig["onUpload"]>>
->;
-type AttachmentUploadError = Parameters<
-  NonNullable<AttachmentsConfig["onUploadFailed"]>
->[0];
 
 /** The shape `POST /api/channels/:channelId/attachments` sends back on success. */
 type UploadedAttachment = {
@@ -193,12 +180,11 @@ export const FILE_PICKER_ACCEPT = [
  * accept entry at all, and `namesNoFormat` also passes anything not shaped like a MIME type, which
  * is an open set. There is no string that means what the screen means.
  *
- * WHAT THIS COSTS, STATED PLAINLY: nothing, because the SDK's filter was never reachable except
+ * WHAT THIS COSTS, STATED PLAINLY: nothing, because the hook's filter was never reachable except
  * through us. `stageFiles` is the only caller of `processFiles` — the composer supplies its own
- * drop handler and its own `onChange`, so the hook's `handleDrop` and `handleFileUpload` are never
- * used — and the hook's own `document` paste listener is inert here, because it is scoped by a
- * `containerRef` this composer deliberately never hands it (see `containerRef` in `composer.tsx`).
- * So every file that reaches `processFiles` has already been through `screenPickedFiles`, which
+ * drop handler and its own `onChange`, the hook installs no paste listener, and its contract has
+ * no drop or file-upload handler to reach for. So every file that reaches `processFiles` has
+ * already been through `screenPickedFiles`, which
  * enforces kind, BOTH size ceilings and the per-message cap — all of which the SDK's filter does
  * not — and phrases its refusals for a person. The narrow list is kept where it is honest about
  * being a hint: `FILE_PICKER_ACCEPT`, above, on the file dialog.

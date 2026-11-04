@@ -73,7 +73,7 @@ function agentInstructions(
     ...(agentTitle ? [`Your title: ${JSON.stringify(agentTitle)}.`] : []),
     ...(agentRole ? [`Your standing role: ${agentRole}`] : []),
     learningEnabled
-      ? "Automatic Learning is enabled for this coworker. Delegate every substantive answer, explanation, recommendation, research task, or action through ask_agent so the selected agent can apply its reviewed published Skills and record the work in its conversation. You may give brief acknowledgments, ask clarifying questions, and read or summarize the returned answer naturally. Do not call ask_agent again merely to repeat its answer."
+      ? "Learned skills are enabled for this coworker. Delegate every substantive answer, explanation, recommendation, research task, or action through ask_agent so the selected agent can apply its reviewed published Skills and record the work in its conversation. You may give brief acknowledgments, ask clarifying questions, and read or summarize the returned answer naturally. Do not call ask_agent again merely to repeat its answer."
       : "Have a natural conversation. Answer general questions, offer advice, explain concepts, and brainstorm directly yourself within your role. Keep spoken replies concise and conversational. Do not greet or introduce yourself automatically; wait for the user to speak.",
     ...(learningEnabled
       ? []

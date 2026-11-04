@@ -1,14 +1,10 @@
-// First, before anything that imports the CopilotKit runtime: see telemetry.ts.
-import "./telemetry";
 import type { AbstractAgent } from "@ag-ui/client";
-import {
-  CopilotKitIntelligence,
-  IntelligenceAgentRunner,
-} from "@copilotkit/runtime/v2";
 import { COMPUTER_GUIDANCE } from "@openbot/shared/bot-prompt";
 import { LISTEN_HOST_VARIABLE } from "@openbot/shared/listen-host";
 import { workOwner } from "@openbot/shared/work-owner";
-import { createTurnRunner } from "@openbot/toolkit/run-turn";
+import type { PostgresThreadPlatform } from "@openbot/toolkit/platform/postgres-platform";
+import { createTurnRunner, type TurnRunner } from "@openbot/toolkit/run-turn";
+import { runAsLocalUser } from "@openbot/toolkit/platform/request-scope";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createActivityStore } from "./activity/activity";
@@ -126,11 +122,11 @@ import { loadConfig } from "./config";
 import {
   type IdentifyActor,
   type IdentifyUser,
-  mountCopilotRuntime,
+  mountAgentRuntime,
   normalizeModelBaseUrls,
   runtimeModelForEnvironment,
   type ToolSelection,
-} from "./copilot";
+} from "./engine";
 import {
   createCredentialAdminService,
   createCredentialStore,
@@ -164,27 +160,8 @@ import { githubCallbackRoutes } from "./identity/github-callback";
 import { retireIdentityLinks, retireOwnedAccounts } from "./identity/retire";
 import { slackCodeRedeemer } from "./identity/slack-redeem";
 import { createIdentityStore } from "./identity/store";
-import {
-  createIntelligenceClient,
-  observeIntelligenceAuthentication,
-} from "./intelligence-client";
-import {
-  createLearningAutoAssign,
-  probeLearningContainer,
-  withLearningAutoAssign,
-} from "./learning/auto-assign";
-import {
-  cliLoginPresent,
-  ensureLearningContainer,
-  intelligenceApiOrigin,
-  keyIntelligence,
-  learningSetupInstructions,
-} from "./learning/ensure-container";
-import { clearLearningRevisionFallback } from "./learning/runtime";
-import { createLearningSettingsStore } from "./learning/settings";
 import { createMemoryDefaults } from "./memory/defaults";
 import { createMemoryIngestion } from "./memory/ingestion";
-import { createIntelligenceMemory } from "./memory/intelligence";
 import { createMemoryStore } from "./memory/store";
 import { reportModelAvailability } from "./model-availability-check";
 import { memoryTools } from "./memory/tools";
@@ -279,7 +256,7 @@ import { createTaskReplyContext } from "./openduet/task-reply-context";
 import { createTaskThreads, createTaskTurn } from "./openduet/task-threads";
 import type { TaskStarter } from "./openduet/tasks";
 import { createOpenDuetTools, createTaskIntake } from "./openduet/wiring";
-import { reportIntelligenceEntitlement } from "./intelligence-entitlement-check";
+import { announceLocalMode, localThreadPlatform } from "./local-mode";
 import { createSelfHostBanner } from "./self-host-banner";
 import { createTeamBots } from "./team-bots/team-bots";
 import {
@@ -295,7 +272,7 @@ import { repeatAfterEach } from "./work/loop";
 import { createWorkQueue, type WorkOfferedListener } from "./work/queue";
 
 /**
- * Who is asking, for a CopilotKit request.
+ * Who is asking, for an engine request.
  *
  * One resolver, because a run has two questions to answer about the same person: whose threads and
  * memory these are, and which coworkers they may run. Answering them from different places is how
@@ -312,13 +289,13 @@ async function resolveRequestActor(request: Request): Promise<{
   const session = await auth?.api.getSession({ headers: request.headers });
   const user = session?.user;
   if (!user) {
-    throw new Error("A CopilotKit run requires a signed-in user.");
+    throw new Error("An engine run requires a signed-in user.");
   }
   const roles = user.role
     ? [user.role]
     : await roleRepository.rolesForUser(user.id);
   if (!roles.includes("admin") && !roles.includes("user")) {
-    throw new Error("A CopilotKit run requires an authorized user.");
+    throw new Error("An engine run requires an authorized user.");
   }
   return {
     id: user.id,
@@ -355,77 +332,22 @@ const identifyActor: IdentifyActor = async (request) => {
 };
 
 const config = loadConfig();
-// The environment seeds local policy once. The SDK fallback must not reapply an old revision
-// after an administrator clears a pin to follow the latest published Skills.
-clearLearningRevisionFallback();
 // Read with the rest of the configuration, where an empty variable is an absent one. See
 // `serverPort` in config.ts for what `process.env.PORT ?? …` did with `PORT=` instead.
 const port = config.port;
 const database = createDatabase(config.databaseUrl);
 // Every dispatch point asks this database whether its person paused the Bot. See agents/lifecycle.ts.
 configureBotLifecycle({ database });
-const learningSettingsStore = createLearningSettingsStore(
-  database,
-  config.learning,
-);
-// Its own client, like the self-host banner's: the constructor opens nothing.
-const learningProbeIntelligence = createIntelligenceClient(
-  config.runtime.intelligence,
-);
 /*
- * Who can create the `openbot` container here: never the runtime key. A service token the operator
- * configured (local evaluation installs), or a CopilotKit CLI login on this machine, which is what a
- * laptop running `bun run start` has. Neither, and the log and Admin say exactly what to run instead.
+ * THIS PROCESS'S THREAD PLATFORM, BUILT ONCE.
+ *
+ * Threads, history, the event log and the run lock live in this deployment's Postgres (see
+ * `local-mode.ts`); the runtime, every headless turn, the thread lock and the history readers all
+ * read the same conversations through it. Nothing here talks to another service.
  */
-const learningApiOrigin = (() => {
-  try {
-    return intelligenceApiOrigin(config.runtime.intelligence.apiUrl);
-  } catch {
-    return undefined;
-  }
-})();
-const learningCanCreate =
-  learningApiOrigin !== undefined &&
-  (config.learningSetup !== undefined || cliLoginPresent());
-const learningAutoAssign = createLearningAutoAssign({
-  enabled: config.learningAutoAssign,
-  store: learningSettingsStore,
-  probe: (containerId) =>
-    probeLearningContainer(learningProbeIntelligence, containerId),
-  ...(learningApiOrigin
-    ? { instructions: learningSetupInstructions(learningApiOrigin) }
-    : {}),
-  ...(learningCanCreate && learningApiOrigin
-    ? {
-        create: () =>
-          ensureLearningContainer({
-            directory: process.cwd(),
-            apiUrl: learningApiOrigin,
-            nonInteractive: true,
-            key: keyIntelligence(
-              learningApiOrigin,
-              config.runtime.intelligence.apiKey,
-              config.runtime.intelligence.gatewayWsUrl,
-            ),
-            cliLogin: cliLoginPresent(),
-            ...(config.learningSetup
-              ? {
-                  serviceToken: {
-                    token: config.learningSetup.serviceToken,
-                    projectId: config.learningSetup.projectId,
-                  },
-                }
-              : {}),
-          }),
-      }
-    : {}),
-  audit: createAuditStore(database),
-});
-const learningSettings = withLearningAutoAssign(
-  learningSettingsStore,
-  learningAutoAssign,
-);
-learningAutoAssign.start();
+const localPlatform: PostgresThreadPlatform = localThreadPlatform(config);
+announceLocalMode();
+
 await initializeDevActorUser(database, config.singleUser);
 // The vault, built before the agent store because a customer's agent may sit behind a key and that
 // key belongs here rather than on the agent row. See agents/auth-header.ts.
@@ -724,27 +646,14 @@ const chooseSkills = createModelCompleter({
 });
 
 /*
- * The pair a headless turn is driven through, built ONCE.
- *
- * Not the runtime's own pair: `mountCopilotRuntime` keeps its client and its runner inside
- * `CopilotRuntime` and hands neither back, and reaching into that object would be a worse seam than
- * building our own from the same three settings. Built from `config.runtime.intelligence`, which is
- * required and not optional — `RuntimeCapabilities` has exactly one mode and every Intelligence field
- * with it (`config.ts:10-22`), and `loadConfig` refuses to boot without them — so there is no
- * not-in-Intelligence-mode branch to write here. If a second mode is ever added, THIS is the line that
- * has to grow a guard, and the routine runner must then be left off `createApp` entirely.
+ * The pair a headless turn is driven through: the process's thread platform and its one runner.
  *
  * One runner for the process, reused across firings: it opens a socket per run and holds no idle
  * connection, but its `threads` map is per instance, and a runner per turn would fragment the
- * already-running check that keeps two turns off one thread. See `toolkit/run-turn.ts`.
+ * already-running check that keeps two turns off one thread. See `toolkit/run-turn.ts`. The platform
+ * is what answers a turn's thread reads, its history and its run lock, so a routine lands in the
+ * conversation the person opens.
  */
-const routineIntelligence = observeIntelligenceAuthentication(
-  new CopilotKitIntelligence({
-    apiUrl: config.runtime.intelligence.apiUrl,
-    wsUrl: config.runtime.intelligence.gatewayWsUrl,
-    apiKey: config.runtime.intelligence.apiKey,
-  }),
-);
 const approvalComputerTools = async (
   ownerUserId: string,
   agentId: string,
@@ -774,7 +683,7 @@ const approvalService = createServerApprovalService({
   actorFor,
   database,
   authoriseQuestion,
-  routineIntelligence,
+  routinePlatform: localPlatform,
   approvalComputerTools,
   review: (prompt, signal) => chooseSkills(prompt, signal),
   // Assigned further down, once delivery is wired.
@@ -1302,14 +1211,8 @@ const hostAccessBroker = createHostAccessBroker(Date.now, {
 // grant, the policy and the audit row are exactly where they were. Host-folder tools are also
 // server-dispatched: the selected Bot and the signed-in owner are bound here, then the desktop worker
 // receives only opaque grant ids and relative paths.
-// Memory lives in CopilotKit Intelligence when this deployment is entitled to it, and in OpenBot's own
-// tables when it is not; see memory/store.ts. Its own client, like the thread reader's: the
-// constructor opens nothing.
-const personalMemoryStore = createMemoryStore(database, {
-  intelligence: createIntelligenceMemory({
-    client: createIntelligenceClient(config.runtime.intelligence),
-  }),
-});
+// Memory lives in OpenBot's own tables, always; see memory/store.ts. There is no other service to ask.
+const personalMemoryStore = createMemoryStore(database);
 const demonstrationStore = createDemonstrationStore(database);
 const demonstrationRecorder = createDemonstrationRecorder({
   store: demonstrationStore,
@@ -1400,20 +1303,6 @@ const memorySweep = repeatAfterEach(async () => {
       }),
     );
   }
-  // Mirror to Intelligence what is out of step: the backfill on the first passes after a deployment
-  // becomes entitled, and afterwards whatever an outage left behind. A no-op without Intelligence.
-  try {
-    await personalMemoryStore.mirrorPending();
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        type: "memory-sweep-error",
-        error: error instanceof Error ? error.name : "UnknownError",
-        context: { operation: "mirrorPending" },
-        timestamp: new Date().toISOString(),
-      }),
-    );
-  }
 }, 60_000);
 // Follow-ups a Bot schedules for itself, on the shared work queue. See agents/wake-up.ts.
 const wakeUpStore = createWakeUpStore(database, { auditStore: bootAuditStore });
@@ -1440,11 +1329,11 @@ const openDuetTools = createOpenDuetTools({
 });
 /*
  * A task's report, read from its conversation as the runtime holds it (openduet/task-report.ts).
- * Built after `routineIntelligence`, the client every headless turn reads history through.
+ * Built after `localPlatform`, the client every headless turn reads history through.
  */
 const openDuetReport = createTaskReportReader({
   database,
-  history: intelligenceHistory(routineIntelligence),
+  history: intelligenceHistory(localPlatform),
 });
 // The + on Tasks: the same start and the same Up next as the tools above.
 const openDuetIntake = createTaskIntake({
@@ -1520,7 +1409,7 @@ const loadInstructionsForActor = (actorId: string) => () =>
  * row is fetched here and the bytes go up inline, so the Bot sees the file the person attached
  * instead of a link it cannot follow.
  *
- * Built per actor and passed to both turn paths — the request path through `mountCopilotRuntime` and
+ * Built per actor and passed to both turn paths — the request path through `mountAgentRuntime` and
  * a routine's turn through `buildAgentFor` — so a routine firing at three in the morning inlines
  * exactly as a person's chat turn does, on exactly the same footing.
  *
@@ -1548,7 +1437,7 @@ const loadAttachmentForActor =
  *
  * Bound per actor and handed to the same two turn paths as the reader above, so a routine's send at
  * three in the morning is recorded exactly as a person's chat turn is. `inlineAttachments`
- * (copilot.ts) calls it with the ids on the message being asked about and no others: history is
+ * (engine.ts) calls it with the ids on the message being asked about and no others: history is
  * replayed on every turn and by whoever is running it, so nothing behind that message is evidence
  * of a send.
  *
@@ -1752,17 +1641,31 @@ const buildAgentFor = async ({
   }
   return agent;
 };
-const routineAgentRunner = new IntelligenceAgentRunner({
-  url: routineIntelligence.ɵgetRunnerWsUrl(),
-  authToken: routineIntelligence.ɵgetRunnerAuthToken(),
-});
+const routineAgentRunner = localPlatform.runner;
+
+/*
+ * EVERY HEADLESS TURN, WITH LOCAL MODE'S OWNER SCOPE AROUND IT.
+ *
+ * Local mode scopes thread reads, thread writes and the run lock to the signed-in person, through
+ * the `AsyncLocalStorage` in `@openbot/toolkit/platform/request-scope`: that is what makes a
+ * thread belong to somebody. A routine, a responsibility, a proactive turn, a wake-up, a group
+ * continuation and an approval continuation have no browser request behind them to supply that
+ * person, so the first firing failed with `Thread … not found` — the turn asked for the owner's
+ * conversation as nobody. The turn names its owner, so that is the scope it runs in.
+ *
+ */
+const headlessTurn: typeof createTurnRunner = (options) =>
+  (
+    (turn: TurnRunner) => (input: Parameters<TurnRunner>[0]) =>
+      runAsLocalUser(input.ownerUserId, () => turn(input))
+  )(createTurnRunner(options));
 
 const routineRunner = createRoutineRunner({
   routineStore,
   channelStore,
-  runTurn: createTurnRunner({
+  runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: routineIntelligence,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -1781,9 +1684,6 @@ const routineRunner = createRoutineRunner({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
 });
 
@@ -1820,10 +1720,6 @@ const baseAgentResolver = createActorAgentResolver({
   loadInstructionsForActor,
   loadAttachmentForActor,
   markAttachmentsSentForActor,
-  // The runtime owns Learning. Resolve its reader only when a turn is built, after boot wiring.
-  get acquireLearnedSkills() {
-    return copilotRuntime.learning?.acquire;
-  },
   loadPersonalMemoryForActor,
 });
 // Every Bot a person runs learns which OpenDuet channel its run is in. See openduet/run-channel.ts.
@@ -1831,7 +1727,7 @@ const actorAgentResolver = withRunChannels(baseAgentResolver, (owner, thread) =>
   openDuetChannels.ofThread(owner, thread),
 );
 
-const copilotRuntime = mountCopilotRuntime(
+const copilotRuntime = mountAgentRuntime(
   config,
   actorAgentResolver,
   identifyUser,
@@ -1842,14 +1738,13 @@ const copilotRuntime = mountCopilotRuntime(
         .signalBusy(input.threadId, input.busy, input.runId)
         .catch(() => {});
     },
-    learningSettings,
   },
 );
 
 const responsibilityEngine = createServerResponsibilityEngine({
   database,
   responsibilityStore,
-  routineIntelligence,
+  routinePlatform: localPlatform,
   routineAgentRunner,
   componentCatalog,
   buildAgentFor,
@@ -1858,7 +1753,6 @@ const responsibilityEngine = createServerResponsibilityEngine({
   agentProfileStore,
   bootAuditStore,
   signInService,
-  copilotRuntime,
   channelStore,
   // Assigned further down, once delivery is wired.
   notify: (scope, input) => deliveryNotifications(scope, input),
@@ -1887,9 +1781,9 @@ const responsibilityAnswerTurn = ({
     channelId: responsibility.channelId,
     ...(responsibilityRunId ? { responsibilityRunId } : {}),
   });
-  return createTurnRunner({
+  return headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: routineIntelligence,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor: (input) => buildAgentFor({ ...input, initiator }),
@@ -1908,9 +1802,6 @@ const responsibilityAnswerTurn = ({
         execute: (args: unknown) => tool.execute(args),
       })),
     ],
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   });
 };
 const responsibilitySweep = repeatAfterEach(async () => {
@@ -1962,17 +1853,14 @@ const executeApprovedAction = createApprovedActionExecutor({
   refusalMarker: REFUSAL_MARKER,
   personInitiator: PERSON_INITIATOR,
 });
-const approvalContinuationRunner = createTurnRunner({
+const approvalContinuationRunner = headlessTurn({
   admission: serverTurnAdmission,
-  intelligence: routineIntelligence,
+  platform: localPlatform,
   runner: routineAgentRunner,
   components: componentCatalog,
   buildAgentFor,
   toolsForTurn: async ({ ownerUserId, agentId, initiator }) =>
     approvalComputerTools(ownerUserId, agentId, initiator),
-  learningContainerForThread: (input) =>
-    copilotRuntime.learning?.containerForThread(input) ??
-    Promise.resolve(undefined),
 });
 // The drawer's channels, and the Bot's hello in a new one. See openduet/channels.ts.
 const openDuetChannels = createDuetChannelStore({
@@ -2004,9 +1892,9 @@ const groupConversations = createGroupConversations({
     }
     return bots;
   },
-  runTurn: createTurnRunner({
+  runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: routineIntelligence,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -2025,9 +1913,6 @@ const groupConversations = createGroupConversations({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
   caps: config.handoff,
   // The handoff desk's own grant check, read per hop and failing closed.
@@ -2183,16 +2068,13 @@ conversationSaid = (ownerUserId, channelId, activity) => {
  * no computer and no components. A check-in is NOT run through `approvalContinuationRunner` as a
  * started task is, because that runner offers the Bot's computer, and a check-in only offers cards.
  */
-const proactiveRunTurn = createTurnRunner({
+const proactiveRunTurn = headlessTurn({
   admission: serverTurnAdmission,
-  intelligence: routineIntelligence,
+  platform: localPlatform,
   runner: routineAgentRunner,
   buildAgentFor,
   toolsForTurn: (input) => proactiveEngine.toolsForTurn(input),
   turnTimeoutMs: 3 * 60_000,
-  learningContainerForThread: (input) =>
-    copilotRuntime.learning?.containerForThread(input) ??
-    Promise.resolve(undefined),
 });
 const taskReplyContext = createTaskReplyContext({
   load: (scope, id) =>
@@ -2293,9 +2175,9 @@ const wakeUpRunner = createWakeUpRunner({
   owner: workOwner("wake-up"),
   actorFor,
   channels: channelStore,
-  runTurn: createTurnRunner({
+  runTurn: headlessTurn({
     admission: serverTurnAdmission,
-    intelligence: routineIntelligence,
+    platform: localPlatform,
     runner: routineAgentRunner,
     components: componentCatalog,
     buildAgentFor,
@@ -2314,9 +2196,6 @@ const wakeUpRunner = createWakeUpRunner({
         ...(signInService ? { signIn: signInService } : {}),
       });
     },
-    learningContainerForThread: (input) =>
-      copilotRuntime.learning?.containerForThread(input) ??
-      Promise.resolve(undefined),
   }),
   notify: (scope, input) => deliveryNotifications(scope, input),
 });
@@ -2474,7 +2353,7 @@ repeatAfterEach(
 const channelSummaries = {
   database,
   queue: createWorkQueue(database),
-  transcript: routineIntelligence,
+  transcript: localPlatform,
   title: createChannelTitler({
     model: runtimeModel.defaultModel,
     resolveApiKey: resolveRuntimeModelApiKey,
@@ -2529,18 +2408,6 @@ guardHostAccess(
   (message) => new HostAccessRefusedError(message),
 );
 auditRoutineStore(routineStore, bootAuditStore);
-
-// Asked only whether this deployment pays for Intelligence, for the self-host banner. Its own client
-// rather than the runtime's, the same as the thread reader: the constructor opens nothing.
-const selfHostBannerIntelligence = createIntelligenceClient(
-  config.runtime.intelligence,
-);
-
-// Said once, at boot, whether Intelligence will let this deployment use what it is licensed for. A
-// self-hosted Intelligence without a licence refuses memory quietly; this is the line that says why.
-void reportIntelligenceEntitlement({
-  entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
-});
 
 const identityGithubCallback =
   config.githubApp && config.publicUrl
@@ -2680,12 +2547,6 @@ const app = createApp(
     channels: channelStore,
   },
   {
-    store: learningSettings,
-    autoAssign: learningAutoAssign,
-    status: copilotRuntime.learning?.status,
-    inspect: copilotRuntime.learning?.inspect,
-  },
-  {
     approvals: approvalService,
     shared: { modes: accountModes, use: sharedUseStore },
     ...(signInService ? { passwords: signInService } : {}),
@@ -2701,7 +2562,7 @@ const app = createApp(
         listConversations: async (owner, cursor) =>
           channelStore.list(await actorFor(owner), { cursor, limit: 100 }),
         history: (scope) =>
-          routineIntelligence.getThreadMessages({
+          localPlatform.getThreadMessages({
             threadId: scope.threadId,
             userId: scope.ownerUserId,
           }),
@@ -2738,7 +2599,6 @@ const app = createApp(
         },
         credentials: credentialStore,
         modelCheckAtBoot,
-        entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
         plugins: pluginStore,
         primaryBot: primaryBotIdOf(
           tenantPackage.agents.map((agent) => agent.id),
@@ -2782,10 +2642,8 @@ const app = createApp(
       auditStore: bootAuditStore,
     },
   },
-  createSelfHostBanner({
-    enabled: config.selfHostBanner,
-    entitlements: () => selfHostBannerIntelligence.getRuntimeEntitlements(),
-  }),
+  // The banner is the operator's switch now: there is no entitlement anywhere to ask about.
+  createSelfHostBanner({ enabled: config.selfHostBanner }),
 
   identityStore,
   identityGithubCallback,

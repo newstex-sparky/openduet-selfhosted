@@ -27,7 +27,7 @@ export const ConversationSendContext = createContext<ConversationSend | null>(
 
 /**
  * The conversation this is drawn in, or null outside one. Null is an answer, not an error: a card
- * drawn where there is nowhere to send, such as CopilotKit's own chat, draws nothing to press.
+ * drawn where there is nowhere to send, such as AgentRuntime's own chat, draws nothing to press.
  */
 export function useConversationSend(): ConversationSend | null {
   return useContext(ConversationSendContext);

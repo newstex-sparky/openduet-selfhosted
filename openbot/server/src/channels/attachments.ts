@@ -139,7 +139,7 @@ function inTheTurnsChannel(database: Database, threadId: string) {
  *
  * The send writes the column instead. It goes out through AG-UI rather than through either router
  * in this file, so the write is made where the send is actually known to have happened — in
- * `inlineAttachments` (copilot.ts), which is the one place that can tell the message being asked
+ * `inlineAttachments` (engine.ts), which is the one place that can tell the message being asked
  * about from the history behind it — through {@link markAttachmentsSent}.
  *
  * IT DOES READ `attachedAt`, THOUGH, WHICH IS NEW. A staged row is a file nobody has shared with
@@ -296,7 +296,7 @@ class UnrecordedSend extends Error {
  * here said that a turn is a person waiting for an answer, and that bookkeeping which could not be
  * written is not worth failing that answer over. The first half is true. The second rested on a
  * premise that is false: that by the time this runs, the answer has been earned. It has not.
- * `inlineAttachments` (copilot.ts) calls this BEFORE it hands the history back, and that history is
+ * `inlineAttachments` (engine.ts) calls this BEFORE it hands the history back, and that history is
  * what `super.run` / `next.run` is given afterwards — so at this moment no model has been called, no
  * token has been spent, and the person's message is still in front of them. Raising here costs a
  * retry of something that never started.

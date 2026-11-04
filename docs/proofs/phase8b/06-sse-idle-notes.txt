@@ -1,0 +1,44 @@
+Proof 6 — the run stream survives past the idle timeout
+=======================================================
+
+What was asked: the connection still receives events after an idle period longer
+than the previous timeout.
+
+What the recording shows (06-sse-frames.json, captured by the driver through
+Chrome DevTools Protocol Network.dataReceived, so these are bytes the browser
+actually received, not a server-side log):
+
+  one request   POST http://127.0.0.1:3102/api/engine/agent/openduet/run
+  frames        5
+  bytes         28310
+  offsets (s)   0.00, 5.00, 10.00, 14.00, 14.01
+  stream open   14.01 s
+
+Only ONE /run request was opened, so the reply did not arrive on a second
+connection after a silent reconnect. The model said nothing for 14 s (the mock's
+SLOW8B branch sleeps 14000 ms before answering), which is longer than the 10 s
+idle timeout that used to close the stream. The connection received data at 5 s
+and 10 s, and the reply's own events at 14 s.
+
+Where the old 10 s limit is written down, in the deployment's own source:
+
+  openbot/server/src/delivery/opentag.ts
+    export const AG_UI_HEARTBEAT_MS = 5_000;
+    export const BUN_IDLE_TIMEOUT_MS = 10_000;
+    /** `Bun.serve`'s default idle timeout, which the heartbeat has to beat. */
+
+  and the comment on the heartbeat argument:
+    "Under Bun's own idle limit. `Bun.serve` closes a connection that has sent
+     nothing for 10 seconds, and at 20 a turn longer than that lost its stream:
+     OpenTag read the headers and RUN_STARTED, the socket closed under it, and
+     the Slack message went unanswered."
+
+So the previous timeout is 10 s (a 20 s heartbeat could not beat it). The frames
+at 5 s and 10 s are the `CUSTOM openbot.working` heartbeat; the reply arrives at
+14 s on the same open response and the chat tab renders
+"SLOW8B reply arrived after fourteen seconds of model silence" — screenshot
+06-sse-idle-survived.png.
+
+Reproduce:
+
+  python driver.py --base http://127.0.0.1:3102 --out <repo>/docs/proofs/phase8b --proof 6

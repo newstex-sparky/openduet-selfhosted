@@ -119,9 +119,9 @@ WORKDIR /app
 # BOTH HALVES OF THE TREE COME FROM /prod. A workspace install is two directories, not one: the
 # packages it could hoist go to the root `node_modules`, and a per-workspace `node_modules` sits
 # beside each manifest holding the rest. The server's half used to be taken from /src, which is the
-# unpruned install, so the prune above bought nothing where the server actually resolves — and
-# `@copilotkit/aimock`, a development dependency, shipped as a symlink into a store the prune had
-# emptied, along with the two `.bin` shims pointing at it. Every dependency `server/package.json`
+# unpruned install, so the prune above bought nothing where the server actually resolves — and a
+# development dependency shipped as a symlink into a store the prune had emptied, along with the two
+# `.bin` shims pointing at it. Every dependency `server/package.json`
 # declares resolves from the /prod half; the ones it does not declare are absent now rather than
 # present and broken.
 COPY --from=deps /prod/node_modules node_modules
@@ -148,7 +148,7 @@ COPY agent-computer/package.json agent-computer/package.json
 # instruction that could not be followed where it shipped.
 #
 # ONE FILE, NOT `scripts/`. The others there are the laptop's. `diagram` and `mock:knowledge` reach
-# for `roughjs` and `@copilotkit/aimock`, which the prune above removes; `test:ci` runs a suite that
+# for `roughjs` and the repo's `server/testing` mocks, which the prune above removes; `test:ci` runs a suite that
 # is not in the image; `generate:app-config` writes a file the build has already baked into
 # `app/dist`. Copying the directory ships four more entries with nothing to do here, to fix one that
 # has something to do.

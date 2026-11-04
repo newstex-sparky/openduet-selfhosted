@@ -2,7 +2,7 @@
  * The one filter that keeps a broken conversation from being replayed at a model provider for ever.
  *
  * IT LIVES HERE BECAUSE BOTH TURN PATHS NEED IT. A routine's headless turn seeds history itself
- * (`toolkit/run-turn.ts`) and a chat turn is handed history by the browser (`copilot.ts`). Both
+ * (`toolkit/run-turn.ts`) and a chat turn is handed history by the browser (`engine.ts`). Both
  * hand that history to a `BuiltInAgent`, which converts it and lets the model provider validate the
  * call/result pairing. A module of its own, in the toolkit, so the chat path can use it without
  * importing the headless turn runner.
@@ -76,7 +76,7 @@ function isSilent(message: Message): boolean {
  * @param answeredElsewhere Call ids that are about to be answered by something this history cannot
  * see, and so must survive. That is the interrupt resume: `BuiltInAgent.run` appends a tool result
  * per `input.resume` entry, keyed by `interruptId`, AFTER converting the messages
- * (`@copilotkit/runtime/dist/agent/index.mjs`, the `resumeEntries` block in `run`). Dropping the
+ * (the CopilotKit runtime's `dist/agent/index.mjs`, the `resumeEntries` block in `run`). Dropping the
  * call that the resume answers would turn a resumable interrupt into an orphaned result, which is
  * the same error seen from the other side.
  */
@@ -98,7 +98,7 @@ export function sanitizeSeededHistory(
    * ONLY A USER ROW IS A BOUNDARY, though the API also stops at a system row. That is because it
    * checks the converted messages, and `BuiltInAgent` drops every `system` and `developer` row on
    * the way there unless `forwardSystemMessages` or `forwardDeveloperMessages` is set, which this
-   * deployment never does (`builtInAgentConfiguration` in `copilot.ts`). A skill's instructions
+   * deployment never does (`builtInAgentConfiguration` in `engine.ts`). A skill's instructions
    * arrive as a system row the browser inserts ahead of the person's message, so a call answered
    * after one of those is answered as far as the model call is concerned, and treating the row as
    * a boundary would drop a call the request would have carried fine. If either forwarding flag is

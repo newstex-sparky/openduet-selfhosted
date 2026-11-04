@@ -52,7 +52,7 @@ function buildApp(
     undefined, // auditReader
     undefined, // credentialService
     undefined, // packageStatusReader
-    undefined, // copilotHandler
+    undefined, // engineHandler
     undefined, // computerGateway
     undefined, // computerPolicy
     undefined, // agentProfileStore

@@ -13,9 +13,10 @@ import { historyOrEmpty, isMissingThread } from "../src/thread-history";
 /**
  * A `PlatformRequestError` as the platform client constructs one.
  *
- * Built by hand because the class is not re-exported from `@copilotkit/runtime/v2` and the package's
- * `exports` map reaches nothing that holds it — which is also why the code under test matches on the
- * shape. The constructor sets the message, then `status`, then `name`, so this is the same object.
+ * Built by hand because the platform client is not exported as a class any more: `ThreadHistoryClient`
+ * in `../src/thread-history.ts` names the shape it matches, and the code under test matches on the
+ * shape rather than on an error class. The constructor sets the message, then `status`, then `name`,
+ * so this is the same object.
  */
 function platformError(status: number): Error {
   const error = new Error(`Intelligence platform error ${status}`);

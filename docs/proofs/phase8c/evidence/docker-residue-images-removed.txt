@@ -1,0 +1,2 @@
+openduet-companion:local
+openduet-companion:p8

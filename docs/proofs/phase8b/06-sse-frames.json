@@ -1,0 +1,60 @@
+{
+  "runs": {
+    "1769712.75": {
+      "url": "http://127.0.0.1:3102/api/engine/agent/openduet/run",
+      "frames": 5,
+      "total_data_bytes": 28310,
+      "first_frame_s": 0.0,
+      "last_frame_s": 14.01,
+      "frame_offsets_s": [
+        0.0,
+        5.0,
+        10.0,
+        14.0,
+        14.01
+      ]
+    }
+  },
+  "model_requests": [
+    {
+      "path": "/v1/responses",
+      "at": 1793755099495,
+      "atIso": "2026-11-04T01:18:19.495Z"
+    },
+    {
+      "path": "/v1/chat/completions",
+      "at": 1793755099517,
+      "atIso": "2026-11-04T01:18:19.517Z"
+    },
+    {
+      "path": "/v1/responses",
+      "at": 1793755099568,
+      "atIso": "2026-11-04T01:18:19.568Z"
+    },
+    {
+      "path": "/v1/responses",
+      "at": 1793755213870,
+      "atIso": "2026-11-04T01:20:13.870Z"
+    },
+    {
+      "path": "/v1/responses",
+      "at": 1793755237886,
+      "atIso": "2026-11-04T01:20:37.886Z"
+    },
+    {
+      "path": "/v1/chat/completions",
+      "at": 1793755237923,
+      "atIso": "2026-11-04T01:20:37.923Z"
+    },
+    {
+      "path": "/v1/responses",
+      "at": 1793755240115,
+      "atIso": "2026-11-04T01:20:40.115Z"
+    },
+    {
+      "path": "/v1/responses",
+      "at": 1793755346682,
+      "atIso": "2026-11-04T01:22:26.682Z"
+    }
+  ]
+}

@@ -10,7 +10,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { MCPMock, type MCPToolDefinition } from "@copilotkit/aimock/mcp";
+import { MCPMock, type MCPToolDefinition } from "../testing/mcp-mock";
 import { readConnectPrompt } from "@openbot/shared/connect-prompt";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";

@@ -7,7 +7,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { AgentProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
@@ -18,7 +18,7 @@ import {
   useConversationSend,
 } from "@/components/channels/conversation-send";
 import { ConversationView } from "@/components/channels/conversation-view";
-import { ReplyChipsTool } from "@/lib/copilot/reply-chips-tool";
+import { ReplyChipsTool } from "@/lib/chat/reply-chips-tool";
 import { settleReactWork } from "./settle-react-work";
 
 /**
@@ -84,7 +84,7 @@ function mount(
   });
   const tree = (next: typeof props) => (
     <QueryClientProvider client={client}>
-      <CopilotKitProvider>
+      <AgentProvider runtimeUrl="/api/engine">
         <ReplyChipsTool />
         <ConversationView
           disabled={next.disabled ?? false}
@@ -96,7 +96,7 @@ function mount(
           pending={next.pending ?? false}
           queueWhileBusy={next.queueWhileBusy ?? false}
         />
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>
   );
   const view = render(tree(props));

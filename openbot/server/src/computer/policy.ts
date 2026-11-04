@@ -179,7 +179,7 @@ export type PolicyContext = {
  *
  * A person is the honest default rather than a convenient one: every path that does not carry an
  * initiator today is one a person drove. The computer gateway is the case worth naming — a Bot's
- * computer is driven by frontend tools in the browser (`app/src/lib/copilot/computer-tools.tsx`), so
+ * computer is driven by frontend tools in the browser (`app/src/lib/chat/computer-tools.tsx`), so
  * every action reaching that gateway came from somebody's session. When that stops being true, the
  * call site has to say so rather than inherit this.
  */

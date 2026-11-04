@@ -8,7 +8,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
-import { readThreadMessages } from "@/lib/copilot/thread-messages";
+import { readThreadMessages } from "@/lib/chat/thread-messages";
 import { readFirstDay } from "./first-day";
 import { readMorningBrief } from "./morning-brief";
 import { readFiring } from "./routine-firing";

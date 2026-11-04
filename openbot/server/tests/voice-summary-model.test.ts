@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import type { RunAgentInput } from "@ag-ui/client";
-import { runtimeModelForEnvironment } from "../src/copilot";
+import { runtimeModelForEnvironment } from "../src/engine";
 import {
   encryptSecret,
   resolveModelApiKey,

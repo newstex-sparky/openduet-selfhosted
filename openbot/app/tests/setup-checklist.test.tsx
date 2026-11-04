@@ -116,16 +116,10 @@ const READY_ROW = (
   ...row,
 });
 
-/** What an admin is sent: Intelligence ready, the model key missing, Gmail connectable, Slack unset. */
+/** What an admin is sent: the model key missing, Gmail connectable, Slack unset. */
 const ADMIN: Checklist = {
   audience: "admin",
   rows: [
-    READY_ROW({
-      id: "intelligence",
-      title: "CopilotKit Intelligence",
-      required: true,
-      detail: "Keeps your conversations and what OpenDuet remembers.",
-    }),
     READY_ROW({
       id: "model",
       title: "AI model",
@@ -135,7 +129,7 @@ const ADMIN: Checklist = {
       fix: {
         kind: "env",
         names: ["OPENAI_API_KEY"],
-        docsUrl: "https://github.com/CopilotKit/OpenDuet#quick-start",
+        docsUrl: "https://github.com/AgentRuntime/OpenDuet#quick-start",
         page: { label: "Credentials", path: "/admin/credentials" },
       },
     }),
@@ -157,7 +151,7 @@ const ADMIN: Checklist = {
         kind: "env",
         names: ["OPENTAG_SHARED_SECRET", "OPENTAG_URL"],
         docsUrl:
-          "https://github.com/CopilotKit/OpenDuet/blob/main/openbot/docs/configuration.md",
+          "https://github.com/AgentRuntime/OpenDuet/blob/main/openbot/docs/configuration.md",
       },
     }),
   ],
@@ -211,7 +205,6 @@ test("Ready and Needs setup rows come from the server's answer", async () => {
   const view = draw();
 
   await view.findByRole("list", { name: "Setup" });
-  expect(rowOf(view, "intelligence").getByText("Ready")).not.toBeNull();
   expect(rowOf(view, "model").getByText("Needs setup")).not.toBeNull();
   expect(rowOf(view, "model").getByText("Required")).not.toBeNull();
   expect(
@@ -240,7 +233,7 @@ test("an admin is shown the variable to set, the page, and the guide", async () 
   expect(model.getByText("OPENAI_API_KEY")).not.toBeNull();
   const guide = model.getByRole("link", { name: "Setup guide" });
   expect(guide.getAttribute("href")).toBe(
-    "https://github.com/CopilotKit/OpenDuet#quick-start",
+    "https://github.com/AgentRuntime/OpenDuet#quick-start",
   );
   expect(guide.getAttribute("target")).toBe("_blank");
 

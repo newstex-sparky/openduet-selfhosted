@@ -315,7 +315,7 @@ async def test_a2ui_catalog_context_reaches_model_without_entering_history(bound
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("name", ["computer_navigate", "computer_run_command", "copilotkit_load_skill", "copilotkit_read_skill_file"])
+@pytest.mark.parametrize("name", ["computer_navigate", "computer_run_command", "openbot_load_skill", "openbot_read_skill_file"])
 async def test_surface_tool_calls_end_then_consume_actual_client_result(boundary, name):
     body = run_input([name])
     body["context"] = [{"description": "OpenBot learned skills", "value": "LEARNED_CATALOG_MARKER"}]

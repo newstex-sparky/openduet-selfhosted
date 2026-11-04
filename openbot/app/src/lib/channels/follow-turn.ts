@@ -1,5 +1,5 @@
 import { tryClient } from "@/lib/client";
-import { joinWithin } from "@/lib/copilot/join-thread";
+import { joinWithin } from "@/lib/chat/join-thread";
 import { newId } from "@/lib/new-id";
 
 /**
@@ -36,7 +36,7 @@ export async function liveRun({
 }): Promise<string | null | undefined> {
   try {
     const response = await tryClient(
-      `/api/copilotkit/agent/${encodeURIComponent(agentId)}/connect`,
+      `/api/engine/agent/${encodeURIComponent(agentId)}/connect`,
       {
         method: "POST",
         body: {

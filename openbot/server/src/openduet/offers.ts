@@ -14,7 +14,7 @@ import type { ProactiveSuggestion } from "../proactive/types";
  * call names it exactly, where picking ids out of prose would not.
  *
  * NOTHING HAPPENS HERE. It reads one of the person's own suggestions and returns it for the app to
- * draw (app/src/lib/copilot/offer-task-tool.tsx). Starting it or hiding it is the person's choice,
+ * draw (app/src/lib/chat/offer-task-tool.tsx). Starting it or hiding it is the person's choice,
  * made on the card, through the same routes Tasks uses. So it is a read in every sense the approval
  * gate cares about, and it is the only tool a check-in turn holds (`CHECK_IN_TOOLS`). Held by every
  * Bot, like `add_tasks`, so a Bot can also show a suggestion again when the person asks about it.

@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { AgentProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { frameTaskBrief } from "@openbot/shared/task-brief";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -42,7 +42,7 @@ import {
   ChatTaskCard,
   readStartedTask,
   TaskCardTool,
-} from "@/lib/copilot/task-card-tool";
+} from "@/lib/chat/task-card-tool";
 import {
   type ReportDecision,
   type TaskRecord,
@@ -422,10 +422,10 @@ test("Chat draws the task's card under the Bot's On it, opening the task", async
   serving();
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider>
+      <AgentProvider runtimeUrl="/api/engine">
         <TaskCardTool />
         <ConversationView messages={startedIn(started)} onSubmit={() => {}} />
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>,
   );
   const card = await view.findByRole("link", { name: /Draft a reply to Rosa/ });
@@ -592,9 +592,9 @@ function app(path: string, list: ReactNode = <p>Tasks list</p>) {
   });
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <CopilotKitProvider runtimeUrl="http://localhost/api/copilotkit">
+      <AgentProvider runtimeUrl="http://localhost/api/engine">
         <RouterProvider router={router as never} />
-      </CopilotKitProvider>
+      </AgentProvider>
     </QueryClientProvider>,
   );
   return { view, router };

@@ -196,18 +196,16 @@ test("the local install's step says where its data really lives", async () => {
 
   await heading(view, "Where your data lives");
   const page = document.body.textContent ?? "";
-  // Conversations live in Intelligence, which is CopilotKit's cloud unless self-hosted, and every
-  // message reaches the model: neither is "on this computer".
-  expect(page).toContain(
-    "Conversations and memory are kept in CopilotKit Intelligence",
-  );
+  // Conversations live in this install's own database, and every message reaches the model: neither
+  // is "on this computer" in the sense the old copy meant.
+  expect(page).toContain("conversations and memory stay in this install's");
   expect(page).toContain("What you ask goes to your AI model.");
-  expect(page).toContain("Set DO_NOT_TRACK=1 to turn them off.");
+  expect(page).toContain("No usage events leave this install.");
   expect(page).not.toContain("stored on this computer");
   expect(page).not.toContain("Only what you send to your model leaves it");
 });
 
-test("the organization step offers enterprise early access and CopilotKit's other products", async () => {
+test("the organization step offers enterprise early access", async () => {
   localEvaluation = true;
   const view = open("/onboarding?step=organization");
 
@@ -217,18 +215,9 @@ test("the organization step offers enterprise early access and CopilotKit's othe
   );
   const early = view.getByRole("link", { name: "Get early access" });
   expect(early.getAttribute("href")).toBe(
-    "https://www.copilotkit.ai/talk-to-an-engineer?ref=openduet_app",
+    "https://github.com/newstex-sparky/openduet-selfhosted#quick-start",
   );
   expect(early.getAttribute("target")).toBe("_blank");
-  for (const product of ["openbot", "openmuse", "opendots"]) {
-    const link = view
-      .getAllByRole("link")
-      .find((a) => a.getAttribute("href")?.includes(`/${product}?`));
-    expect(link?.getAttribute("href")).toBe(
-      `https://www.copilotkit.ai/${product}?ref=openduet_onboarding`,
-    );
-    expect(link?.getAttribute("target")).toBe("_blank");
-  }
 });
 
 test("Next adds a step to the address and to history, and saves it", async () => {

@@ -12,7 +12,7 @@
  * delays the stop to the lifetime rather than removing it.
  *
  * Matched on the shape, as `isMissingThread` is, because `PlatformRequestError` is not exported by
- * `@copilotkit/runtime`.
+ * the CopilotKit runtime package.
  */
 export function isLockConflict(error: unknown): boolean {
   return (

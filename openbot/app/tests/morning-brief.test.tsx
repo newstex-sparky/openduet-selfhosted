@@ -8,7 +8,7 @@ import {
   test,
 } from "bun:test";
 import type { Message } from "@ag-ui/core";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { AgentProvider } from "@/lib/agui";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { MORNING_BRIEF_FRAME } from "@openbot/shared/morning-brief";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -51,7 +51,7 @@ import { frameFirstDay } from "@/lib/channels/first-day";
 import { frameMorningBrief, localDateOf } from "@/lib/channels/morning-brief";
 import { morningBriefClaimKey } from "@/lib/channels/morning-brief-claim";
 import { type ChannelSummary, channelKeys } from "@/lib/channels/queries";
-import { MorningBriefTool } from "@/lib/copilot/morning-brief-tool";
+import { MorningBriefTool } from "@/lib/chat/morning-brief-tool";
 import { queryClient as appQueryClient } from "@/query-client";
 import { settleReactWork } from "./settle-react-work";
 
@@ -416,10 +416,10 @@ describe("the transcript on a later day", () => {
     ) as typeof fetch;
     const view = render(
       <QueryClientProvider client={queries}>
-        <CopilotKitProvider>
+        <AgentProvider runtimeUrl="/api/engine">
           <MorningBriefTool />
           <ConversationView messages={briefed} onSubmit={() => {}} />
-        </CopilotKitProvider>
+        </AgentProvider>
       </QueryClientProvider>,
     );
 
@@ -449,10 +449,10 @@ describe("the transcript on a later day", () => {
     ) as typeof fetch;
     const view = render(
       <QueryClientProvider client={queries}>
-        <CopilotKitProvider>
+        <AgentProvider runtimeUrl="/api/engine">
           <MorningBriefTool />
           <ConversationView messages={briefed} onSubmit={() => {}} />
-        </CopilotKitProvider>
+        </AgentProvider>
       </QueryClientProvider>,
     );
     const card = await view.findByText(

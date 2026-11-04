@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { z } from "zod";
 import { currentApprovalContext } from "../src/approvals/types";
-import { buildAgents } from "../src/copilot";
+import { buildAgents } from "../src/engine";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 
 test("a real built-in native tool carries provider call identity and suspends AG-UI without a fake tool result", async () => {

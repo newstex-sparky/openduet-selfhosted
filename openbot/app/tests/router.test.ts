@@ -88,7 +88,7 @@ test("does not manually chunk lazy content or dependencies", () => {
   ).toBeUndefined();
   expect(
     selectOpenBotManualChunk(
-      "/repo/node_modules/.bun/@copilotkit+react-core@1.70.1/node_modules/@copilotkit/react-core/dist/index.js",
+      "/repo/node_modules/.bun/@ag-ui+client@1.0.1/node_modules/@ag-ui/client/dist/index.js",
     ),
   ).toBeUndefined();
   expect(

@@ -20,7 +20,6 @@ const secrets = {
   DATABASE_URL: "postgres://openbot:openbot@127.0.0.1/openbot",
   OPENAI_API_KEY: "sk-secret",
   COMPUTER_TOKEN: "computer-token",
-  INTELLIGENCE_API_KEY: "cpk-secret",
 } as const;
 
 const allowed = {
@@ -57,7 +56,6 @@ describe("what a command inherits", () => {
     expect(env).not.toHaveProperty("DATABASE_URL");
     expect(env).not.toHaveProperty("OPENAI_API_KEY");
     expect(env).not.toHaveProperty("COMPUTER_TOKEN");
-    expect(env).not.toHaveProperty("INTELLIGENCE_API_KEY");
     expect(JSON.stringify(env)).not.toContain("deployment-key");
     expect(JSON.stringify(env)).not.toContain("sk-secret");
   });

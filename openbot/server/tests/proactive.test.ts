@@ -320,12 +320,12 @@ describe("proactive run", () => {
       owner: "worker",
       runTurn: createTurnRunner({
         admission: serverTurnAdmission,
-        intelligence: {
+        platform: {
           getOrCreateThread: async () => undefined,
           getThreadMessages: async () => ({ messages: [] }),
-          ɵacquireThreadLock: async () => undefined,
-          ɵrenewThreadLock: async () => undefined,
-          ɵcleanupThreadLock: async () => undefined,
+          acquireThreadLock: async () => undefined,
+          renewThreadLock: async () => undefined,
+          cleanupThreadLock: async () => undefined,
         },
         runner,
         buildAgentFor: async ({ initiator }) => {

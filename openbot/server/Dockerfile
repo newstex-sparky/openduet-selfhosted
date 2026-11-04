@@ -58,6 +58,12 @@ COPY server server
 COPY shared shared
 COPY toolkit toolkit
 COPY examples examples
+# The server imports its egress rules from the computer's source rather than copying them
+# (server/src/computer/policy-network.ts -> agent-computer/src/egress.ts, node built-ins only).
+# Without this file the image could run `scripts/migrate.ts` but not the server itself, which
+# failed at boot with "Cannot find module '../../../agent-computer/src/egress'". The root
+# Dockerfile ships the whole directory for the same reason.
+COPY agent-computer/src/egress.ts agent-computer/src/egress.ts
 
 # The built app, served by the process below. `APP_DIST_DIR` is what turns that on, so an image
 # without this layer is still a working API.

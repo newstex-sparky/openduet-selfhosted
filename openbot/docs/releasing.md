@@ -150,12 +150,11 @@ the server reaches the supervisor, the supervisor builds a computer, the gateway
 browser acts, and the trail records it. It cannot run in CI, and this is not a gap to be closed
 later.
 
-OpenBot only runs in Intelligence mode, and `loadConfig` refuses to start without the project's
-Intelligence values, which a hosted runner has no business holding. The `image` check gets around
-this with placeholder values, because nothing is contacted at start-up, but the journey asserts
-`licenseStatus` is `valid`, and no placeholder can make that true.
+The smoke journey needs a deployment that is actually up: a database, a model key and a signed-in
+browser session. A hosted runner has none of those without a paid service, so this stays a step a
+person takes on a machine that already runs the stack.
 
-So it is a step a person takes, on a machine with real Intelligence credentials, before merging
+So it is a step a person takes, on a machine that runs the stack, before merging
 the release PR:
 
 ```sh

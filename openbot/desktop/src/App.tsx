@@ -63,10 +63,6 @@ function installationKeyFor(root: string, harness: HarnessChoice | null) {
   ]);
 }
 
-const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
-const MANAGED_INTELLIGENCE_GATEWAY_WS_URL =
-  "wss://realtime.intelligence.copilotkit.ai";
-
 /**
  * What the last screen offers to ask, mirroring `ask::SUGGESTED`.
  *
@@ -82,8 +78,6 @@ export function App() {
   const [blockerFailure, setBlockerFailure] = useState<Problem | null>(null);
   const [instruction, setInstruction] = useState("");
   const [root, setRoot] = useState("");
-  const [reuseIntelligence, setReuseIntelligence] = useState(false);
-  const [apiKey, setApiKey] = useState("");
   const [organizationAuthorityUrl, setOrganizationAuthorityUrl] = useState<
     string | null
   >(null);
@@ -101,152 +95,12 @@ export function App() {
   const [model, setModel] = useState<ModelChoice | null>(null);
   /** Model credentials a previous run already wrote, so the provider screen arrives filled in. */
   const [alreadyHeld, setAlreadyHeld] = useState<HeldConfiguration>({});
-  const [projects, setProjects] = useState<
-    { id: string; name: string }[] | null
-  >(null);
-  const [projectName, setProjectName] = useState("");
-  const [creatingProject, setCreatingProject] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const [intelligenceSignInKind, setIntelligenceSignInKind] = useState<
-    "managed" | "self-hosted"
-  >("managed");
-  const [selfHostedActive, setSelfHostedActive] = useState(false);
-  const selfHostedAttempt = useRef(0);
-  const selfHostedActiveRef = useRef(false);
-  const cancelSelfHostedSignIn = useCallback(async () => {
-    if (!selfHostedActiveRef.current) return;
-    selfHostedActiveRef.current = false;
-    selfHostedAttempt.current += 1;
-    setSelfHostedActive(false);
-    setSigningIn(false);
-    setProjects(null);
-    try {
-      await invoke("cancel_self_hosted_intelligence_sign_in");
-    } catch (error) {
-      setFailure(asProblem(error));
-    }
-  }, []);
-
-  async function signInToSelfHostedIntelligence() {
-    await cancelSelfHostedSignIn();
-    const attempt = ++selfHostedAttempt.current;
-    selfHostedActiveRef.current = true;
-    setSelfHostedActive(true);
-    setIntelligenceSignInKind("self-hosted");
-    setSigningIn(true);
-    setFailure(null);
-    setProjects(null);
-    setApiKey("");
-    setReuseIntelligence(false);
-    try {
-      const available = await invoke<{ id: string; name: string }[]>(
-        "begin_self_hosted_intelligence_sign_in",
-        { root, apiUrl },
-      );
-      if (selfHostedAttempt.current === attempt) setProjects(available);
-    } catch (error) {
-      if (selfHostedAttempt.current === attempt) {
-        setFailure(asProblem(error));
-        selfHostedActiveRef.current = false;
-        setSelfHostedActive(false);
-      }
-    } finally {
-      if (selfHostedAttempt.current === attempt) setSigningIn(false);
-    }
-  }
-
-  /*
-   * The address the browser was sent to, kept so the screen can show it.
-   *
-   * Both plan sign-ins already do this, for the reason written next to them: an open that silently
-   * did nothing, or a machine with no registered browser, leaves somebody watching a spinner with
-   * no idea where they are meant to go. This one threw the address away, so that case had no way
-   * out at all.
-   */
-  const [signInUrl, setSignInUrl] = useState<string | null>(null);
-
-  async function signInToCopilotKit() {
-    await cancelSelfHostedSignIn();
-    setIntelligenceSignInKind("managed");
-    setSigningIn(true);
-    setFailure(null);
-    setSignInUrl(null);
-    try {
-      setSignInUrl(await invoke<string>("begin_intelligence_sign_in"));
-      setProjects(
-        await invoke<{ id: string; name: string }[]>(
-          "finish_intelligence_sign_in",
-        ),
-      );
-    } catch (error) {
-      setFailure(asProblem(error));
-    } finally {
-      setSigningIn(false);
-      setSignInUrl(null);
-    }
-  }
-
-  async function pickProject(id: string) {
-    setSigningIn(true);
-    setFailure(null);
-    const selfHosted = intelligenceSignInKind === "self-hosted";
-    const attempt = selfHostedAttempt.current;
-    try {
-      const key = await invoke<string>(
-        selfHosted
-          ? "finish_self_hosted_intelligence_sign_in"
-          : "intelligence_key_for",
-        selfHosted ? { root, project: id } : { project: id },
-      );
-      if (selfHosted && selfHostedAttempt.current !== attempt) return;
-      setApiKey(key);
-      setProjects(null);
-    } catch (error) {
-      if (!selfHosted || selfHostedAttempt.current === attempt) {
-        setFailure(asProblem(error));
-        if (selfHosted) setProjects(null);
-      }
-    } finally {
-      if (!selfHosted || selfHostedAttempt.current === attempt) {
-        setSigningIn(false);
-        if (selfHosted) {
-          selfHostedActiveRef.current = false;
-          setSelfHostedActive(false);
-        }
-      }
-    }
-  }
-  async function createProject() {
-    const name = projectName.trim();
-    if (!name || signingIn) return;
-    setSigningIn(true);
-    setCreatingProject(true);
-    setFailure(null);
-    try {
-      const project = await invoke<{ id: string; name: string }>(
-        "create_intelligence_project",
-        { name },
-      );
-      setProjects((current) => [...(current ?? []), project]);
-      setProjectName("");
-      await pickProject(project.id);
-    } catch (error) {
-      setFailure(asProblem(error));
-    } finally {
-      setSigningIn(false);
-      setCreatingProject(false);
-    }
-  }
-
   const [step, setStep] = useState<SetupStep>("welcome");
-  const [apiUrl, setApiUrl] = useState(MANAGED_INTELLIGENCE_API_URL);
-  const [wsUrl, setWsUrl] = useState(MANAGED_INTELLIGENCE_GATEWAY_WS_URL);
   const [steps, setSteps] = useState<Progress[]>([]);
   const [busy, setBusy] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [checkingResume, setCheckingResume] = useState(true);
   const savedLaunch = useRef<string | null>(null);
-  const [refreshIntelligence, setRefreshIntelligence] = useState(false);
   const [preparation, setPreparation] = useState<{
     key: string;
     status: "preparing" | "complete" | "failed";
@@ -289,55 +143,26 @@ export function App() {
     setSteps((current) => settleProgress(current, problem));
     setRecoveryFailure(problem);
     if (problem.connection === "model") setStep("model");
-    if (problem.connection === "intelligence") {
-      setRefreshIntelligence(true);
-      setStep("connect");
-    }
     if (problem.connection === "organization") setRefreshOrganization(true);
   }, []);
   const displayedFailure = failure ?? recoveryFailure;
-  const credentialContext = useRef([
-    root,
-    model,
-    apiKey,
-    apiUrl,
-    wsUrl,
-    harness,
-    step,
-    reuseIntelligence,
-  ]);
+  const credentialContext = useRef([root, model, harness, step]);
   useEffect(() => {
-    const next = [
-      root,
-      model,
-      apiKey,
-      apiUrl,
-      wsUrl,
-      harness,
-      step,
-      reuseIntelligence,
-    ];
+    const next = [root, model, harness, step];
     if (
       next.some((value, index) => value !== credentialContext.current[index])
     ) {
       credentialContext.current = next;
       setFailure(null);
     }
-  }, [root, model, apiKey, apiUrl, wsUrl, harness, step, reuseIntelligence]);
+  }, [root, model, harness, step]);
 
   const clearRootScopedSavedState = useCallback(() => {
-    void cancelSelfHostedSignIn();
-    setIntelligenceSignInKind("managed");
     savedLaunch.current = null;
-    setRefreshIntelligence(false);
     setRefreshOrganization(false);
     setOrganizationAuthorityUrl(null);
-    setApiKey("");
-    setReuseIntelligence(false);
-    setApiUrl(MANAGED_INTELLIGENCE_API_URL);
-    setWsUrl(MANAGED_INTELLIGENCE_GATEWAY_WS_URL);
     setAlreadyHeld({});
-  }, [cancelSelfHostedSignIn]);
+  }, []);
 
   const loadConfiguredRoot = useCallback(
     async (nextRoot: string) => {
@@ -353,10 +178,6 @@ export function App() {
         );
         if (configuredRunRef.current !== run) return;
         const { values, saved } = configured;
-        if (values.INTELLIGENCE_API_KEY) setApiKey(values.INTELLIGENCE_API_KEY);
-        if (values.INTELLIGENCE_API_URL) setApiUrl(values.INTELLIGENCE_API_URL);
-        if (values.INTELLIGENCE_GATEWAY_WS_URL)
-          setWsUrl(values.INTELLIGENCE_GATEWAY_WS_URL);
         setAlreadyHeld({ ...values, saved });
         setOrganizationAuthorityUrl(
           values.OPENBOT_ORGANIZATION_AUTH_URL ?? null,
@@ -461,13 +282,6 @@ export function App() {
           // connections and already installed assets; the native start still validates both.
           await invoke("start_stack", {
             root: found,
-            apiKey: "",
-            apiUrl:
-              configured.values.INTELLIGENCE_API_URL ||
-              MANAGED_INTELLIGENCE_API_URL,
-            gatewayWsUrl:
-              configured.values.INTELLIGENCE_GATEWAY_WS_URL ||
-              MANAGED_INTELLIGENCE_GATEWAY_WS_URL,
             model: resumedModel,
             harness: resumedHarness,
             ...(configured.values.OPENBOT_ORGANIZATION_AUTH_URL
@@ -554,9 +368,6 @@ export function App() {
     try {
       await invoke("start_stack", {
         root: root.trim(),
-        apiUrl,
-        gatewayWsUrl: wsUrl,
-        apiKey,
         // The whole answer from the model screen, so the Rust side decides which keys that
         // implies. Sending a bare key here is what made `ANTHROPIC_API_KEY` and a plan token
         // expressible at the same time.
@@ -578,7 +389,6 @@ export function App() {
       ) {
         savedLaunch.current = installationKey;
         setStep("connect");
-        setRefreshIntelligence(false);
         await invoke("show_openbot");
         return;
       }
@@ -646,7 +456,6 @@ export function App() {
       setRunning(false);
       setRecoveryFailure(null);
       setStep("connect");
-      setRefreshIntelligence(false);
     } catch (error) {
       setFailure(asProblem(error));
     } finally {
@@ -713,7 +522,6 @@ export function App() {
           authorityUrl={organizationAuthorityUrl ?? ""}
           onBack={() => {
             setRefreshOrganization(false);
-            setRefreshIntelligence(true);
             setRunning(false);
           }}
           onSignedIn={async () => {
@@ -790,7 +598,7 @@ export function App() {
           </h1>
           <p className="lede">
             {installationReady
-              ? "OpenBot’s local software is ready. Next, connect your AI and CopilotKit accounts."
+              ? "OpenBot’s local software is ready. Next, connect your AI account."
               : "Install the software OpenBot needs on this computer. This can take a few minutes. You’ll sign in after installation finishes."}
           </p>
           {!installationReady && engine?.responding && (
@@ -915,7 +723,7 @@ export function App() {
     );
   }
 
-  if (!running && returningToInstallation && !refreshIntelligence) {
+  if (!running && returningToInstallation) {
     return (
       <main>
         <h1>OpenBot is stopped</h1>
@@ -938,14 +746,6 @@ export function App() {
           onClick={() => setStep("model")}
         >
           Change AI connection
-        </button>
-        <button
-          type="button"
-          className="quiet"
-          disabled={busy}
-          onClick={() => setRefreshIntelligence(true)}
-        >
-          Change CopilotKit connection
         </button>
         {displayedFailure && (
           <button
@@ -997,266 +797,13 @@ export function App() {
         <h1>
           {running && !displayedFailure
             ? "OpenBot is running"
-            : returningToInstallation
-              ? "Refresh your CopilotKit connection"
-              : "Connect to CopilotKit"}
+            : "Start OpenBot"}
         </h1>
         <p className="lede">
           {running && !displayedFailure
             ? "The stack is up. OpenBot is in this window; the menu bar has it too, and stops it."
-            : returningToInstallation
-              ? "Update this connection to reopen your existing OpenBot."
-              : "Local installation is complete. Connect CopilotKit, then start OpenBot."}
+            : "Local installation is complete. Start OpenBot to run it."}
         </p>
-
-        {!running && (
-          <fieldset className="connection-form" disabled={busy}>
-            {/*
-            Sign in on the main path; paste behind the disclosure.
-
-            This screen used to ask for a key whose only source was two terminal commands, which is
-            the one thing the audience rule forbids. Somebody on managed CopilotKit now signs in and
-            OpenBot creates the key for the project they pick. Somebody running their own
-            Intelligence has a key this sign-in knows nothing about, so the field moves down there
-            with the addresses it belongs with.
-          */}
-            {apiKey && !signingIn && !projects ? (
-              <>
-                <p className="lede">
-                  {intelligenceSignInKind === "self-hosted"
-                    ? "Connected to Intelligence."
-                    : "Connected to CopilotKit."}
-                </p>
-                {returningToInstallation && (
-                  <button
-                    type="button"
-                    className="quiet"
-                    onClick={signInToCopilotKit}
-                  >
-                    Sign in to CopilotKit again
-                  </button>
-                )}
-              </>
-            ) : (alreadyHeld.saved?.intelligenceApiKey || reuseIntelligence) &&
-              !signingIn &&
-              !projects ? (
-              <>
-                <p className="lede">
-                  A saved CopilotKit connection will be checked when you start.
-                </p>
-                <button
-                  type="button"
-                  className="quiet"
-                  onClick={signInToCopilotKit}
-                >
-                  Sign in to CopilotKit again
-                </button>
-              </>
-            ) : signInUrl ? (
-              <>
-                <p className="lede">
-                  Finish signing in to CopilotKit in your browser. If it did not
-                  open, this is the address:
-                </p>
-                {/* Selectable text, not a link: the browser has already been asked to open it, and
-                  what is needed here is something a person can copy. */}
-                <p className="footnote" style={{ userSelect: "text" }}>
-                  {signInUrl}
-                </p>
-                <p className="footnote">Waiting for you to approve it…</p>
-              </>
-            ) : projects ? (
-              <>
-                <p className="lede">Which project should OpenBot use?</p>
-                <fieldset className="picker">
-                  <legend className="sr-only">Project</legend>
-                  {projects.map((project) => (
-                    <button
-                      type="button"
-                      key={project.id}
-                      className="tile project-choice"
-                      disabled={signingIn}
-                      onClick={() => pickProject(project.id)}
-                    >
-                      <span className="tile-name">{project.name}</span>
-                    </button>
-                  ))}
-                </fieldset>
-                {projects.length === 0 && (
-                  <>
-                    <p className="footnote">
-                      {intelligenceSignInKind === "self-hosted"
-                        ? "That account has no available projects. Ask your Intelligence administrator for access, or sign in with a different account."
-                        : "That account has no projects yet. Create one below, or sign in with a different account."}
-                    </p>
-                    <button
-                      type="button"
-                      className="quiet"
-                      disabled={signingIn}
-                      onClick={
-                        intelligenceSignInKind === "self-hosted"
-                          ? signInToSelfHostedIntelligence
-                          : signInToCopilotKit
-                      }
-                    >
-                      {signingIn
-                        ? "Waiting for your browser…"
-                        : "Sign in again"}
-                    </button>
-                  </>
-                )}
-                {intelligenceSignInKind === "managed" && (
-                  <form
-                    className="new-project-form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void createProject();
-                    }}
-                  >
-                    <div className="field">
-                      <label htmlFor="new-project-name">New project name</label>
-                      <input
-                        id="new-project-name"
-                        value={projectName}
-                        onChange={(event) => setProjectName(event.target.value)}
-                        disabled={signingIn}
-                        autoComplete="off"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className={projects.length > 0 ? "quiet" : undefined}
-                      disabled={signingIn || !projectName.trim()}
-                    >
-                      {creatingProject ? "Creating project…" : "Create project"}
-                    </button>
-                  </form>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="lede">
-                  OpenBot keeps your conversations in CopilotKit. Sign in and it
-                  sets the rest up for you.
-                </p>
-                <div className="row connection-actions">
-                  <button
-                    type="button"
-                    disabled={signingIn}
-                    onClick={signInToCopilotKit}
-                  >
-                    {signingIn
-                      ? "Waiting for your browser…"
-                      : "Sign in to CopilotKit"}
-                  </button>
-                  {!apiKey &&
-                    !reuseIntelligence &&
-                    alreadyHeld.saved?.intelligenceApiKey == null &&
-                    !signingIn && (
-                      <button
-                        type="button"
-                        className="quiet"
-                        onClick={() => setReuseIntelligence(true)}
-                      >
-                        Use a saved connection
-                      </button>
-                    )}
-                </div>
-              </>
-            )}
-            {/*
-            This used to be headed "Self-hosted Intelligence" over two fields pre-filled with the
-            MANAGED service's addresses, which says the opposite of what it does: somebody opening
-            it to check where their data goes read "self-hosted" and saw CopilotKit's own hosts.
-            The heading now describes the action, and the note says what the defaults are.
-          */}
-            <details>
-              <summary>Point at your own Intelligence server</summary>
-              <p className="footnote" style={{ margin: "0.6rem 0 0.75rem" }}>
-                Enter your Intelligence server’s addresses, then sign in to
-                choose a project. OpenBot creates its Learning container for
-                you. Sign-in requires Chrome or Microsoft Edge. You can also use
-                an existing project key.
-              </p>
-              <div className="field">
-                <label htmlFor="key">Project key</label>
-                <input
-                  id="key"
-                  disabled={selfHostedActive}
-                  type="password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder="the key from your own Intelligence"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </div>
-              <div className="field" style={{ marginTop: "0.75rem" }}>
-                <label htmlFor="api">API URL</label>
-                <input
-                  id="api"
-                  disabled={selfHostedActive}
-                  value={apiUrl}
-                  onChange={(event) => setApiUrl(event.target.value)}
-                  spellCheck={false}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="ws">Gateway WebSocket URL</label>
-                <input
-                  id="ws"
-                  value={wsUrl}
-                  onChange={(event) => setWsUrl(event.target.value)}
-                  spellCheck={false}
-                />
-              </div>
-              <div className="row connection-actions">
-                <button
-                  type="button"
-                  disabled={signingIn || selfHostedActive || !apiUrl.trim()}
-                  onClick={signInToSelfHostedIntelligence}
-                >
-                  Sign in to Intelligence
-                </button>
-                {selfHostedActive && (
-                  <button
-                    type="button"
-                    className="quiet"
-                    onClick={cancelSelfHostedSignIn}
-                  >
-                    Cancel Intelligence sign-in
-                  </button>
-                )}
-              </div>
-              {selfHostedActive && signingIn && !projects && (
-                <p className="footnote" role="status">
-                  Finish signing in in the Intelligence browser window…
-                </p>
-              )}
-            </details>
-            <details>
-              <summary>Sign in through your organization</summary>
-              <p className="footnote">
-                Enter your organization’s OpenBot address to use its sign-in and
-                access rules.
-              </p>
-              <div className="field">
-                <label htmlFor="organization-authority">
-                  Organization OpenBot URL
-                </label>
-                <input
-                  id="organization-authority"
-                  value={organizationAuthorityUrl ?? ""}
-                  onChange={(event) =>
-                    setOrganizationAuthorityUrl(event.target.value)
-                  }
-                  placeholder="https://openbot.your-company.com"
-                  spellCheck={false}
-                />
-              </div>
-            </details>
-          </fieldset>
-        )}
 
         <SetupProgress steps={steps} />
 
@@ -1268,7 +815,7 @@ export function App() {
             <button
               type="button"
               className="quiet"
-              disabled={busy || signingIn}
+              disabled={busy}
               onClick={() => {
                 setPreparation(null);
                 setSteps([]);
@@ -1284,12 +831,8 @@ export function App() {
             <button
               type="button"
               className="quiet"
-              disabled={busy || signingIn}
-              onClick={() =>
-                returningToInstallation
-                  ? setRefreshIntelligence(false)
-                  : setStep("model")
-              }
+              disabled={busy}
+              onClick={() => setStep("model")}
             >
               Back
             </button>
@@ -1332,11 +875,7 @@ export function App() {
               // answered at all, not that some field on this screen is non-empty.
               disabled={
                 busy ||
-                signingIn ||
                 !installationReady ||
-                (apiKey.trim() === "" &&
-                  !alreadyHeld.saved?.intelligenceApiKey &&
-                  !reuseIntelligence) ||
                 !modelCanStart() ||
                 root.trim() === ""
               }

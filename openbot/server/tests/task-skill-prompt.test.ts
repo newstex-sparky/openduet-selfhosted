@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import type { BaseEvent, Message } from "@ag-ui/client";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
-import { BuiltInAgentWithSaneHistory } from "@openbot/toolkit/copilotkit/agents";
+import type { BuiltInAgentClassicConfig } from "@openbot/toolkit/platform/engine/agent/index";
+import { BuiltInAgentWithSaneHistory } from "@openbot/toolkit/platform/agents";
 import { HeadlessToolSuspension } from "@openbot/toolkit/headless-tools";
 import {
   createTurnRunner,
-  type IntelligenceLike,
+  type TurnPlatformLike,
   type RunnerLike,
 } from "@openbot/toolkit/run-turn";
 import { Observable } from "rxjs";
 import { parseApprovalContinuation } from "../src/approvals/types";
-import { builtInAgentConfiguration } from "../src/copilot";
+import { builtInAgentConfiguration } from "../src/engine";
 import { RunChannelMiddleware } from "../src/openduet/run-channel";
 import { createTaskReplyContext } from "../src/openduet/task-reply-context";
 import { createTaskTurn } from "../src/openduet/task-threads";
@@ -48,7 +48,7 @@ function harness(options: { approval?: boolean } = {}) {
   const prompts: Prompt[] = [];
   const runs: Parameters<RunnerLike["run"]>[0][] = [];
   const history: Awaited<
-    ReturnType<IntelligenceLike["getThreadMessages"]>
+    ReturnType<TurnPlatformLike["getThreadMessages"]>
   >["messages"] = [
     { id: "old:skill:0", role: "system", content: UNTRUSTED },
     { id: "old-developer", role: "developer", content: UNTRUSTED },
@@ -134,12 +134,12 @@ function harness(options: { approval?: boolean } = {}) {
   };
   const runTurn = createTurnRunner({
     admission: async ({ signal }) => signal ?? new AbortController().signal,
-    intelligence: {
+    platform: {
       getOrCreateThread: async () => ({}),
       getThreadMessages: async () => ({ messages: history }),
-      ɵacquireThreadLock: async ({ threadId, runId }) => ({ threadId, runId }),
-      ɵrenewThreadLock: async () => ({}),
-      ɵcleanupThreadLock: async () => {},
+      acquireThreadLock: async ({ threadId, runId }) => ({ threadId, runId }),
+      renewThreadLock: async () => ({}),
+      cleanupThreadLock: async () => {},
     },
     buildAgentFor: async () => buildAgent(),
     runner: {
