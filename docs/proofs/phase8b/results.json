@@ -86,5 +86,41 @@
     },
     "routines_page_shows_schedule": true,
     "routines_page_text_tail": "Self-host OpenDuet for your organization.\n\nSetup guide\n\nRoutines\n\nRoutines\n\nWhat a Bot does on a schedule, without being asked each time. Made and changed by talking to a Bot \u2014 this page only shows what is standing, and lets you stop one.\n\nEvery day at 01:20\nUTC\n\nROUTINE8B fired turn: post the standup summary\n\nOpenDuet\nHasn't run yet\nNext in 2 minutes\nRun now\nHistory\nDelete"
+  },
+  {
+    "proof": "5",
+    "ok": true,
+    "at": "2026-11-03T20:22:09-0500",
+    "screenshots": [
+      "05a-paused-waiting-for-approval.png",
+      "05b-resumed-after-allow-once.png"
+    ],
+    "paused_at": "2026-11-03T20:20:38-0500",
+    "decision_posts": [
+      {
+        "status": 202,
+        "url": "http://127.0.0.1:3102/api/approvals/computer/openduet"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:3102/api/approvals/61abba82-4b3d-4603-b6c7-f66fe5fe8e99/decision"
+      }
+    ],
+    "computer_clicks_before_allow": 0,
+    "computer_clicks_after_allow": 1,
+    "click_evidence": [
+      {
+        "at": 1793755240076,
+        "atIso": "2026-11-04T01:20:40.076Z",
+        "path": "/click",
+        "botId": "openduet",
+        "tokenPresent": true,
+        "body": {
+          "ref": "e1",
+          "snapshotId": 1
+        }
+      }
+    ],
+    "resumed_text_tail": "e that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\nROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute\n\nROUTINE8B the routine is set; it posts here on its schedule.\n\nRoutine ran. ROUTINE8B fired turn: post the standup summary\n\nROUTINE8B scheduled turn ran at 2026-11-04T01:20:13.870Z with nobody typing.\n\nAPPROVAL8B submit the form on the page\nUsed the browser\n\u25b8\n\nAPPROVAL8B the form was submitted.\n\nScroll to end\nMessage OpenDuet\nChat\nTasks\nMake"
   }
 ]
