@@ -55,6 +55,28 @@ python driver.py --base http://127.0.0.1:3102 --out ../../../docs/proofs/phase8b
 `restart_companion.sh` recreates one service with the values its running container already has, so a
 key is never pasted into a proof run and never printed.
 
+## What the proofs needed that the 8a recipe did not do on its own
+
+Two real findings, both fixed here rather than worked around:
+
+1. **The scheduler never fired anything.** `scripts/fire-routines.ts` reads the same config the
+   server does, and that config refuses to start without `KEY_ENCRYPTION_KEY`. The 8a recipe left it
+   out because a sweep stores no provider key, so the container exited on every start and every
+   routine, however correctly set, silently never fired. It now reads the key the `keys` service
+   wrote (and declares `OPENBOT_SINGLE_USER` for the same reason), so the sweep runs. See the commit
+   that touches `docker-compose.selfhosted.yml`.
+2. **The Bots are not given the Routines tools until the plugin is added and granted.** A fresh
+   deployment has no `routines` server row and no grants, so a turn that tries to set a routine up
+   is answered "Model tried to call unavailable tool". Finish it once in the admin UI — add the
+   first-party Routines plugin and grant its tools to the Bot — before running proof 4. A granted
+   tool reaches the model as `mcp__<server>__<tool>`, which is why `model-mock.ts` calls
+   `mcp__routines__create_routine`.
+
+The approval gate also runs its own reviewer model before any changing action. `model-mock.ts`
+answers that prompt too (`proceed` for the routine, `needs_approval` for the approval proof), because
+a mock that answers it with prose is a reviewer that fails closed and pauses every changing action —
+which is what the first attempt at proof 4 hit.
+
 ## Teardown
 
 ```sh
