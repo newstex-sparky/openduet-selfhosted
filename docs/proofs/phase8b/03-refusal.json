@@ -1,0 +1,8 @@
+[
+  {
+    "at": "2026-11-03T19:48:38-0500",
+    "status": 409,
+    "url": "http://127.0.0.1:3102/api/engine/agent/openduet/run",
+    "body": "{\"error\":\"Thread lock denied\"}"
+  }
+]

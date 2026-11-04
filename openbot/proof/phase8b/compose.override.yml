@@ -25,7 +25,9 @@ x-stub: &stub
   environment:
     HOME: /tmp
   volumes:
-    - "../../:/repo:ro"
+    # Relative to the Compose project directory (openbot/), which is the directory of the FIRST -f
+    # file, not of this override: one level up is the repo root.
+    - "../:/repo:ro"
 
 services:
   postgres:

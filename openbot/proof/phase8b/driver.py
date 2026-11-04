@@ -107,6 +107,34 @@ def send(page, text: str) -> None:
     print(f"  sent: {text[:90]}")
 
 
+def compose(page, text: str, wait_s: int = 120) -> None:
+    """Type a message and leave it unsent, waiting first if a run still holds the thread.
+
+    A tab whose thread has a run in flight shows `Stop the Bot` instead of `Send message`, so a
+    proof that needs two tabs holding a typed message has to wait that run out. Re-typing is safe
+    here because nothing was sent.
+    """
+    deadline = time.time() + wait_s
+    while True:
+        try:
+            page.wait_for_selector(COMPOSER, timeout=5000, state="visible")
+            box = page.locator(COMPOSER).first
+            box.click(timeout=5000)
+            page.wait_for_timeout(150)
+            page.keyboard.type(text, delay=4)
+            page.wait_for_timeout(300)
+            if page.locator(SEND).first.is_visible():
+                return
+        except Exception:
+            pass
+        if time.time() > deadline:
+            raise SystemExit(
+                f"FAILED: no send button after {wait_s}s; the thread still has a run in flight"
+            )
+        print("  thread busy, waiting for the run to finish before typing again")
+        page.wait_for_timeout(3000)
+
+
 def wait_for_text(page, needle: str, timeout_s: int, label: str) -> str:
     deadline = time.time() + timeout_s
     last = ""
@@ -255,48 +283,94 @@ def proof_2_after(ev: Evidence, browser, args) -> None:
 
 
 def proof_3(ev: Evidence, browser, args) -> None:
-    """Two concurrent actions on one thread: the second is refused with a real 409."""
-    print("\n== proof 3: lock concurrency, two live tabs ==")
+    """Two actions sent by two tabs at the same moment: the loser is refused with a real 409.
+
+    A tab that is already watching a run loses its send button, so the race has to be set up
+    the way the collision really happens: two people (or one person with two tabs) both hold a
+    typed message, and both press send. The winner takes the thread lock; the loser's
+    `POST /agent/:id/run` is answered 409 by `claimRunLock` before any run starts.
+
+    Tab order and a sub-second click gap are kept from a measurement on this stack: a tab that
+    has not yet seen the run keeps its send button for roughly 150 ms, which is the window the
+    second click has to land in.
+    """
+    print("\n== proof 3: lock concurrency, two tabs send at the same moment ==")
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
-    first_tab = ctx.new_page()
-    net_first = Net(first_tab)
-    open_chat(first_tab, args.base)
+    holder_tab = ctx.new_page()
+    rival_tab = ctx.new_page()
+    net_holder = Net(holder_tab)
+    net_rival = Net(rival_tab)
+    refusals = []
 
-    send(first_tab, "LOCK8B hold this thread while I try something else")
-    deadline = time.time() + 30
+    def watch(response):
+        if not response.url.endswith("/run") or response.status != 409:
+            return
+        detail = {"at": stamp(), "status": response.status, "url": response.url, "body": None}
+        try:
+            detail["body"] = response.text()[:400]
+        except Exception as error:  # the status is the evidence; the body is a bonus
+            detail["body"] = f"<unreadable: {error}>"
+        refusals.append(detail)
+
+    rival_tab.on("response", watch)
+
+    for tab, text in (
+        (holder_tab, "LOCK8B hold this thread while I try something else"),
+        (rival_tab, "PROOF3-8B second action while the first one is still running"),
+    ):
+        open_chat(tab, args.base)
+        compose(tab, text)
+
+    if not rival_tab.locator(SEND).first.is_visible():
+        raise SystemExit("FAILED: the second tab had no send button before the race, so it could not collide")
+
+    holder_tab.locator(SEND).first.click()
+    raced_at = time.time()
+    rival_click_at = None
+    deadline = time.time() + 10
     while time.time() < deadline:
-        first_tab.wait_for_timeout(500)
-        if any(r["url"].endswith("/run") for r in net_first.statuses("/engine/agent/")):
+        if not rival_tab.locator(SEND).first.is_visible():
             break
-    holder = [r for r in net_first.statuses("/engine/agent/") if r["url"].endswith("/run")]
-    print(f"  holder run POST seen: {[r['status'] for r in holder]}")
+        try:
+            rival_tab.locator(SEND).first.click(timeout=300)
+            rival_click_at = round(time.time() - raced_at, 2)
+            break
+        except Exception:
+            pass
+        time.sleep(0.02)
+    print(f"  second tab pressed send {rival_click_at}s after the first")
 
-    second_tab = ctx.new_page()
-    net_second = Net(second_tab)
-    open_chat(second_tab, args.base)
-    second_tab.wait_for_timeout(1200)
-    send(second_tab, "PROOF3-8B second action while the first one is still running")
-
-    refused = []
     deadline = time.time() + 45
-    while time.time() < deadline:
-        second_tab.wait_for_timeout(700)
-        refused = [r for r in net_second.statuses("/engine/agent/") if r["url"].endswith("/run")]
-        if refused:
-            break
-    shot_second = ev.shot(second_tab, "03-lock-409-second-tab")
-    shot_first = ev.shot(first_tab, "03-lock-409-holder-tab")
-    ev.write("03-network-second-tab.log", net_second.dump())
-    statuses = [r["status"] for r in refused]
-    ok = 409 in statuses
+    while time.time() < deadline and not refusals:
+        rival_tab.wait_for_timeout(100)
+    shot_rival = ev.shot(rival_tab, "03-lock-409-second-tab")
+    rival_tab.wait_for_timeout(1200)
+    shot_rival_late = ev.shot(rival_tab, "03b-lock-409-second-tab-after-the-refusal")
+    shot_holder = ev.shot(holder_tab, "03c-lock-409-holder-tab")
+
+    holder_runs = [r for r in net_holder.statuses("/engine/agent/") if r["url"].endswith("/run")]
+    rival_runs = [r for r in net_rival.statuses("/engine/agent/") if r["url"].endswith("/run")]
+    ev.write("03-network-holder-tab.log", net_holder.dump())
+    ev.write("03-network-second-tab.log", net_rival.dump())
+    ev.write("03-refusal.json", refusals)
+    print(f"  holder POST /run -> {[r['status'] for r in holder_runs]}")
+    print(f"  rival  POST /run -> {[r['status'] for r in rival_runs]}")
+    print(f"  refusals: {json.dumps(refusals, indent=2)}")
+
+    ok = bool(refusals) and any(r["status"] == 200 for r in holder_runs)
     ev.record(
         "3",
         ok,
-        screenshots=[os.path.basename(shot_second), os.path.basename(shot_first)],
-        holder_run_statuses=[r["status"] for r in holder],
-        refused_run_statuses=statuses,
-        refused_detail=[{"status": r["status"], "url": r["url"]} for r in refused],
-        second_tab_text_tail=body(second_tab)[-600:],
+        screenshots=[
+            os.path.basename(shot_rival),
+            os.path.basename(shot_rival_late),
+            os.path.basename(shot_holder),
+        ],
+        click_gap_seconds=rival_click_at,
+        holder_run_statuses=[r["status"] for r in holder_runs],
+        rival_run_statuses=[r["status"] for r in rival_runs],
+        http_409=refusals,
+        second_tab_text_tail=body(rival_tab)[-600:],
     )
     ctx.close()
 

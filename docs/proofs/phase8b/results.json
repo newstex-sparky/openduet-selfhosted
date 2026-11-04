@@ -42,5 +42,31 @@
     "token": "RESTART8B-1793729333",
     "occurrences_after_restart": 2,
     "occurrences_after_reload": 2
+  },
+  {
+    "proof": "3",
+    "ok": true,
+    "at": "2026-11-03T19:48:39-0500",
+    "screenshots": [
+      "03-lock-409-second-tab.png",
+      "03b-lock-409-second-tab-after-the-refusal.png",
+      "03c-lock-409-holder-tab.png"
+    ],
+    "click_gap_seconds": 0.07,
+    "holder_run_statuses": [
+      200
+    ],
+    "rival_run_statuses": [
+      409
+    ],
+    "http_409": [
+      {
+        "at": "2026-11-03T19:48:38-0500",
+        "status": 409,
+        "url": "http://127.0.0.1:3102/api/engine/agent/openduet/run",
+        "body": "{\"error\":\"Thread lock denied\"}"
+      }
+    ],
+    "second_tab_text_tail": "ith what I can do for you now.\n\nno rule matched: This is your first conversation with this person: they have just opened the app no rule matched: This is your first conversation with this person: they have just opened the app\n\nLOCK8B hold this thread while I try something else\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B hold this thread while I try something else\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B probe holder\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B hold this thread while I try something else\n\nSeen\n\nScroll to end\nMessage OpenDuet\nChat\nTasks\nMake"
   }
 ]
