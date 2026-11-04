@@ -68,5 +68,23 @@
       }
     ],
     "second_tab_text_tail": "ith what I can do for you now.\n\nno rule matched: This is your first conversation with this person: they have just opened the app no rule matched: This is your first conversation with this person: they have just opened the app\n\nLOCK8B hold this thread while I try something else\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B hold this thread while I try something else\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B probe holder\n\nLOCK8B holder finished.LOCK8B holder finished.\n\nLOCK8B hold this thread while I try something else\n\nSeen\n\nScroll to end\nMessage OpenDuet\nChat\nTasks\nMake"
+  },
+  {
+    "proof": "4",
+    "ok": true,
+    "at": "2026-11-03T20:20:14-0500",
+    "screenshots": [
+      "04a-routine-created.png",
+      "04b-routines-page.png",
+      "04c-routine-fired-live.png"
+    ],
+    "created_at": "2026-11-03T20:18:23-0500",
+    "fired_after_seconds": 104.5,
+    "interactions_while_waiting": {
+      "pointer": 0,
+      "keys": 0
+    },
+    "routines_page_shows_schedule": true,
+    "routines_page_text_tail": "Self-host OpenDuet for your organization.\n\nSetup guide\n\nRoutines\n\nRoutines\n\nWhat a Bot does on a schedule, without being asked each time. Made and changed by talking to a Bot \u2014 this page only shows what is standing, and lets you stop one.\n\nEvery day at 01:20\nUTC\n\nROUTINE8B fired turn: post the standup summary\n\nOpenDuet\nHasn't run yet\nNext in 2 minutes\nRun now\nHistory\nDelete"
   }
 ]

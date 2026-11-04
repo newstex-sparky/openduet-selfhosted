@@ -1,0 +1,55 @@
+Self-host OpenDuet for your organization.
+
+Setup guide
+
+D
+no rule matched: Asked: Get to know me. My Gmail and Google…
+Welcome. It's our first day together, and I'll learn how you work as we go.
+I can't see your mail or calendar yet, so I'll start with what I can do for you now.
+
+no rule matched: This is your first conversation with this person: they have just opened the app
+
+LOCK8B hold this thread while I try something else
+
+LOCK8B holder finished.
+
+LOCK8B hold this thread while I try something else
+
+LOCK8B holder finished.
+
+LOCK8B probe holder
+
+LOCK8B holder finished.
+
+LOCK8B hold this thread while I try something else
+
+LOCK8B holder finished.
+
+ROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute
+Create routine
+▸
+
+ROUTINE8B the routine is set; it posts here on its schedule.
+
+ROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute
+
+ROUTINE8B the routine is set; it posts here on its schedule.
+
+ROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute
+
+ROUTINE8B the routine is set; it posts here on its schedule.
+
+ROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute
+ROUTINE8B-SETUP set up the routine that posts the standup summary every day at this minute
+
+ROUTINE8B the routine is set; it posts here on its schedule.
+
+Routine ran. ROUTINE8B fired turn: post the standup summary
+
+ROUTINE8B scheduled turn ran at 2026-11-04T01:20:13.870Z with nobody typing.
+
+Scroll to end
+Message OpenDuet
+Chat
+Tasks
+Make

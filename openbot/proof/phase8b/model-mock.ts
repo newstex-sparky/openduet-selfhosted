@@ -87,6 +87,28 @@ llm.onMessage(/.*/, async (body: MockRequestBody): Promise<Resolved> => {
 		}),
 	);
 
+	/* (a0) the approval gate's own reviewer, which the deployment asks before any changing action. */
+	if (prompt.includes("You review one action an AI assistant is about to take")) {
+		/*
+		 * The reviewer prompt carries the person's request and the action, so the same phrases the
+		 * operator's turn used are visible here. Anything the proofs do that is not the approval
+		 * case is clearly within what was asked, so the reviewer proceeds; the approval case is the
+		 * one the reviewer asks a person about, which is what makes proof 5 a real pause rather
+		 * than a mock one.
+		 */
+		const needsApproval = prompt.includes("APPROVAL8B");
+		return {
+			content: JSON.stringify({
+				verdict: needsApproval ? "needs_approval" : "proceed",
+				preApproved: !needsApproval,
+				safety: "none",
+				reason: needsApproval
+					? "The person should see this click before it happens."
+					: "The person asked for this exact action in this turn.",
+			}),
+		};
+	}
+
 	/* (a) the thread lock: hold the run open long enough for a second action to be refused 409. */
 	if (prompt.includes("LOCK8B")) {
 		await new Promise((resolve) => setTimeout(resolve, 45_000));
@@ -120,7 +142,12 @@ llm.onMessage(/.*/, async (body: MockRequestBody): Promise<Resolved> => {
 			toolCalls: [
 				{
 					id: "call_create_routine_8b",
-					name: "create_routine",
+					// The name the model is actually offered: `toolNameFor` in
+					// server/src/plugins/plugin-store/model.ts prefixes a granted tool's ref with
+					// `mcp__` and turns the server/tool separator into `__`. A plain
+					// `create_routine` is not in the list the runtime hands over, and the engine
+					// answers such a call with "Model tried to call unavailable tool".
+					name: "mcp__routines__create_routine",
 					arguments: JSON.stringify({
 						instruction: "ROUTINE8B fired turn: post the standup summary",
 						cron: `${at.minute} ${at.hour} * * *`,
