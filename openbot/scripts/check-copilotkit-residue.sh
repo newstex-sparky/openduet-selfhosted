@@ -65,6 +65,7 @@ disposition() {
 	openbot/desktop/PROVIDER_OAUTH.md) echo removal-prose ;;
 	openbot/desktop/src-tauri/src/harness.rs | openbot/desktop/src-tauri/src/stack.rs) echo removal-prose ;;
 	openbot/docker-compose.selfhosted.yml) echo removal-prose ;;
+	docs/proofs/*) echo negative-assertion ;;
 	*) echo UNCLASSIFIED ;;
 	esac
 }
