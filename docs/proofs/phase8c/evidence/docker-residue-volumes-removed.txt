@@ -1,0 +1,8 @@
+openduet-8a_keys-data
+openduet-8a_postgres-data
+openduet-8b_keys-data
+openduet-8b_postgres-data
+openduet-p8_keys-data
+openduet-p8_postgres-data
+openduet-selfhosted_keys-data
+openduet-selfhosted_postgres-data

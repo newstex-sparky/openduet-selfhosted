@@ -1,0 +1,56 @@
+08fc082cc374	firecrawl-foundationdb-init-1	Exited (1) 5 days ago	foundationdb/foundationdb:7.3.63
+0ffd7cea8c2d	openduet-8b-migrate-1	Exited (0) 10 hours ago	openduet-companion:local
+10de22de0553	openduet-p8-scheduler-1	Exited (137) 14 hours ago	f25cbd223c18
+16087d3be509	firecrawl-foundationdb-1	Up 14 hours	foundationdb/foundationdb:7.3.63
+2cf2906fe99b	firecrawl-nuq-postgres-1	Exited (0) 14 hours ago	ghcr.io/firecrawl/nuq-postgres:latest
+2e536440339a	openduet-8a-keys-1	Exited (0) 17 hours ago	96147bccf7e9
+2ef178726ca9	firecrawl-playwright-service-1	Exited (1) 14 hours ago	ghcr.io/firecrawl/playwright-service:latest
+31bec40c39ba	p5-runner	Exited (137) 14 hours ago	oven/bun:1.4.3
+333fe0298281	openduet-p8-computer-1	Exited (137) 14 hours ago	oven/bun:1.4.3
+351606c9a0d9	od7merge-pg	Exited (0) 14 hours ago	pgvector/pgvector:pg17
+3c926bfeb476	od8-computer-1	Exited (137) 16 hours ago	oven/bun:1.4.3
+3dae8472d8eb	od8-app-1	Exited (143) 14 hours ago	oven/bun:1.4.3
+4059f2dc07d6	openduet-8b-computer-1	Up 11 hours	oven/bun:1.4.3
+4b07b0e763ac	tradelab-pg-fixture	Exited (139) 2 weeks ago	postgres:17-alpine
+4b0f6c45c799	tradelab-experiments	Exited (137) 14 hours ago	ea17ec341c42
+4d74e1e5f6b1	openduet-8b-model-1	Up 10 hours	oven/bun:1.4.3
+4f7965ec2a6a	openduet-p8-migrate-1	Exited (0) 35 hours ago	f25cbd223c18
+51d276d49160	camofox-browser	Exited (137) 14 hours ago	camofox-browser:135.0.1-aarch64
+55d1262df114	od8-postgres-1	Exited (1) 36 hours ago	pgvector/pgvector:pg17
+57d75007a5e8	openduet-p8-postgres-1	Exited (0) 14 hours ago	pgvector/pgvector:pg17
+591a201e3e05	tradelab-experiments9	Exited (0) 13 days ago	ubuntu:24.04
+5ab0b9cc6885	t7-pg	Exited (0) 14 hours ago	pgvector/pgvector:pg17
+61e73da33840	p8c-test-pg	Up 5 hours	pgvector/pgvector:pg17
+64e3958da787	openduet-selfhosted-migrate-1	Exited (0) 18 hours ago	7d8fe4d8ba0a
+69c5771c5e85	openduet-8b-keys-1	Exited (0) 10 hours ago	openduet-companion:local
+6ae1a2b989ca	od8-server-1	Exited (1) 36 hours ago	oven/bun:1.4.3
+6f7123e9b7bd	od8-model-1	Exited (137) 16 hours ago	oven/bun:1.4.3
+72466e93d7fd	openduet-p8-keys-1	Exited (0) 35 hours ago	f25cbd223c18
+728e04ae19de	openduet-8a-postgres-1	Exited (0) 14 hours ago	pgvector/pgvector:pg17
+799e412d3e30	openduet-8b-postgres-1	Up 11 hours (healthy)	pgvector/pgvector:pg17
+7a84dbce908c	z-image-turbo	Up 6 hours	z-image-turbo:latest
+7d4df78f7c52	openduet-8a-scheduler-1	Exited (137) 14 hours ago	96147bccf7e9
+7d73b6030741	openduet-8a-companion-1	Exited (0) 14 hours ago	96147bccf7e9
+804640f480f2	firecrawl-redis-1	Exited (0) 14 hours ago	redis:alpine
+86bdfd7a87dc	openduet-8b-scheduler-1	Up 11 hours	openduet-companion:local
+8a86850c6f33	sparky-pgsql	Exited (0) 14 hours ago	postgres:17-alpine
+8b34fc1446ff	p8c-bun	Up 5 hours	oven/bun:1.4.3
+8e982e7dc05e	tradelab-experiments8	Exited (1) 13 days ago	ubuntu:24.04
+8f1cc41aaf0b	od8-runner-1	Exited (137) 14 hours ago	oven/bun:1.4.3
+90275e792baf	tradelab-experiments6	Exited (1) 13 days ago	ubuntu:24.04
+a484f5d2081b	openduet-selfhosted-companion-1	Exited (0) 14 hours ago	7d8fe4d8ba0a
+a5acb559f87b	ollaya	Exited (0) 5 weeks ago	ghcr.io/ollaya-dev/ollaya:latest
+a882e72b3057	p8-runner	Exited (137) 14 hours ago	oven/bun:1.4.3
+b8f81f57bedb	firecrawl-api-1	Restarting (1) 17 seconds ago	ghcr.io/firecrawl/firecrawl:latest
+c2fd70cb4d96	openduet-selfhosted-postgres-1	Exited (0) 14 hours ago	pgvector/pgvector:pg17
+c3e04e7e23d3	od7merge-runner	Exited (137) 14 hours ago	oven/bun:1.4.3
+c5a0e9cffd50	openduet-8a-migrate-1	Exited (0) 17 hours ago	96147bccf7e9
+cab6fa8ccc7a	firecrawl-rabbitmq-1	Up 14 hours (healthy)	rabbitmq:3-management
+cac7018e5225	openduet-selfhosted-scheduler-1	Exited (137) 14 hours ago	7d8fe4d8ba0a
+ce03e7105def	openduet-phase3-pg	Exited (0) 5 days ago	pgvector/pgvector:pg17
+d4fbb1f614d1	tradelab-experiments10	Exited (1) 13 days ago	ubuntu:24.04
+dc401a9c140f	openduet-8b-companion-1	Up 10 hours	openduet-companion:local
+e36f17560a65	openduet-p8-model-1	Exited (137) 14 hours ago	oven/bun:1.4.3
+e99fee0eec1e	p8-pg	Exited (0) 14 hours ago	pgvector/pgvector:pg17
+f0de6022a139	openduet-selfhosted-keys-1	Exited (0) 18 hours ago	7d8fe4d8ba0a
+f8a84df40f5a	tradelab-experiments4	Exited (0) 13 days ago	ea17ec341c42

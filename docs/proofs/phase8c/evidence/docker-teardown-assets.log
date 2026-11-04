@@ -1,0 +1,49 @@
+## networks removed
+openduet-8a_default -> openduet-8a_default
+openduet-8b_default -> openduet-8b_default
+openduet-p8_default -> openduet-p8_default
+openduet-selfhosted_default -> openduet-selfhosted_default
+od4-dev_default -> od4-dev_default
+od5cp_default -> od5cp_default
+od6-dev_default -> od6-dev_default
+od6a-net -> od6a-net
+od6b-dev_default -> od6b-dev_default
+od6c-proof_default -> od6c-proof_default
+od6m_default -> od6m_default
+od7b3_default -> od7b3_default
+od7merge-net -> od7merge-net
+od8_default -> od8_default
+p8net -> p8net
+## volumes removed
+openduet-8a_keys-data -> openduet-8a_keys-data
+openduet-8a_postgres-data -> openduet-8a_postgres-data
+openduet-8b_keys-data -> openduet-8b_keys-data
+openduet-8b_postgres-data -> openduet-8b_postgres-data
+openduet-p8_keys-data -> openduet-p8_keys-data
+openduet-p8_postgres-data -> openduet-p8_postgres-data
+openduet-selfhosted_keys-data -> openduet-selfhosted_keys-data
+openduet-selfhosted_postgres-data -> openduet-selfhosted_postgres-data
+## project images removed
+openduet-companion:local -> Untagged: openduet-companion:local
+Deleted: sha256:a98832861edd1b350e2b01a750121038e147a910072549143d75d104ccf86abd
+openduet-companion:p8 -> Untagged: openduet-companion:p8
+Deleted: sha256:ffb5516802854d1815f3e942511755b1b9c56ba216452668dbd7f76bc3f0c5bd
+## dangling images pruned
+Deleted Images:
+deleted: sha256:0503d833f85736c5e47e950aaedbeddc857b95641449ca404b905139196c1c6d
+deleted: sha256:f25cbd223c1811c887362a6b56a87eef9d37294f8ea2a908ad69879b4fd46219
+deleted: sha256:29787f8bfd2bb2e9dc28e35b87ea71a439b0d46f527a7a6f08585f14e4b1d18a
+deleted: sha256:c5bee8d35cd9f385a8b7a4d1e66775e0fac6c0cd12ce581cbecc1d2dc29a0486
+deleted: sha256:9695dbd51636a17904bf4e7a696b159a253600a9e9169de705ae2752245686ed
+deleted: sha256:1ce09713493b2d9894795b8197ee53bca7d26039e105d25e7b0c25564d03b6af
+deleted: sha256:16dc1a5ca2b150978ee30d7404680cf5dc34f48de2e852261d393718d4e76a67
+deleted: sha256:1672122fb8555a28c3f4e74bd314d28a21187c8350499f74f7304fcca1ff76a1
+deleted: sha256:7d8fe4d8ba0a2cd002598e524a46e3acd7155348288f39561619893ba15cfb26
+deleted: sha256:dfa5c3c551a2c3b3b3a42101ab3a620707ad01ee591f03558c35b48e6d4eb4b6
+deleted: sha256:b0c039370361d1d52132cac238500a829f8d28ee214e8d050b2250ac63113abe
+deleted: sha256:a78ba7c6bb785df010acf52e75b5c88dbbe7595c8c3b1755fc6eaa44cf0b12ad
+deleted: sha256:55b45b1cd62e4bbe864f3b7404bfc29524a4e3c92caa26723769d82724701f75
+deleted: sha256:cd4f78a2ccfef316bba2e823bf9dea05b7282157150c5ba368156e0815983e9b
+deleted: sha256:96147bccf7e9252dbd4d949cdf010ed1e78217323de0b89fd01cebbfeaa909fd
+
+Total reclaimed space: 0B

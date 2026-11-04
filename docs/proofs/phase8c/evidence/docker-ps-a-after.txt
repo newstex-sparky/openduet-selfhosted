@@ -1,0 +1,18 @@
+08fc082cc374	firecrawl-foundationdb-init-1	Exited (1) 5 days ago	foundationdb/foundationdb:7.3.63
+16087d3be509	firecrawl-foundationdb-1	Up 14 hours	foundationdb/foundationdb:7.3.63
+2cf2906fe99b	firecrawl-nuq-postgres-1	Exited (0) 14 hours ago	ghcr.io/firecrawl/nuq-postgres:latest
+2ef178726ca9	firecrawl-playwright-service-1	Exited (1) 14 hours ago	ghcr.io/firecrawl/playwright-service:latest
+4b07b0e763ac	tradelab-pg-fixture	Exited (139) 2 weeks ago	postgres:17-alpine
+4b0f6c45c799	tradelab-experiments	Exited (137) 14 hours ago	ea17ec341c42
+51d276d49160	camofox-browser	Exited (137) 14 hours ago	camofox-browser:135.0.1-aarch64
+591a201e3e05	tradelab-experiments9	Exited (0) 13 days ago	ubuntu:24.04
+7a84dbce908c	z-image-turbo	Up 6 hours	z-image-turbo:latest
+804640f480f2	firecrawl-redis-1	Exited (0) 14 hours ago	redis:alpine
+8a86850c6f33	sparky-pgsql	Exited (0) 14 hours ago	postgres:17-alpine
+8e982e7dc05e	tradelab-experiments8	Exited (1) 13 days ago	ubuntu:24.04
+90275e792baf	tradelab-experiments6	Exited (1) 13 days ago	ubuntu:24.04
+a5acb559f87b	ollaya	Exited (0) 5 weeks ago	ghcr.io/ollaya-dev/ollaya:latest
+b8f81f57bedb	firecrawl-api-1	Restarting (1) 38 seconds ago	ghcr.io/firecrawl/firecrawl:latest
+cab6fa8ccc7a	firecrawl-rabbitmq-1	Up 14 hours (healthy)	rabbitmq:3-management
+d4fbb1f614d1	tradelab-experiments10	Exited (1) 13 days ago	ubuntu:24.04
+f8a84df40f5a	tradelab-experiments4	Exited (0) 13 days ago	ea17ec341c42
