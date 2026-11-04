@@ -593,14 +593,19 @@ describe("stop.sh deployment ownership", () => {
 
 describe("start.sh runtime health", () => {
   /**
-   * THE LICENCE IS CHECKED WITHOUT PYTHON.
+   * THE RUNTIME IS INTERROGATED WITHOUT PYTHON, AND ASKS FOR NO LICENCE.
    *
    * The check used to be a `python3` heredoc. On Windows `python3` is usually the Microsoft Store
    * alias, which exits 49, so `set -e` ended the run at "3/4 Runtime health" with the server and
    * worker already up and the app never started. The fake `python3` beside this file's other fakes
    * is that alias; the line below is only printed if the check ran, in Bun, and passed.
+   *
+   * The line names the roster, not a licence: the `licenseStatus` gate this stage used to read
+   * belonged to the vendor's Intelligence runtime and left with it (Phase 7b-3). A licence check
+   * here would fail every boot of the fork, so the assertion follows the sentence the script now
+   * prints rather than the one it printed before that removal.
    */
-  test("checks the licence and names the Bots without python3", async () => {
+  test("names the Bots without python3, and needs no licence", async () => {
     const result = await runStartWithStaleServerProbe(401);
 
     expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({
@@ -608,7 +613,7 @@ describe("start.sh runtime health", () => {
       stderr: "",
     });
     expect(result.stdout).toContain(
-      "licence valid · mode test · Bots: analyst",
+      "runtime ready · mode test · Bots: analyst",
     );
   });
 });
