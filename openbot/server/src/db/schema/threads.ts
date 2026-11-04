@@ -125,10 +125,7 @@ export const threadMessages = pgTable(
       table.threadId,
       table.messageId,
     ),
-    index("openduet_thread_messages_thread_idx").on(
-      table.threadId,
-      table.seq,
-    ),
+    index("openduet_thread_messages_thread_idx").on(table.threadId, table.seq),
   ],
 );
 

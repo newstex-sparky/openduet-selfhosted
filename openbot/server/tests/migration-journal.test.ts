@@ -366,7 +366,9 @@ test("a rename is read as one name moving, not as a create and a drop", () => {
       "public.copilotkit_threads": {
         name: "copilotkit_threads",
         columns: { id: { name: "id" } },
-        indexes: { copilotkit_threads_pkey: { name: "copilotkit_threads_pkey" } },
+        indexes: {
+          copilotkit_threads_pkey: { name: "copilotkit_threads_pkey" },
+        },
         checkConstraints: {},
       },
     },
@@ -459,7 +461,8 @@ const renamed = (snapshot: Snapshot, names: Renames): Snapshot => {
       return out;
     };
 
-    const checkConstraints: Record<string, { name: string; value: string }> = {};
+    const checkConstraints: Record<string, { name: string; value: string }> =
+      {};
     for (const check of Object.values(table.checkConstraints ?? {})) {
       // A migration renames the table first, so its later `RENAME CONSTRAINT` statements name the
       // table by its NEW name while the snapshot still files the constraint under the old one.
@@ -485,8 +488,11 @@ const renamed = (snapshot: Snapshot, names: Renames): Snapshot => {
       foreignKeys[to] = {
         ...foreignKey,
         name: to,
-        tableFrom: names.tables.get(String(foreignKey.tableFrom)) ?? foreignKey.tableFrom,
-        tableTo: names.tables.get(String(foreignKey.tableTo)) ?? foreignKey.tableTo,
+        tableFrom:
+          names.tables.get(String(foreignKey.tableFrom)) ??
+          foreignKey.tableFrom,
+        tableTo:
+          names.tables.get(String(foreignKey.tableTo)) ?? foreignKey.tableTo,
       };
     }
 

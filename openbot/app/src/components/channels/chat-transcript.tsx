@@ -1,9 +1,6 @@
 import type { ActivityMessage, Message } from "@ag-ui/core";
 import type { Attachment } from "@/lib/agui";
-import {
-  useRenderActivityMessage,
-  useRenderToolCall,
-} from "@/lib/agui";
+import { useRenderActivityMessage, useRenderToolCall } from "@/lib/agui";
 import {
   readConnectPrompt,
   SHOW_APP_ACCESS_TOOL,

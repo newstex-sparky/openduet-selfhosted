@@ -124,7 +124,9 @@ function logError(error: unknown): void {
  */
 export function createSseEventResponse(input: {
   request: Request;
-  observableFactory: () => Promise<Observable<BaseEvent>> | Observable<BaseEvent>;
+  observableFactory: () =>
+    | Promise<Observable<BaseEvent>>
+    | Observable<BaseEvent>;
   keepAliveIntervalSeconds?: number;
 }): Response {
   const keepAliveSeconds = resolveSseKeepAliveIntervalSeconds(

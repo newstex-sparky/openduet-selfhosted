@@ -83,8 +83,8 @@ function Capture({ kept }: { kept: Kept }) {
     (candidate) => candidate.name === "computer_request_sign_in",
   );
   kept.renderer = entry?.render as Renderer | undefined;
-  kept.handler = agentRuntime.handlerFor("computer_request_sign_in", undefined)?.tool
-    .handler as Kept["handler"];
+  kept.handler = agentRuntime.handlerFor("computer_request_sign_in", undefined)
+    ?.tool.handler as Kept["handler"];
   return null;
 }
 

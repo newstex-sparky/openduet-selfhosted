@@ -600,9 +600,7 @@ test.each([false, true])(
     expect(
       view.getByRole("heading", { name: "Starting OpenBot" }),
     ).toBeTruthy();
-    expect(
-      view.queryByRole("heading", { name: "Start OpenBot" }),
-    ).toBeNull();
+    expect(view.queryByRole("heading", { name: "Start OpenBot" })).toBeNull();
     expect(view.queryByRole("button", { name: "Set up OpenBot" })).toBeNull();
     await act(async () => launch.resolve());
     await waitFor(() =>
@@ -717,9 +715,7 @@ test("a runtime model authentication notification focuses refresh without adopti
   ).toBeTruthy();
   expect(
     invokeCalls.some((call) =>
-      ["start_stack", "show_openbot", "already_running"].includes(
-        call.command,
-      ),
+      ["start_stack", "show_openbot", "already_running"].includes(call.command),
     ),
   ).toBe(false);
   expect(installationCalls()).toHaveLength(0);
@@ -2141,11 +2137,11 @@ test.each([
       await act(async () => rootField.blur());
     }
     expect(requests[requests.length - 1].root).toBe(currentRoot);
-      await act(async () =>
-        requests[requests.length - 1].response.resolve(
-          savedOpenAiConfiguration(),
-        ),
-      );
+    await act(async () =>
+      requests[requests.length - 1].response.resolve(
+        savedOpenAiConfiguration(),
+      ),
+    );
     if (savedModel) {
       await user.click(
         view.getByRole("button", { name: "Continue to sign in" }),
@@ -2648,7 +2644,8 @@ for (const provider of [
     expect(
       invokeCalls.find((call) => call.command === "start_stack")?.args,
     ).toMatchObject({
-      root: "/tmp/openbot-app-test",      model: {
+      root: "/tmp/openbot-app-test",
+      model: {
         provider: provider.id,
         login: "plan",
         saved: true,

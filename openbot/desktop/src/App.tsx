@@ -281,7 +281,8 @@ export function App() {
           // Only a successful previous setup supplies launch intent. Reopening uses its saved
           // connections and already installed assets; the native start still validates both.
           await invoke("start_stack", {
-            root: found,            model: resumedModel,
+            root: found,
+            model: resumedModel,
             harness: resumedHarness,
             ...(configured.values.OPENBOT_ORGANIZATION_AUTH_URL
               ? {
@@ -794,7 +795,9 @@ export function App() {
           <p className="steps-of">Step 4 of 4</p>
         )}
         <h1>
-          {running && !displayedFailure ? "OpenBot is running" : "Start OpenBot"}
+          {running && !displayedFailure
+            ? "OpenBot is running"
+            : "Start OpenBot"}
         </h1>
         <p className="lede">
           {running && !displayedFailure
@@ -871,7 +874,10 @@ export function App() {
               // The model is answered by its own screen now, so what is checked here is that it was
               // answered at all, not that some field on this screen is non-empty.
               disabled={
-                busy || !installationReady || !modelCanStart() || root.trim() === ""
+                busy ||
+                !installationReady ||
+                !modelCanStart() ||
+                root.trim() === ""
               }
             >
               {busy ? "Working…" : "Start OpenBot"}

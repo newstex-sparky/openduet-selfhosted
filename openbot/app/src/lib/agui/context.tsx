@@ -26,9 +26,7 @@ export interface AgentContextValue {
   agentRuntime: AgentRuntime;
 }
 
-export const AgentContext = createContext<AgentContextValue | null>(
-  null,
-);
+export const AgentContext = createContext<AgentContextValue | null>(null);
 
 /** The registry, for a component that runs a turn or registers a tool. */
 export function useAgentRuntime(): AgentContextValue {
@@ -94,9 +92,7 @@ export function AgentProvider({
   useSyncExternalStore(subscribe, () => agentRuntime.renderRevision);
   const value: AgentContextValue = { agentRuntime };
   return (
-    <AgentContext.Provider value={value}>
-      {children}
-    </AgentContext.Provider>
+    <AgentContext.Provider value={value}>{children}</AgentContext.Provider>
   );
 }
 

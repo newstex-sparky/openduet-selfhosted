@@ -25,7 +25,10 @@ import { useFrontendTool } from "@/lib/chat/approval-tools";
 type Registered = Parameters<typeof ReactCoreV2.useFrontendTool>[0];
 const registered: Registered[] = [];
 const stopped: unknown[] = [];
-const useAgentRuntimeSpy = spyOn(ReactCoreV2, "useAgentRuntime").mockImplementation(
+const useAgentRuntimeSpy = spyOn(
+  ReactCoreV2,
+  "useAgentRuntime",
+).mockImplementation(
   () =>
     ({
       agentRuntime: { stopAgent: (input: unknown) => stopped.push(input) },

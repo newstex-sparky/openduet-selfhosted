@@ -1655,10 +1655,10 @@ const routineAgentRunner = localPlatform.runner;
  *
  */
 const headlessTurn: typeof createTurnRunner = (options) =>
-  ((turn: TurnRunner) => (input: Parameters<TurnRunner>[0]) =>
-    runAsLocalUser(input.ownerUserId, () => turn(input)))(
-    createTurnRunner(options),
-  );
+  (
+    (turn: TurnRunner) => (input: Parameters<TurnRunner>[0]) =>
+      runAsLocalUser(input.ownerUserId, () => turn(input))
+  )(createTurnRunner(options));
 
 const routineRunner = createRoutineRunner({
   routineStore,

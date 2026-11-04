@@ -713,9 +713,7 @@ test.each(["drawer", "sidebar"])(
       );
       expect(reads).toHaveLength(3);
       expect(new Set(reads)).toEqual(
-        new Set([
-          "/api/engine/threads/old-0-thread/messages?agentId=openduet",
-        ]),
+        new Set(["/api/engine/threads/old-0-thread/messages?agentId=openduet"]),
       );
       await visible(false);
       await visible(true);

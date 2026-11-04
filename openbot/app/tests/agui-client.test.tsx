@@ -1,4 +1,11 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  test,
+} from "bun:test";
 import type { Message } from "@ag-ui/core";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
@@ -61,7 +68,10 @@ function frame(event: Record<string, unknown>): string {
 }
 
 /** A turn that writes one reply and finishes. */
-function textTurn(text: string, ids = { run: "run-1", message: "msg-1" }): string {
+function textTurn(
+  text: string,
+  ids = { run: "run-1", message: "msg-1" },
+): string {
   return [
     frame({
       type: "RUN_STARTED",
@@ -89,11 +99,7 @@ function textTurn(text: string, ids = { run: "run-1", message: "msg-1" }): strin
 }
 
 /** A turn that calls one tool and finishes with the call unanswered. */
-function toolTurn(call: {
-  id: string;
-  name: string;
-  args: string;
-}): string {
+function toolTurn(call: { id: string; name: string; args: string }): string {
   return [
     frame({ type: "RUN_STARTED", threadId: "thread-1", runId: "run-tool" }),
     frame({
@@ -120,7 +126,10 @@ function toolTurn(call: {
 function stubRuntime(scripts: string[]): RecordedRequest[] {
   const recorded: RecordedRequest[] = [];
   let index = 0;
-  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = (async (
+    url: string | URL | Request,
+    init?: RequestInit,
+  ) => {
     const body = JSON.parse(String(init?.body ?? "{}")) as RunAgentInputBody;
     recorded.push({ url: String(url), init: init ?? {}, body });
     const script = scripts[Math.min(index, scripts.length - 1)];
@@ -216,9 +225,9 @@ describe("the agent on the wire", () => {
     expect(recorded[0]?.url).toBe("/api/engine/agent/bot/run");
     expect(recorded[0]?.init.method).toBe("POST");
     expect(recorded[0]?.init.credentials).toBe("include");
-    expect(
-      new Headers(recorded[0]?.init.headers).get("accept"),
-    ).toBe("text/event-stream");
+    expect(new Headers(recorded[0]?.init.headers).get("accept")).toBe(
+      "text/event-stream",
+    );
     expect(recorded[0]?.body.threadId).toBe("thread-1");
     expect(agent.messages.map((message) => message.content)).toEqual([
       "Hello there.",
@@ -308,9 +317,9 @@ describe("the agent on the wire", () => {
     await handlerRan;
     kit.stopAgent({ agent });
     await turn;
-    expect(
-      agent.messages.some((message) => message.role === "tool"),
-    ).toBe(false);
+    expect(agent.messages.some((message) => message.role === "tool")).toBe(
+      false,
+    );
   });
 });
 
@@ -375,7 +384,10 @@ describe("the hooks", () => {
       const { agentRuntime } = useAgentRuntime();
       const { agent } = useAgent({ agentId: "bot", threadId: "thread-1" });
       return (
-        <button type="button" onClick={() => void agentRuntime.runAgent({ agent })}>
+        <button
+          type="button"
+          onClick={() => void agentRuntime.runAgent({ agent })}
+        >
           send
         </button>
       );
@@ -389,7 +401,9 @@ describe("the hooks", () => {
     await waitFor(() => expect(screen.getByText("send")).toBeTruthy());
     fireEvent.click(screen.getByText("send"));
     await waitFor(() => expect(recorded).toHaveLength(1));
-    expect(recorded[0]?.body.tools.map((tool) => tool.name)).toEqual(["say_hi"]);
+    expect(recorded[0]?.body.tools.map((tool) => tool.name)).toEqual([
+      "say_hi",
+    ]);
   });
 
   test("uploads a file, and hands the composer the reference it will send", async () => {

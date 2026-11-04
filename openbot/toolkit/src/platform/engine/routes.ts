@@ -144,7 +144,11 @@ function matchSegments(path: string): Route | null {
     if (!agentId || !threadId) return null;
     return { method: "agent/stop", agentId, threadId };
   }
-  if (len >= 2 && segments[len - 2] === "threads" && segments[len - 1] === "subscribe")
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] === "subscribe"
+  )
     return { method: "threads/subscribe" };
   if (
     len >= 3 &&
@@ -182,7 +186,11 @@ function matchSegments(path: string): Route | null {
     if (!threadId) return null;
     return { method: "threads/archive", threadId };
   }
-  if (len >= 2 && segments[len - 2] === "threads" && segments[len - 1] === "clear")
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] === "clear"
+  )
     return { method: "threads/clear" };
   if (
     len >= 2 &&
@@ -196,7 +204,11 @@ function matchSegments(path: string): Route | null {
   }
   if (len >= 1 && segments[len - 1] === "threads")
     return { method: "threads/list" };
-  if (len >= 2 && segments[len - 2] === "memories" && segments[len - 1] === "recall")
+  if (
+    len >= 2 &&
+    segments[len - 2] === "memories" &&
+    segments[len - 1] === "recall"
+  )
     return { method: "memories/recall" };
   if (
     len >= 2 &&
@@ -215,7 +227,8 @@ function matchSegments(path: string): Route | null {
   }
   if (len >= 1 && segments[len - 1] === "memories")
     return { method: "memories/list" };
-  if (len >= 1 && segments[len - 1] === "annotate") return { method: "annotate" };
+  if (len >= 1 && segments[len - 1] === "annotate")
+    return { method: "annotate" };
   return null;
 }
 

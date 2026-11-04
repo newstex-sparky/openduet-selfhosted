@@ -326,8 +326,8 @@ function LocalStep() {
         Where your data lives
       </h1>
       <p className="mt-3 max-w-md text-center text-muted-foreground">
-        Your Bots, settings, conversations and memory stay in this install's
-        own database. What you ask goes to your AI model.
+        Your Bots, settings, conversations and memory stay in this install's own
+        database. What you ask goes to your AI model.
       </p>
       <p className="type-caption mt-3 max-w-md text-center text-duet-ink-3">
         No usage events leave this install.

@@ -40,10 +40,7 @@ export type ThreadLockClient = {
     runId: string;
     ttlSeconds: number;
   }): Promise<unknown>;
-  cleanupThreadLock(params: {
-    threadId: string;
-    runId: string;
-  }): Promise<void>;
+  cleanupThreadLock(params: { threadId: string; runId: string }): Promise<void>;
 };
 
 /**

@@ -277,11 +277,7 @@ function tree(channel: AgentChannel, frontendTools?: readonly TestTool[]) {
 }
 
 /** Registers the tools a test wants the browser to answer, inside the provider's registry. */
-function FrontendTools({
-  tools,
-}: {
-  tools: readonly TestTool[];
-}) {
+function FrontendTools({ tools }: { tools: readonly TestTool[] }) {
   for (const tool of tools)
     useFrontendTool({
       name: tool.name,

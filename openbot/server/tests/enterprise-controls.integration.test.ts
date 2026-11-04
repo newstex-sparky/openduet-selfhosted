@@ -417,10 +417,7 @@ function headlessTurn(agentId: string) {
   const intelligence = {
     getOrCreateThread: async () => ({ thread: { id: "t" }, created: false }),
     getThreadMessages: async () => ({ messages: [] }),
-    acquireThreadLock: async (params: {
-      threadId: string;
-      runId: string;
-    }) => ({
+    acquireThreadLock: async (params: { threadId: string; runId: string }) => ({
       threadId: params.threadId,
       runId: params.runId,
       joinToken: "j",

@@ -50,7 +50,8 @@ describe("choosing local mode", () => {
         testEnvironment({
           OPENDUET_LOCAL_MODE: "true",
           INTELLIGENCE_API_URL: "https://api.intelligence.copilotkit.ai",
-          INTELLIGENCE_GATEWAY_WS_URL: "wss://realtime.intelligence.copilotkit.ai",
+          INTELLIGENCE_GATEWAY_WS_URL:
+            "wss://realtime.intelligence.copilotkit.ai",
           INTELLIGENCE_API_KEY: "left-over-key",
         }),
       ).runtime,
@@ -171,9 +172,7 @@ describe("the runtime in local mode", () => {
       name: "Person",
     }));
     const listed = await runtime.handler.fetch(
-      new Request(
-        "http://openduet.test/api/engine/threads?agentId=openduet",
-      ),
+      new Request("http://openduet.test/api/engine/threads?agentId=openduet"),
     );
     expect(listed.status).toBe(200);
     // A thread with no run yet is not listed (nothing to show); reading it is still scoped.

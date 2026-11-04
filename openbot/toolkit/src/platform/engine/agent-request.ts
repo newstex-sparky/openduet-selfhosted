@@ -51,7 +51,9 @@ function shouldForwardHeader(headerName: string): boolean {
   const lower = headerName.toLowerCase();
   if (!(lower === "authorization" || lower.startsWith("x-"))) return false;
   if (DEFAULT_DENY_HEADER_NAMES.has(lower)) return false;
-  return !DEFAULT_DENY_HEADER_PREFIXES.some((prefix) => lower.startsWith(prefix));
+  return !DEFAULT_DENY_HEADER_PREFIXES.some((prefix) =>
+    lower.startsWith(prefix),
+  );
 }
 
 /**
@@ -135,7 +137,10 @@ export function configureAgentForRequest(input: {
   agent: AbstractAgent;
 }): void {
   const { configuration, request, agentId, agent } = input;
-  type MiddlewareHost = { use?: (middleware: unknown) => void; headers?: Record<string, string> };
+  type MiddlewareHost = {
+    use?: (middleware: unknown) => void;
+    headers?: Record<string, string>;
+  };
   const host = agent as unknown as MiddlewareHost;
 
   const a2uiEnabledByCatalog =
@@ -145,7 +150,9 @@ export function configureAgentForRequest(input: {
     if (typeof host.use === "function")
       host.use(
         new A2UIMiddleware({
-          injectA2UITool: configuration.providerA2uiHasCatalog ? true : undefined,
+          injectA2UITool: configuration.providerA2uiHasCatalog
+            ? true
+            : undefined,
         }),
       );
   }
@@ -175,7 +182,12 @@ function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
     if (!isRecord(part) || part.type !== "binary") return [part];
     const mimeType = part.mimeType;
     if (typeof mimeType !== "string") return [part];
-    const kind = typeof part.data === "string" ? "data" : typeof part.url === "string" ? "url" : null;
+    const kind =
+      typeof part.data === "string"
+        ? "data"
+        : typeof part.url === "string"
+          ? "url"
+          : null;
     if (kind === null) {
       console.warn(
         "[engine] Dropping a legacy binary content part that has no data or url; AG-UI 1.0 has no equivalent for it.",
@@ -205,11 +217,9 @@ function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
 }
 
 /** `omitLegacyNull`: a field AG-UI used to send as `null`, which 1.0 requires to be absent. */
-function omitLegacyNull(
-  value: unknown,
-  field: string,
-): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+function omitLegacyNull(value: unknown, field: string): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return value;
   const record = { ...(value as Record<string, unknown>) };
   if (record[field] === null) delete record[field];
   return record;
@@ -220,7 +230,8 @@ function mapArrayField(
   field: string,
   normalize: (entry: unknown) => unknown,
 ): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return value;
   const record = value as Record<string, unknown>;
   const original = record[field];
   if (!Array.isArray(original)) return value;
@@ -254,7 +265,12 @@ function normalizeLegacyRunAgentInput(input: unknown): unknown {
     return mapArrayField(upgraded, "content", (part) => {
       if (typeof part !== "object" || part === null) return part;
       const kind = (part as { type?: unknown }).type;
-      if (kind === "image" || kind === "audio" || kind === "video" || kind === "document")
+      if (
+        kind === "image" ||
+        kind === "audio" ||
+        kind === "video" ||
+        kind === "document"
+      )
         return omitLegacyNull(part, "metadata");
       return part;
     });
@@ -283,7 +299,9 @@ export async function parseRunRequest(
 /** Parse a connect body: the run input plus the last event the caller already has. */
 export async function parseConnectRequest(
   request: Request,
-): Promise<{ input: RunAgentInput; lastSeenEventId: string | null } | Response> {
+): Promise<
+  { input: RunAgentInput; lastSeenEventId: string | null } | Response
+> {
   try {
     const body: unknown = await request.json();
     const input = RunAgentInputSchema.parse(
@@ -296,7 +314,8 @@ export async function parseConnectRequest(
       "lastSeenEventId" in body
     ) {
       const raw = (body as { lastSeenEventId?: unknown }).lastSeenEventId;
-      if (typeof raw === "string" || raw === null) lastSeenEventId = raw ?? null;
+      if (typeof raw === "string" || raw === null)
+        lastSeenEventId = raw ?? null;
     }
     return { input, lastSeenEventId };
   } catch (error) {

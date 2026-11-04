@@ -67,7 +67,10 @@ export type EngineRunner = {
     agentId: string;
     headers?: Record<string, string>;
   }): Observable<BaseEvent>;
-  stop(request: { threadId: string; runId?: string }): Promise<boolean | undefined>;
+  stop(request: {
+    threadId: string;
+    runId?: string;
+  }): Promise<boolean | undefined>;
   /** Set on a runner that can answer the `/threads` family synchronously; see `supportsThreads`. */
   listThreads?(): ThreadSummary[];
   getThreadMessages?(threadId: string): RunAgentInput["messages"];
@@ -188,7 +191,8 @@ async function handleRun(
   if (input instanceof Response) return input;
   configureAgentForRequest({
     configuration: {
-      providerA2uiHasCatalog: input.forwardedProps?.a2uiCatalogAvailable === true,
+      providerA2uiHasCatalog:
+        input.forwardedProps?.a2uiCatalogAvailable === true,
       openGenerativeUi: engine.openGenerativeUi === true,
       a2ui: engine.a2ui,
     },
@@ -301,10 +305,7 @@ async function handleStop(
 }
 
 /** `GET /info`: what this deployment offers, which is how the browser half configures itself. */
-async function handleInfo(
-  engine: Engine,
-  request: Request,
-): Promise<Response> {
+async function handleInfo(engine: Engine, request: Request): Promise<Response> {
   try {
     const agents = await resolveAgents(engine.agents, request);
     const entries = await Promise.all(
@@ -509,7 +510,8 @@ async function dispatchRoute(
       return jsonResponse(
         {
           code: "CONNECTION_FAILED",
-          message: "Trajectory capture requires a backend this deployment does not have",
+          message:
+            "Trajectory capture requires a backend this deployment does not have",
         },
         503,
         { "Cache-Control": "no-store" },

@@ -160,22 +160,19 @@ let modelDelayMs = 0;
  * exactly the failure a slow model used to cause.
  */
 async function runOverHttp(threadId: string, runId: string, text: string) {
-  const response = await fetch(
-    `${publicUrl}/api/engine/agent/openduet/run`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        threadId,
-        runId,
-        messages: [{ id: randomUUID(), role: "user", content: text }],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: {},
-      }),
-    },
-  );
+  const response = await fetch(`${publicUrl}/api/engine/agent/openduet/run`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      threadId,
+      runId,
+      messages: [{ id: randomUUID(), role: "user", content: text }],
+      tools: [],
+      context: [],
+      state: {},
+      forwardedProps: {},
+    }),
+  });
   const body = await response.text();
   const events = body
     .split("\n")

@@ -674,7 +674,8 @@ describe("a remote Mastra Bot", () => {
                 new Observable<BaseEvent>((subscriber) => {
                   void agent
                     .runAgent(input, {
-                      onEvent: ({ event }) => subscriber.next(event as BaseEvent),
+                      onEvent: ({ event }) =>
+                        subscriber.next(event as BaseEvent),
                     })
                     .then(
                       () => subscriber.complete(),

@@ -150,10 +150,7 @@ export type TurnPlatformLike = {
     runId: string;
     ttlSeconds: number;
   }): Promise<unknown>;
-  cleanupThreadLock(params: {
-    threadId: string;
-    runId: string;
-  }): Promise<void>;
+  cleanupThreadLock(params: { threadId: string; runId: string }): Promise<void>;
 };
 
 /**
@@ -446,9 +443,7 @@ async function takeLease(input: {
   return {
     stopHeartbeat: heartbeat.stop,
     release: () =>
-      platform
-        .cleanupThreadLock({ threadId, runId })
-        .catch(() => undefined),
+      platform.cleanupThreadLock({ threadId, runId }).catch(() => undefined),
   };
 }
 

@@ -539,7 +539,6 @@ export type SetupSources = {
   recheck: () => Promise<void>;
 };
 
-
 /**
  * The facts read from this server's configuration and stores.
  *

@@ -1,14 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-  and,
-  desc,
-  eq,
-  inArray,
-  isNull,
-  lte,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Database } from "../db/client";
 import { memorySources, personalMemories } from "../db/schema/memory";
 import { lockDefaults, recordOptOut, sourceServerId } from "./defaults";
