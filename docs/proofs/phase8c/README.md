@@ -60,8 +60,9 @@ The full suite ran in package-sized chunks, each chunk alone, on bun 1.4.3:
 
 - **809 test files, 10053 tests, 9978 pass, 75 skip, 0 fail.**
 - Per-chunk table and the raw summary lines: `docs/proofs/phase8c/test-suite.md`.
-- The six failures that a pre-merge run reported are each traced, and each now passes or no
-  longer exists (the test asserted the licence gate that Phase 7 removed).
+- The six failures that a pre-merge run reported are each traced: one test was re-pointed at the
+  sentence `start.sh` now prints, one failed because `docker` was missing from that run's `PATH`,
+  and four now pass.
 - The residue gate was red on this branch: `check-copilotkit-residue.sh` reported 20 unclassified
   references inside `check-artifact-residue.sh`, the checker 8a added after its sibling was
   classified. This slice classifies that file; the gate now reports `UNCLASSIFIED 0` and

@@ -122,8 +122,8 @@ failures. Each one now passes, or no longer exists, on `0fedc47`:
 
 | Historical failure | Status now | Cause and trace |
 |---|---|---|
-| `start.sh runtime health > checks the licence and names the Bots without python3` | Test no longer exists | The test asserted the licence gate that Phase 7 removed. `0fedc47` makes the test follow `start.sh`'s own sentence. `scripts/` now reports 82 pass, 0 fail. |
-| `(unnamed)` | Not reproducible | The single test that `bun` printed with an empty name came from the same pre-merge `scripts/start-restart-guard.test.ts` file that `0fedc47` rewrote. The file now reports named tests only. |
+| `start.sh runtime health > checks the licence and names the Bots without python3` | Renamed, passes | The test asserted the licence stage that Phase 7b-3 (`333229c`) removed from `start.sh`. `0fedc47` re-points the assertion at the sentence the script now prints, and renames the test to `names the Bots without python3, and needs no licence`. `scripts/` now reports 82 pass, 0 fail. |
+| `(unnamed)` — `tests/compose.test.ts` | pass | Environmental. The raw log shows `error: Executable not found in $PATH: "docker"` at `runComposeConfig`: that run's `PATH` had no `docker`. `bun test ./tests/` now reports 29 pass, 5 skip, 0 fail. |
 | `starting the local computer > missing token exits before starting the computer or creating data` | pass | Environment-dependent: it needs a token file that the earlier run did not have. `bun test agent-computer/` reports `(pass)`. |
 | `serving port configuration > APP_PORT refuses invalid ports before serving: "1.5"` | pass | Same suite, same run. `(pass)` in `final-dir-scripts.log`. |
 | `internal emits actual commit identity and compatible macOS metadata` | pass | Release-metadata test; `git` metadata is present in this worktree. `(pass)`. |
